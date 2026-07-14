@@ -1,0 +1,63 @@
+#!/usr/bin/expect -f
+
+set timeout 15
+set uuid "5a0d6a15-b664-4304-8530-3a0ec53e5bc1"
+
+spawn /usr/bin/btmgmt
+
+expect -re {\[mgmt\].*>}
+send "connectable on\r"
+expect {
+    -re {Set Connectable complete} {}
+    timeout {
+        puts "Connectable command timed out"
+        exit 1
+    }
+}
+
+expect -re {\[mgmt\].*>}
+send "power on\r"
+expect {
+    -re {Set Powered complete} {}
+    timeout {
+        puts "Power command timed out"
+        exit 1
+    }
+}
+
+expect -re {\[mgmt\].*>}
+send "clr-adv\r"
+expect {
+    -re {Instance removed|Remove Advertising failed} {}
+    timeout {
+        puts "Clear advertisement timed out"
+        exit 1
+    }
+}
+
+expect -re {\[mgmt\].*>}
+send "add-adv -c -g -n -u $uuid 1\r"
+expect {
+    -re {Instance added: 1} {}
+    timeout {
+        puts "Adding advertisement timed out"
+        exit 1
+    }
+}
+
+expect -re {\[mgmt\].*>}
+send "advinfo\r"
+expect {
+    -re {Instances list with 1 item} {}
+    timeout {
+        puts "Advertisement verification timed out"
+        exit 1
+    }
+}
+
+expect -re {\[mgmt\].*>}
+send "quit\r"
+expect eof
+
+puts "Sutton Scoreboard BLE advertisement started."
+exit 0
