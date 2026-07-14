@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
+import json
+import os
 import threading
 import time
 
 from engine.matchstate import MatchState
 from engine.parser import parse_playcricket_packet
+
+STATE_FILE = "/run/scoreos/state.json"
 
 
 class ScoreboardEngine:
@@ -37,6 +41,18 @@ class ScoreboardEngine:
             self.timer.daemon = True
             self.timer.start()
 
+    def write_state_json(self):
+        snapshot = self.state.snapshot()
+        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+
+        temp_file = STATE_FILE + ".tmp"
+
+        with open(temp_file, "w", encoding="utf-8") as handle:
+            json.dump(snapshot, handle, indent=2)
+
+        os.replace(temp_file, STATE_FILE)
+        print("State written:", STATE_FILE)
+
     def arduino_message(self):
         return (
             "4,"
@@ -52,5 +68,6 @@ class ScoreboardEngine:
         with self.lock:
             message = self.arduino_message()
             self.arduino.send(message)
+            self.write_state_json()
             self.state.changed = False
             self.timer = None
