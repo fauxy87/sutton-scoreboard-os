@@ -1,0 +1,14 @@
+SCOREOS
+Version: 1.0-alpha1
+Platform: Raspberry Pi 4
+Operating System: Debian 13 Trixie
+Bluetooth: BlueZ 5.82
+Status: Working Alpha
+
+Features:
+- Automatic BLE advertisement
+- Android Play-Cricket support
+- iPhone Play-Cricket support
+- Live packet parsing
+- Persistent Arduino connection
+- Automatic startup after reboot

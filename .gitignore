@@ -5,3 +5,11 @@ __pycache__/
 *.backup
 *.log
 logs/
+
+# Local development backups
+*.before-*
+*.working
+
+# Temporary BLE experiments
+bluetooth/ble_test.py
+bluetooth/gatt_test.py

@@ -1,0 +1,15 @@
+[Unit]
+Description=Sutton Scoreboard BLE Advertisement
+Requires=bluetooth.service
+After=bluetooth.service
+Before=sutton-scoreboard.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 4
+ExecStart=/usr/bin/expect /home/pi/sutton-scoreboard-os/scripts/start-advertisement.exp
+RemainAfterExit=yes
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
