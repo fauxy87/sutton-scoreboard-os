@@ -1,0 +1,1017 @@
+
+
+<!-- 
+####################
+# SCOREBOARD WEB USER INTERFACE
+# Original project & source from Westbury on Severn Cricket Club - https://buildyourownscoreboard.wordpress.com/
+#
+# User interface redesign, additions & tweaks on behalf of Bradford on Avon Cricket Club (April 2016)
+#
+# Each time a score is updated, the script sets the countdown timer to 5 seconds, this allows the user to make multiple changes at once without the scoreboard showing the 
+# update until all changes have been made
+#
+# 18.6.16
+# Added in the sendToArduino.js lines as recommended by Stuart E at Stalybridge St Pauls CC 
+# 28.12.18
+# Modified version to include batsman numbers for Whitchurch cricket club.
+# 16.02.20
+# Modified version to include duckworth lewis score as requested by DWCC
+
+# MAJOR UPDATE TR....................3.8.2023
+# Changed SendToArduino.js to make a shorter string TOT-Wkts-Overs-RunsReq-Target
+# New string saved as save.txt
+# Line 692 below amended to load new string on startup
+#
+####################
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Sutton CC</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+	<meta http-equiv="Pragma" content="no-cache" />
+	<meta http-equiv="Expires" content="0" />
+	<link href="css/bootstrap.css" rel="stylesheet">
+    <link href="css/3-col-portfolio.css" rel="stylesheet">
+	<link href="css/sweetalert2.css" rel="stylesheet">
+	<link href="css/jquery.growl.css" rel="stylesheet" type="text/css" />
+	<link rel="stylesheet" href="css/font-awesome.min.css">
+	<link rel="stylesheet" href="css/font-awesome-animation.min.css">
+    <script src="js/jquery.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+	<script src="js/sweetalert2.min.js"></script>
+	<script src="js/jquery.growl.js" type="text/javascript"></script>
+	
+	<!-- Test Mode Script -->
+	<script src="js/testing.js"></script>
+	<!-- Battery Status Script -->
+	<script src="js/battery.js"></script>
+	<!-- Formatting Script -->
+	<script src="js/formatting.js"></script>
+	<!-- Admin Functions - Zero Everything, Restart, Shutdown, Help -->
+	<script src="js/admin.js"></script>
+	<!-- Update Scoreboard Script -->
+	<script src="js/sendToArduinoTGT.js"></script>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+	
+	<script>
+		// Initally set the scores to zero
+		var total=0;
+		var wickets=0;
+		var overs=0;
+        var batsanum=1;
+		var batsa=0;
+        var batsbnum=2;
+		var batsb=0;
+		var target=0; 
+		var runsreq=0; 
+		var dltarget=0;
+		var lastwkt=0;
+		var pship=0;
+		var lastman=0;
+		
+		var updatetimer="done"; // We don't want to update the scoreboard just yet so tell the script it has just been updated so it won't do anything at the moment
+		var growlid; // So we can update the growl (top right notification) with our own text
+		var testmode=0; // Set test mode to disabled
+		
+		var battwilldie=0; // Required for Battery Status Script, won't hurt if you leave it in, just to track if we have told the user the battery is able to die
+		
+		var checks = setInterval( dochecks, 1000); // Run dochecks function, this checks if the scoreboard needs updating when changes have been made
+		
+		function total_change(direction,amount) {
+			if(direction=="plus") {
+				total=total+amount;
+				$('#total_count').html(pad(total,3));
+
+									
+				if(total>target){
+					runsreq="0"
+					$('#runsreq_count').html(pad(runsreq,3));}
+
+				//$('#runsreq_count').html(pad(runsreq,3));
+				
+				
+					else
+					{
+				
+				//runsreq=runsreq-amount;
+
+				runsreq=target-total;}
+				
+				$('#runsreq_count').html(pad(runsreq,3));
+					}
+			if(direction=="minus") {
+				if(total-amount<0) {
+					total=0;
+					$('#total_count').html(pad(total,3));
+				} else {
+					total=total-amount;
+				
+					$('#total_count').html(pad(total,3));
+					if(total>target) {runsreq="-";$('#runsreq_count').html(pad(runsreq,3));}else{
+					runsreq=target-total;
+				$('#runsreq_count').html(pad(runsreq,3));}
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") { total=0; $('#total_count').html(pad(total,3)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the total score",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+							total=0;
+						$('#total_count').html(pad(total,3));
+						runsreq=target-total;
+				$('#runsreq_count').html(pad(runsreq,3));
+						}})
+			}
+							{pship=total-lastwkt;}
+				$('#pship_count').html(pad(pship,3));
+			updatetimer="5";
+		}
+		
+		function wickets_change(direction,amount) {
+			if(direction=="plus") {
+				if(wickets+amount>9) {
+					swal('Cannot be done!','Wickets cannot be greater than 9','warning')
+				} else {
+					wickets=wickets+amount;
+					$('#wickets_count').html(pad(wickets,1));
+						lastwkt=total
+						$('#lastwkt_count').html(pad(lastwkt,3));
+							pship=0
+							$('#pship_count').html(pad(pship,3));
+				}
+			}
+			if(direction=="minus") {
+				if(wickets-amount<0) {
+					wickets=0;
+					$('#wickets_count').html(pad(wickets,1));
+				} else {
+					wickets=wickets-amount;
+					$('#wickets_count').html(pad(wickets,1));
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") { wickets=0; $('#wickets_count').html(pad(wickets,1)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the wickets",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+							wickets=0;
+							$('#wickets_count').html(pad(wickets,1));
+							pship=0
+							$('#pship_count').html(pad(pship,3));
+						}
+					})
+			}
+			updatetimer=5;
+		}
+
+//new function to use when adding wicket without zeroing a batsman to avoid double message
+		function wickets_add(direction,amount) {
+			if(direction=="plus") {
+				if(wickets+amount>9) {
+					swal('Cannot be done!','Wickets cannot be greater than 9','warning')
+				} else {
+//					wickets=wickets+amount;
+//					$('#wickets_count').html(pad(wickets,1));
+//						lastwkt=total
+//						$('#lastwkt_count').html(pad(lastwkt,3));
+//							pship=0
+//							$('#pship_count').html(pad(pship,3));
+				}
+			}
+			if(direction=="minus") {
+				if(wickets-amount<0) {
+					wickets=0;
+					$('#wickets_count').html(pad(wickets,1));
+				} else {
+					wickets=wickets-amount;
+					$('#wickets_count').html(pad(wickets,1));
+				}
+			}
+			if(direction=="plus") {
+				//if(amount=="admin") { wickets=0; $('#wickets_count').html(pad(wickets,1)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "Are you sure you want to add a wicket",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, add one!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+							wickets=wickets+1;
+							$('#wickets_count').html(pad(wickets,1));
+							lastwkt=total;
+							$('#lastwkt_count').html(pad(lastwkt,3));
+							pship=0
+							$('#pship_count').html(pad(pship,3));
+						}
+					})
+			}
+			updatetimer=5;
+		}
+//end of new function to use when adding wicket without zeroing a batsman to avoid double message
+
+
+
+
+		
+//TR added for LaswWkt
+function lastwkt_change(direction,amount) {
+			if(direction=="plus") {
+				if(lastwkt+amount>999) {
+					swal('Cannot be done!','lastwkt cannot be greater than 999','warning')
+				} else {
+					lastwkt=lastwkt+amount;
+					$('#lastwkt_count').html(pad(lastwkt,3));
+				}
+			}
+			if(direction=="minus") {
+				if(lastwkt-amount<0) {
+					lastwkt=0;
+					$('#lastwkt_count').html(pad(lastwkt,3));
+				} else {
+					lastwkt=lastwkt-amount;
+					$('#lastwkt_count').html(pad(lastwkt,3));
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") { lastwkt=0; $('#lastwkt_count').html(pad(lastwkt,3)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the lastwkt",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+							lastwkt=0;
+							$('#lastwkt_count').html(pad(lastwkt,3));
+						}
+					})
+			}
+				{pship=total-lastwkt;}
+				$('#pship_count').html(pad(pship,3));
+					updatetimer="5";
+		}
+//TR end of last wkt added section		
+
+//TR added for pship
+function pship_change(direction,amount) {
+			if(direction=="plus") {
+				if(pship+amount>999) {
+					swal('Cannot be done!','pship cannot be greater than 999','warning')
+				} else {
+					pship=pship+amount;
+					$('#pship_count').html(pad(pship,3));
+				}
+			}
+			if(direction=="minus") {
+				if(pship-amount<0) {
+					pship=0;
+					$('#pship_count').html(pad(pship,3));
+				} else {
+					pship=pship-amount;
+					$('#pship_count').html(pad(pship,3));
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") { pship=0; $('#pship_count').html(pad(pship,3)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the pship",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+							lastwkt=0;
+							$('#pship_count').html(pad(pship,3));
+						}
+					})
+			}
+			updatetimer=5;
+		}
+//TR end of pship added section		
+
+//TR start of lastman section
+		function lastman_change(direction,amount) {
+			if(direction=="plus") {
+				if(lastman+amount>999) {
+					swal('Cannot be done!','Last Man cannot be greater than 999','warning')
+				} else {
+					lastman=lastman+amount;
+					$('#lastman_count').html(pad(lastman,3));
+				}
+			}
+			if(direction=="minus") {
+				if(lastman-amount<0) {
+					lastman=0;
+					$('#lastman_count').html(pad(lastman,3));
+				} else {
+					lastman=lastman-amount;
+					$('#lastman_count').html(pad(lastman,3));
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") { lastman=0; $('#lastman_count').html(pad(lastman,3)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the Last Man",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+							lastman=0;
+							$('#lastman_count').html(pad(lastman,3));
+						}
+					})
+			}
+			updatetimer=5;
+		}
+//TR end of lastman section
+
+
+		
+		function overs_change(direction,amount) {
+			if(direction=="plus") {
+				if(overs+amount>99) {
+					swal('Cannot be done!','Overs cannot be greater than 99','warning')
+				} else {
+					overs=overs+amount;
+					$('#overs_count').html(pad(overs,2));
+				}
+			}
+			if(direction=="minus") {
+				if(overs-amount<0) {
+					overs=0;
+					$('#overs_count').html(pad(overs,2));
+				} else {
+					overs=overs-amount;
+					$('#overs_count').html(pad(overs,2));
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") { overs=0; $('#overs_count').html(pad(overs,2)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the overs",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+							overs=0;
+							$('#overs_count').html(pad(overs,2));
+						}
+					})
+			}
+			updatetimer=5;
+		}
+		function runsreq_change(direction,amount) {
+			if(direction=="plus") {
+				if(+amount>9) {
+					swal('NOT USED','warning')
+				} else {
+					runsreq=runsreq+amount;
+					$('#runsreq_count').html(pad(runsreq,3));
+				}
+			}
+			if(direction=="minus") {
+				if(runsreq-amount<0) {
+					runsreq=0;
+					$('#runsreq_count').html(pad(runsreq,3));
+				} else {
+					runsreq=runsreq-amount;
+					$('#runsreq_count').html(pad(runsreq,3));
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") { runsreq=0; $('#runsreq_count').html(pad(runsreq,1)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the runsreq",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+							runsreq=0;
+							$('#runsreq_count').html(pad(runsreq,3));
+						}
+					})
+			}
+			updatetimer=5;
+		}		
+		function target_change(direction,amount) {
+			if(amount=="admin") { target=0; $('#target_count').html(pad(target,3)); return; }
+			amount=$('#target_setting').val();
+			if(amount>999) {
+				swal('Cannot be done!','Target cannot be greater than 999','warning')
+			} else if(amount<0) {
+				swal('Cannot be done!','Target cannot be lower than 0','warning')
+			} else {
+				target=amount;
+				$('#target_count').html(pad(target,3));
+				$('#target_setting').val('');
+				
+				//tr set RunsReq when setting target
+				
+				{runsreq=target-total;}
+				$('#runsreq_count').html(pad(runsreq,3));
+				
+				//tr END
+				
+			}
+			updatetimer=5;
+		}
+
+
+		function dltarget_change(direction,amount) {
+			if(amount=="admin") { dltarget=0; $('#dltarget_count').html(pad(dltarget,3)); return; }
+			amount=$('#dltarget_setting').val();
+			if(amount>999) {
+				swal('Cannot be done!','DL Target cannot be greater than 999','warning')
+			} else if(amount<0) {
+				swal('Cannot be done!','DL Target cannot be lower than 0','warning')
+			} else {
+				dltarget=amount;
+				$('#dltarget_count').html(pad(dltarget,3));
+				$('#dltarget_setting').val('');
+			}
+			updatetimer=5;
+		}
+
+        function batsanum_change(direction,amount) {
+			if(direction=="plus") {
+				if(batsanum+amount>=19) {
+					swal('Cannot be done!','Batsman A number cannot be greater than 19','warning')
+				} else {
+					//check if batsman b is a higher value when a wicket falls
+					if(batsanum<batsbnum) {
+						//set to batsman b number, then add 1
+						batsanum=batsbnum+amount;
+					} else {
+						// we are ahead of batsman b, so we can just add 1
+						batsanum=batsanum+amount;
+					}
+					$('#batsa_num').html(pad(batsanum,2));
+				}
+			}
+			if(direction=="minus") {
+				if(batsanum-amount<1) {
+					batsanum=1;
+					$('#batsa_num').html(pad(batsanum,2));
+				} else {
+					batsanum=batsanum-amount;
+					$('#batsa_num').html(pad(batsanum,2));
+				}
+			}
+			if(direction=="reset") {
+				if(amount=="admin") { batsanum=1; $('#batsa_num').html(pad(batsanum,2)); return; }
+				batsanum=1;
+				$('#batsa_num').html(pad(batsanum,2));
+			}
+			updatetimer=5;
+		}
+		
+		function batsa_change(direction,amount) {
+			if(direction=="plus") {
+				if(batsa+amount>999) {
+					swal('Cannot be done!','Batsman A cannot be greater than 999','warning')
+				} else {
+					batsa=batsa+amount;
+					$('#batsa_count').html(pad(batsa,3));
+					total_change('plus',amount);
+				}
+			}
+			if(direction=="minus") {
+				if(batsa-amount<0) {
+					total_change('minus',batsa);
+					batsa=0;
+					$('#batsa_count').html(pad(batsa,3));
+				} else {
+					batsa=batsa-amount;
+					$('#batsa_count').html(pad(batsa,3));
+					total_change('minus',amount);
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") 
+					{batsa=0; $('#batsa_count').html(pad(batsa,3));return; }
+					swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the Batsman A score",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+						lastman=batsa;
+						$('#lastman_count').html(pad(lastman,3));
+						batsa=0;
+						$('#batsa_count').html(pad(batsa,3));
+						swal({
+						  title: 'Add a Wicket',
+						  html: "Would you like to add 1 to the wickets total? </br> If you don't add a wicket (maybe the batsman retired) then Last Wicket  </br>will update anyway so that Partnership calculation is correct",
+						  type: 'question',
+						  showCancelButton: true,
+						  confirmButtonColor: '#3085d6',
+						  cancelButtonColor: '#d33',
+						  confirmButtonText: 'Yes, please!',
+						  cancelButtonText: 'No',
+						  closeOnConfirm: true
+						  
+						})
+
+						.then(function(isConfirm) {
+							if (isConfirm === true) {
+								wickets_change('plus',1);
+                                batsanum_change('plus',1);
+								lastwkt=total;
+								$('#lastwkt_count').html(pad(lastwkt,3));
+							}
+						})
+														lastwkt=total;
+								$('#lastwkt_count').html(pad(lastwkt,3));	
+									pship=0
+									$('#pship_count').html(pad(pship,3));
+						}
+					})
+			}
+			updatetimer=5;
+		}
+
+        function batsbnum_change(direction,amount) {
+			if(direction=="plus") {
+				if(batsbnum+amount>=19) {
+					swal('Cannot be done!','Batsman B number cannot be greater than 19','warning')
+				} else {
+					//check if batsman a is a higher value when a wicket falls
+					if(batsbnum<batsanum) {
+						//set to batsman a number, then add 1
+						batsbnum=batsanum+amount;
+					} else {
+						// we are ahead of batsman b, so we can just add 1
+						batsbnum=batsbnum+amount;
+					}
+					$('#batsb_num').html(pad(batsbnum,2));
+				}
+			}
+			if(direction=="minus") {
+				if(batsbnum-amount<1) {
+					batsbnum=1;
+					$('#batsb_num').html(pad(batsbnum,2));
+				} else {
+					batsbnum=batsbnum-amount;
+					$('#batsb_num').html(pad(batsbnum,2));
+				}
+			}
+			if(direction=="reset") {
+				if(amount=="admin") { batsbnum=2; $('#batsb_num').html(pad(batsbnum,2)); return; }
+				batsbnum=2;
+				$('#batsb_num').html(pad(batsbnum,2));
+			}
+			updatetimer=5;
+		}
+		
+		function batsb_change(direction,amount) {
+			if(direction=="plus") {
+				if(batsb+amount>999) {
+					swal('Cannot be done!','Batsman B cannot be greater than 999','warning')
+				} else {
+					batsb=batsb+amount;
+					$('#batsb_count').html(pad(batsb,3));
+					total_change('plus',amount);
+				}
+			}
+			if(direction=="minus") {
+				if(batsb-amount<0) {
+					total_change('minus',batsb);
+					batsb=0;
+					$('#batsb_count').html(pad(batsb,3));
+				} else {
+					batsb=batsb-amount;
+					$('#batsb_count').html(pad(batsb,3));
+					total_change('minus',amount);
+				}
+			}
+			if(direction=="zero") {
+				if(amount=="admin") { batsb=0; $('#batsb_count').html(pad(batsb,3)); return; }
+				swal({
+					  title: 'You sure?',
+					  text: "This will ZERO the Batsman B score",
+					  type: 'warning',
+					  showCancelButton: true,
+					  confirmButtonColor: '#3085d6',
+					  cancelButtonColor: '#d33',
+					  confirmButtonText: 'Yes, zero it!',
+					  cancelButtonText: 'No',
+					  closeOnConfirm: true
+					}).then(function(isConfirm) {
+						if (isConfirm) {
+						lastman=batsb;
+						$('#lastman_count').html(pad(lastman,3));
+						batsb=0;
+						$('#batsb_count').html(pad(batsb,3));
+						swal({
+						  title: 'Add a Wicket',
+						  html: "Would you like to add 1 to the wickets total? </br> If you don't add a wicket (maybe the batsman retired) then Last Wicket  </br>will update anyway so that Partnership calculation is correct",
+						  type: 'question',
+						  showCancelButton: true,
+						  confirmButtonColor: '#3085d6',
+						  cancelButtonColor: '#d33',
+						  confirmButtonText: 'Yes, please!',
+						  cancelButtonText: 'No',
+						  closeOnConfirm: true
+						}).then(function(isConfirm) {
+							if (isConfirm === true) {
+								wickets_change('plus',1);
+                                batsbnum_change('plus',1);
+								lastwkt=total;
+								$('#lastwkt_count').html(pad(lastwkt,3));
+							}
+						})
+														lastwkt=total;
+								$('#lastwkt_count').html(pad(lastwkt,3));
+									pship=0
+									$('#pship_count').html(pad(pship,3));	
+						}
+					})
+			}
+			updatetimer=5;
+		}
+		
+		// Check to see if the scoreboard needs updating
+		function dochecks() {
+			if(updatetimer=="done") {
+				//There are no updates pending, don't do anything
+			} else {
+				if(updatetimer=="5") {
+					if(growlid) {  } else { //Is there a notification already displayed, if there is we don't want another so do nothing else we want to show one
+					growlid=$.growl({ title: "Update Pending", message: "<span id='timetoupdate'>The scoreboard will be updated in 5 seconds...</span>", fixed: true });
+					}
+					updatetimer=updatetimer-1; // Countdown!
+				} else if(updatetimer=="0") { // Countdown has hit zero, tell the user the scoreboard is getting updated
+					$('#timetoupdate').html('Updating scoreboard...');
+					submitForm(); //Update the scoreboard!
+					updatetimer=updatetimer-1;
+				} else if(updatetimer=="-1") {
+					if(growlid) { growlid.$growl().remove(); growlid=0; } // We don't need the notification anymore so we'll get rid of it
+					updatetimer="done"; // Gets the script know not to do anything at the moment
+				} else {
+					$('#timetoupdate').html('The scoreboard will be updated in ' + updatetimer + ' seconds...'); // Display the countdown in the notification
+					updatetimer=updatetimer-1;
+				}
+			}
+		}		
+	</script>
+
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+        <div class="container">
+            <!-- Brand and toggle get grouped for better mobile display -->
+            <div class="navbar-header">
+                <button class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">Sutton CC Scoreboard</a>
+            </div>
+            <!-- Collect the nav links, forms, and other content for toggling -->
+            <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+			<ul class="nav navbar-nav pull-right">
+                    <li>
+                        <a href="javascript:admin_testmode();">Enter Test Mode</a>
+                    </li>
+					<li>
+                        <a href="javascript:admin_zero();">Zero Everything</a>
+                    </li>
+                    <li>
+                        <a href="javascript:admin_restart();">Restart</a>
+                    </li>
+					<li>
+                        <a href="javascript:admin_shutdown();">Shutdown</a>
+                    </li>
+                    <li>
+                        <a href="javascript:admin_help();">Help</a>
+                    </li>
+					<li>
+                        <a id="battinfo">---</a>
+                    </li>
+                </ul>
+            </div>
+            <!-- /.navbar-collapse -->
+        </div>
+        <!-- /.container -->
+    </nav>
+    <!-- Page Content -->
+    <div class="container">
+	
+	<div id="notification"></div>
+        <!-- Projects Row -->
+        <div class="row" align="center">
+			<div class="col-md-4 portfolio-item">
+                
+                <h3>
+                    BATSMAN A <span class="text" id="" style="font-family: LEDText; font-size: 1.17 em; margin-top: 0.1em; margin-bottom: 1em; margin-left: 0; margin-right: 0; font-weight: bold;"></span> &nbsp; &nbsp;
+                    <div class="btn-group" role="group" aria-label="Basic example">
+                    </div>
+                </h3>
+                <p class="leddisplay" id="batsa_count">200</p>
+				<div class="btn-group" role="group" aria-label="Basic example">
+				  <a href="javascript:batsa_change('plus',1)" class="btn btn-secondary"><b>+ 1</b></a>
+				  <a href="javascript:batsa_change('plus',4)" class="btn btn-secondary"><b>+ 4</b></a>
+				  <a href="javascript:batsa_change('plus',6)" class="btn btn-secondary"><b>+ 6</b></a>
+				  <a href="javascript:batsa_change('zero',0)" class="btn btn-secondary"><b>Zero</b></a>
+				  <a href="javascript:batsa_change('minus',1)" class="btn btn-secondary"><b>- 1</b></a>
+				  <a href="javascript:batsa_change('minus',4)" class="btn btn-secondary"><b>- 4</b></a>
+				  <a href="javascript:batsa_change('minus',6)" class="btn btn-secondary"><b>- 6</b></a>
+				</div>
+            </div>
+			
+            <div class="col-md-4 portfolio-item">
+                
+                <h3>
+                    TOTAL SCORE
+                </h3>
+                <p class="leddisplay" id="total_count">---</p>
+				<div class="btn-group" role="group" aria-label="Basic example">
+				  <a href="javascript:total_change('plus',1)" class="btn btn-secondary"><b>+ 1</b></a>
+				  <a href="javascript:total_change('zero',0)" class="btn btn-secondary"><b>Zero</b></a>
+				  <a href="javascript:total_change('minus',1)" class="btn btn-secondary"><b>- 1</b></a>
+				</div>
+            </div>
+			
+			<div class="col-md-4 portfolio-item">
+                
+                <h3>
+                    BATSMAN B <span class="text" id="" style="font-family: LEDText; font-size: 1.17em; margin-top: 1em; margin-bottom: 1em; margin-left: 0; margin-right: 0; font-weight: bold;"></span> &nbsp; &nbsp;
+                    <div class="btn-group" role="group" aria-label="Basic example">
+                    </div>
+                </h3>
+                <p class="leddisplay" id="batsb_count">23</p>
+				<div class="btn-group" role="group" aria-label="Basic example">
+				  <a href="javascript:batsb_change('plus',1)" class="btn btn-secondary"><b>+ 1</b></a>
+				  <a href="javascript:batsb_change('plus',4)" class="btn btn-secondary"><b>+ 4</b></a>
+				  <a href="javascript:batsb_change('plus',6)" class="btn btn-secondary"><b>+ 6</b></a>
+				  <a href="javascript:batsb_change('zero',0)" class="btn btn-secondary"><b>Zero</b></a>
+				  <a href="javascript:batsb_change('minus',1)" class="btn btn-secondary"><b>- 1</b></a>
+				  <a href="javascript:batsb_change('minus',4)" class="btn btn-secondary"><b>- 4</b></a>
+				  <a href="javascript:batsb_change('minus',6)" class="btn btn-secondary"><b>- 6</b></a>
+				</div>
+            </div>
+            
+        </div>
+        <!-- /.row -->
+
+        <!-- Projects Row -->
+        <div class="row" style="height: 10px;" align="center">
+
+			<div class="col-md-4 portfolio-item">
+                
+                <h3>
+                    OVERS
+                </h3>
+                <p class="leddisplay" id="overs_count">--</p>
+				<div class="btn-group" role="group" aria-label="Basic example">
+				  <a href="javascript:overs_change('plus',1)" class="btn btn-secondary"><b>+ 1</b></a>
+				  <a href="javascript:overs_change('zero',1)" class="btn btn-secondary"><b>Zero</b></a>
+				  <a href="javascript:overs_change('minus',1)" class="btn btn-secondary"><b>- 1</b></a>
+				</div>
+            </div>
+
+            <div class="col-md-4 portfolio-item">
+                
+                <h3>
+					WICKETS
+                </h3>
+                <p class="leddisplay" id="wickets_count">2</p>
+				<div class="btn-group" role="group" aria-label="Basic example">
+				  <a href="javascript:wickets_change('plus',1)" class="btn btn-secondary"><b>+ 1</b></a>
+				  <a href="javascript:wickets_change('zero',1)" class="btn btn-secondary"><b>Zero</b></a>
+				  <a href="javascript:wickets_change('minus',1)" class="btn btn-secondary"><b>- 1</b></a>
+				</div>
+		</div>
+
+		<div class="row" align="center">
+            <div class="col-md-4 portfolio-item">
+                
+                <h3>
+                    TARGET
+                </h3>
+                <p class="leddisplay" id="target_count">0</p>
+				<form action="javascript:target_change();" class="form-inline">
+				  <div class="form-group">
+					<input type="text" class="form-control" id="target_setting" placeholder="New Target" required>
+				  </div>
+				  <input type="submit" class="btn btn-default" value="Set Target">
+				</form>
+</div>
+			
+			</div>
+        <!-- /.row -->
+
+        <!-- Projects Row -->
+        <div class="row" style="height: 10px;" align="center">
+
+			<div class="col-md-3 portfolio-item">            
+                <h3>
+                                                    PARTNERSHIP
+                </h3>
+                <p class="leddisplay" id="pship_count">0</p>
+				<form action="javascript:pship_change();" class="form-inline">
+				  <div class="form-group">
+		</div>
+            </div>
+
+            <div class="col-md-3 portfolio-item">
+                
+                <h3>
+                    Last Wkt
+                </h3>
+                <p class="leddisplay" id="lastwkt_count">0</p>
+				<form action="javascript:lastman_change();" class="form-inline">
+				  <div class="form-group">
+					
+            </div>
+            </div>
+
+            <div class="col-md-3 portfolio-item">
+                
+                <h3>
+                    Last Man
+                </h3>
+                <p class="leddisplay" id="lastman_count">0</p>
+				<form action="javascript:lastman_change();" class="form-inline">
+				  <div class="form-group">
+            </div>
+            </div>
+			
+			<div class="col-md-3 portfolio-item">            
+                <h3>
+                    RUNS REQUIRED
+                </h3>
+                <p class="leddisplay" id="runsreq_count">0</p>
+				<form action="javascript:runsreq_change();" class="form-inline">
+				  <div class="form-group">
+					
+            </div>
+        </div>
+
+        <hr>
+    </div>
+    <!-- /.container -->
+
+<script type="text/javascript">
+            //set to batsman 1 and 2 when the page loads.
+            $('#batsa_num').html(pad(batsanum,2));
+            $('#batsb_num').html(pad(batsbnum,2));
+    </script>
+
+<script>
+		$( document ).ready(function() {
+			// Initally set the scores to zero
+			$('#total_count').html(pad(total,3));
+			$('#wickets_count').html(pad(wickets,1));
+			$('#overs_count').html(pad(overs,2));
+			$('#batsa_count').html(pad(batsa,3));
+			$('#batsb_count').html(pad(batsb,3));
+			$('#target_count').html(pad(target,3));
+			$('#runsreq_count').html(pad(runsreq,3));
+			$('#dltarget_count').html(pad(dltarget,3));
+            $('#batsa_num').html(pad(batsanum,2));
+            $('#batsb_num').html(pad(batsbnum,2));
+			$('#lastwkt').html(pad(lastwkt,3));
+			$('#pship').html(pad(pship,3));
+			$('#lastman').html(pad(lastman,3));
+			
+			// Check to see if anything has been saved into save.txt
+			$.ajax({
+                type: "GET",
+                url: "save.txt",
+                cache: false,
+                success: function (data) { 
+					if(data.length>0) { // If it has, update the scores with the saved data
+						total=Number(data.substring(0, 3));
+						wickets=Number(data.substring(3, 4));
+						overs=Number(data.substring(4, 6));
+						runsreq=Number(data.substring(6, 9));
+						target=Number(data.substring(9, 12));
+						batsa=Number(data.substring(12, 15));
+						batsb=Number(data.substring(15, 18));
+						batsanum=Number(data.substring(18, 20));
+						batsbnum=Number(data.substring(20, 22));
+						lastwkt=Number(data.substring(22, 25));
+						pship=Number(data.substring(25, 28));
+						dltarget=Number(data.substring(28, 31));
+						lastman=Number(data.substring(31, 34));
+
+javascript:total_change('plus',1)
+javascript:total_change('minus',1)
+javascript:lastwkt_change('plus',1)
+javascript:lastwkt_change('minus',1)
+javascript:lastman_change('plus',1)
+javascript:lastman_change('minus',1)
+
+//javascript:batsanum_change('plus',1)
+//javascript:batsanum_change('minus',1)
+//javascript:batsbnum_change('plus',1)
+//javascript:batsbnum_change('minus',1)
+		//			runsreq=target-total;
+		//		$('#runsreq_count').html(pad(runsreq,3));
+						submitForm();
+						
+						
+					} else {
+						// If there isn't anything, don't do anything
+					}
+						// Add any greyed out digits to the web interface
+						$('#total_count').html(pad(total,3));
+						$('#wickets_count').html(pad(wickets,1));
+						$('#overs_count').html(pad(overs,2));
+						$('#batsa_count').html(pad(batsa,3));
+						$('#batsb_count').html(pad(batsb,3));
+						$('#target_count').html(pad(target,3));
+						$('#runsreq_count').html(pad(runsreq,3));
+						$('#dltarget_count').html(pad(dltarget,3));
+                        $('#batsa_num').html(pad(batsanum,2));
+                        $('#batsb_num').html(pad(batsbnum,2));
+						$('#lastwkt').html(pad(lastwkt,3));
+						$('#pship').html(pad(pship,3));
+						$('#lastman').html(pad(lastman,3));
+				},
+            });
+		});
+	</script>
+</body>
+
+</html>
+

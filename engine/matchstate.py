@@ -23,6 +23,8 @@ class MatchState:
         self.current_over = "-"
         self.partnership = "0"
         self.last_wicket = "---"
+        self.last_man = "---"
+        self.runs_required = "---"
 
         self.last_packet_time = time.time()
         self.changed = False
@@ -51,4 +53,6 @@ class MatchState:
             "CurrentOver": self.current_over,
             "PshipTOT": self.partnership,
             "LastWicket": self.last_wicket,
+            "LastMan": self.last_man,
+            "RunsRequired": self.runs_required,
         }
