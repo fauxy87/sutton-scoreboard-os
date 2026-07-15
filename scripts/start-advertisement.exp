@@ -6,6 +6,17 @@ set uuid "5a0d6a15-b664-4304-8530-3a0ec53e5bc1"
 spawn /usr/bin/btmgmt
 
 expect -re {\[mgmt\].*>}
+send "name SCOREOS\r"
+expect {
+    -re {Name changed|Set Local Name complete|SCOREOS} {}
+    timeout {
+        puts "Bluetooth name command timed out"
+        exit 1
+    }
+}
+
+
+expect -re {\[mgmt\].*>}
 send "connectable on\r"
 expect {
     -re {Set Connectable complete} {}
