@@ -1,93 +1,195 @@
-# SCOREOS
+# 🏏 SCOREOS
 
-SCOREOS is a Raspberry Pi cricket scoreboard system created for Sutton Cricket Club.
+**Bluetooth cricket scoreboard system for Play-Cricket Scorer**
 
-It receives live scoring data from the Play-Cricket Scorer app over Bluetooth Low Energy, processes the match state and sends the display frame to an Arduino-controlled physical scoreboard.
+SCOREOS is a Raspberry Pi and Arduino based scoreboard system designed for cricket clubs.
 
-## Current release
+It connects directly to **Play-Cricket Scorer** over Bluetooth and automatically updates a physical LED scoreboard while also providing live spectator and control webpages over Wi-Fi.
 
-**Version 1.0-alpha1**
+---
 
-## Working features
+# Features
 
-- Android and iPhone Play-Cricket support
-- Automatic BLE advertising
-- Bluetooth GATT server
-- Play-Cricket packet parsing
-- Match-state processing
-- Persistent Arduino serial connection
-- Automatic startup using systemd
+✅ Play-Cricket Bluetooth integration
+
+✅ Arduino LED scoreboard
+
+✅ Live spectator webpage
+
+✅ Manual scoring webpage
+
+✅ Wi-Fi Hotspot
+
+✅ Automatic startup
+
+✅ Raspberry Pi 4 compatible
+
+✅ Installable from GitHub
+
+---
+
+# Hardware
+
 - Raspberry Pi 4
-- Debian 13 Trixie
-- BlueZ 5.82
+- Arduino Uno
+- LED scoreboard
+- USB cable
+- Bluetooth
+- Wi-Fi
 
-## Architecture
+---
 
-```text
-Play-Cricket Scorer
-        |
-        v
-BLE Advertisement
-        |
-        v
-Python GATT Server
-        |
-        v
-Play-Cricket Parser
-        |
-        v
-Match State
-        |
-        v
-Arduino
-        |
-        v
-Physical Scoreboard
-```
+# Screenshots
 
-## Services
+Coming soon
 
-```text
-sutton-scoreboard-advert.service
-sutton-scoreboard.service
-```
+- Spectator webpage
+- Control webpage
+- Physical scoreboard
 
-Check the services:
+---
+
+# Installation
+
+Clone the repository
 
 ```bash
-systemctl is-active sutton-scoreboard-advert.service
-systemctl is-active sutton-scoreboard.service
-sudo btmgmt advinfo
+git clone https://github.com/fauxy87/sutton-scoreboard-os.git
+
+cd sutton-scoreboard-os
 ```
 
-Expected:
-
-```text
-active
-active
-Instances list with 1 item
-```
-
-View live scoring logs:
+Install
 
 ```bash
-sudo journalctl -fu sutton-scoreboard.service
+sudo ./install/install.sh
 ```
 
-## Bluetooth UUIDs
+Configure hotspot
 
-Service UUID:
-
-```text
-5a0d6a15-b664-4304-8530-3a0ec53e5bc1
+```bash
+sudo ./install/setup-hotspot.sh
 ```
 
-Write characteristic UUID:
+---
 
-```text
-df531f62-fc0b-40ce-81b2-32a6262ea440
+# Default Hotspot
+
+SSID
+
+```
+SuttonCC-Scoreboard
 ```
 
-## Status
+Password
 
-This is an alpha release. Bluetooth reception, automatic startup and physical scoreboard output have been successfully tested after reboot.
+```
+Sutton1877
+```
+
+Control Page
+
+```
+http://192.168.4.1:8080/control
+```
+
+Spectator Page
+
+```
+http://192.168.4.1:8080
+```
+
+---
+
+# Bluetooth
+
+Bluetooth Device Name
+
+```
+SCOREOS
+```
+
+Connect using the Play-Cricket Scorer App.
+
+---
+
+# Arduino Protocol
+
+The Arduino receives:
+
+```
+4,BatAScore,Total,BatBScore,Wickets,Overs,Target#
+```
+
+Example
+
+```
+4,045,123,033,4,17,201#
+```
+
+Display Test
+
+```
+5#
+```
+
+---
+
+# Repository Structure
+
+```
+arduino/
+bluetooth/
+engine/
+install/
+scripts/
+services/
+web/
+README.md
+```
+
+---
+
+# Current Version
+
+**SCOREOS v1.0.0**
+
+Features
+
+- Bluetooth
+- Arduino
+- Web Interface
+- Manual Scoring
+- Wi-Fi Hotspot
+- Automatic Services
+
+---
+
+# Roadmap
+
+## Version 1.1
+
+- Admin Dashboard
+- Match Archive
+- GitHub Updater
+- Improved Installer
+- Settings Page
+- Branding Support
+
+---
+
+# Developed By
+
+Craig Faux
+
+Facilities Manager
+
+Sutton Cricket Club
+
+Cambridgeshire
+
+---
+
+# Licence
+
+MIT Licence
