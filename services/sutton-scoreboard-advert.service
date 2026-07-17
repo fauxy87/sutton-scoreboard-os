@@ -7,7 +7,7 @@ Before=sutton-scoreboard.service
 [Service]
 Type=oneshot
 ExecStartPre=/bin/sleep 4
-ExecStart=/usr/bin/expect /home/pi/sutton-scoreboard-os/scripts/start-advertisement.exp
+ExecStart=/usr/bin/expect /home/picricket/sutton-scoreboard-os/sutton-scoreboard-os/scripts/start-advertisement.exp
 RemainAfterExit=yes
 TimeoutStartSec=60
 

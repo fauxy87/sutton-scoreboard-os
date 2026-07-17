@@ -8,9 +8,9 @@ After=sutton-scoreboard-advert.service
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/pi/sutton-scoreboard-os
+WorkingDirectory=/home/picricket/sutton-scoreboard-os/sutton-scoreboard-os
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/usr/bin/python3 -u /home/pi/sutton-scoreboard-os/bluetooth/server.py
+ExecStart=/usr/bin/python3 -u /home/picricket/sutton-scoreboard-os/sutton-scoreboard-os/bluetooth/server.py
 Restart=always
 RestartSec=5
 TimeoutStopSec=10

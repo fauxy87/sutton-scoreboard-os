@@ -27,16 +27,6 @@ expect {
 }
 
 expect -re {\[mgmt\].*>}
-send "power on\r"
-expect {
-    -re {Set Powered complete} {}
-    timeout {
-        puts "Power command timed out"
-        exit 1
-    }
-}
-
-expect -re {\[mgmt\].*>}
 send "clr-adv\r"
 expect {
     -re {Instance removed|Remove Advertising failed} {}
