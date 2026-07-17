@@ -11,12 +11,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
+from config.settings import get, getint
+
 STATE_FILE = Path("/run/scoreos/state.json")
 CONTROL_SOCKET = "/run/scoreos/control.sock"
 
-HOST = "0.0.0.0"
-PORT = 8080
-
+HOST = get("web", "host")
+PORT = getint("web", "port")
 
 DEFAULT_STATE = {
     "total": "--0",
