@@ -294,6 +294,21 @@ footer {
           <span class="label">Advertising</span>
           <span id="bluetoothAdvertising" class="value">—</span>
         </div>
+        <div class="row">
+         <span class="label">Connected</span>
+         <span id="bluetoothConnected" class="value">—</span>
+        </div>
+
+        <div class="row">
+         <span class="label">Packets received</span>
+         <span id="bluetoothPackets" class="value">0</span>
+        </div>
+
+        <div class="row">
+         <span class="label">Last packet</span>
+         <span id="bluetoothLastPacket" class="value">—</span>
+        </div>
+
       </div>
     </div>
 
@@ -439,10 +454,27 @@ async function refreshDiagnostics() {
       "bluetoothPowered",
       bluetooth.powered === true ? "Yes" : "No"
     );
-    setText(
+         setText(
       "bluetoothAdvertising",
       bluetooth.advertising === true ? "Yes" : "No"
     );
+
+    setText(
+      "bluetoothConnected",
+      bluetooth.connected === true ? "Yes" : "No"
+    );
+
+    setText(
+      "bluetoothPackets",
+      bluetooth.packet_count !== undefined
+        ? bluetooth.packet_count
+        : 0
+    );
+
+    setText(
+      "bluetoothLastPacket",
+      bluetooth.last_packet_iso || "Never"
+    );    
 
     setText(
       "arduinoStatus",

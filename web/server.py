@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 STATE_FILE = Path("/run/scoreos/state.json")
 CONTROL_SOCKET = "/run/scoreos/control.sock"
+DIAGNOSTICS_FILE = Path("/run/scoreos/diagnostics.json")
 
 HOST = "0.0.0.0"
 PORT = 8080
@@ -295,12 +296,29 @@ def bluetooth_status():
     if not advert_info:
         advertising = advert_service == "active"
 
+    diagnostics = read_diagnostics().get(
+        "bluetooth",
+        {}
+    )
+
     return {
         "service": bluetooth_service,
         "advert_service": advert_service,
         "name": name,
         "powered": powered,
         "advertising": advertising,
+        "connected": diagnostics.get("connected", False),
+        "connected_since": diagnostics.get("connected_since"),
+        "last_packet": diagnostics.get("last_packet"),
+        "last_packet_iso": diagnostics.get("last_packet_iso"),
+        "packet_count": diagnostics.get("packet_count", 0),
+        "reconnects": diagnostics.get("reconnects", 0),
+        "device_name": diagnostics.get("device_name"),
+        "device_alias": diagnostics.get("device_alias"),
+        "device_mac": diagnostics.get("device_mac"),
+        "device_icon": diagnostics.get("device_icon"),
+        "battery": diagnostics.get("battery"),
+        "rssi": diagnostics.get("rssi"),
     }
 
 def arduino_status():
@@ -384,6 +402,73 @@ def system_snapshot():
         ),
     }
 
+def read_diagnostics():
+    try:
+        data = json.loads(
+            DIAGNOSTICS_FILE.read_text(encoding="utf-8")
+        )
+
+        if isinstance(data, dict):
+            return data
+
+    except Exception:
+        pass
+
+    return {}
+
+
+
+def admin_action(action):
+    commands = {
+        "restart_scoreboard": [
+            "/usr/bin/sudo",
+            "/usr/bin/systemctl",
+            "restart",
+            "sutton-scoreboard.service",
+        ],
+        "restart_web": [
+            "/usr/bin/sudo",
+            "/usr/bin/systemctl",
+            "restart",
+            "scoreos-web.service",
+        ],
+        "restart_bluetooth": [
+            "/usr/bin/sudo",
+            "/usr/bin/systemctl",
+            "restart",
+            "bluetooth.service",
+        ],
+        "restart_advertising": [
+            "/usr/bin/sudo",
+            "/usr/bin/systemctl",
+            "restart",
+            "sutton-scoreboard-advert.service",
+        ],
+        "reboot": [
+            "/usr/bin/sudo",
+            "/usr/sbin/reboot",
+        ],
+        "shutdown": [
+            "/usr/bin/sudo",
+            "/usr/sbin/poweroff",
+        ],
+    }
+
+    command = commands.get(action)
+
+    if command is None:
+        return False, "Unknown action"
+
+    try:
+        subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True, "Command started"
+    except Exception as exc:
+        return False, str(exc)
+
 
 class ScoreboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -440,18 +525,10 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
 
-        if path != "/api/control":
-            self.send_error(404)
-            return
-
         try:
             length = int(self.headers.get("Content-Length", "0"))
             raw_body = self.rfile.read(length)
             request = json.loads(raw_body.decode("utf-8"))
-
-            response = send_engine_control(request)
-            status = 200 if response.get("ok") else 400
-            self.send_json(response, status=status)
 
         except Exception as exc:
             self.send_json(
@@ -459,8 +536,42 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "ok": False,
                     "error": str(exc),
                 },
-                status=500,
+                status=400,
             )
+            return
+
+        if path == "/api/admin":
+            success, message = admin_action(
+                request.get("action", "")
+            )
+
+            self.send_json(
+                {
+                    "ok": success,
+                    "message": message,
+                },
+                status=200 if success else 400,
+            )
+            return
+
+        if path == "/api/control":
+            try:
+                response = send_engine_control(request)
+                status = 200 if response.get("ok") else 400
+                self.send_json(response, status=status)
+
+            except Exception as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=500,
+                )
+
+            return
+
+        self.send_error(404)
 
     def send_json(self, payload, status=200):
         body = json.dumps(payload).encode("utf-8")

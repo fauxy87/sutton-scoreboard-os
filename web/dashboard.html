@@ -322,6 +322,39 @@
             text-align: right;
         }
 
+
+        .bluetooth-details {
+            margin: 8px 0 0 25px;
+            padding: 10px 14px;
+            background: #f7faf7;
+            border: 1px solid #e6ece6;
+            border-radius: 12px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .bluetooth-details.visible {
+            display: block;
+        }
+
+        .bluetooth-device {
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 3px;
+        }
+
+        .bluetooth-mac {
+            color: var(--muted);
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+
+        .bluetooth-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+
         .actions-card {
             margin-top: 18px;
         }
@@ -609,6 +642,34 @@
                         </span>
                     </div>
 
+                    <div id="bluetooth-details" class="bluetooth-details">
+
+                        <div id="bt-device" class="bluetooth-device"></div>
+
+                        <div id="bt-mac" class="bluetooth-mac"></div>
+
+                        <div class="bluetooth-stat">
+                            <span>🔋 Battery</span>
+                            <strong id="bt-battery">—</strong>
+                        </div>
+
+                        <div class="bluetooth-stat">
+                            <span>⏱ Connected</span>
+                            <strong id="bt-connected">—</strong>
+                        </div>
+
+                        <div class="bluetooth-stat">
+                            <span>📦 Packets</span>
+                            <strong id="bt-packets">—</strong>
+                        </div>
+
+                        <div class="bluetooth-stat">
+                            <span>🔄 Reconnects</span>
+                            <strong id="bt-reconnects">—</strong>
+                        </div>
+
+                    </div>
+
                     <div class="status-row">
                         <span id="playcricket-dot" class="status-dot"></span>
                         <span class="status-name">Play-Cricket</span>
@@ -659,6 +720,77 @@
                 </a>
             </div>
         </section>
+
+        <section class="card actions-card">
+            <div class="card-header">
+                <h2>Administration</h2>
+            </div>
+
+            <div class="actions">
+                <button
+                    class="action admin-action"
+                    data-action="restart_scoreboard"
+                    type="button"
+                >
+                    <span class="action-icon">🔄</span>
+                    <span class="action-title">Restart Scoreboard</span>
+                    <span class="action-subtitle">Restart scoring engine</span>
+                </button>
+
+                <button
+                    class="action admin-action"
+                    data-action="restart_bluetooth"
+                    type="button"
+                >
+                    <span class="action-icon">📶</span>
+                    <span class="action-title">Restart Bluetooth</span>
+                    <span class="action-subtitle">Restart Bluetooth service</span>
+                </button>
+
+                <button
+                    class="action admin-action"
+                    data-action="restart_advertising"
+                    type="button"
+                >
+                    <span class="action-icon">📡</span>
+                    <span class="action-title">Restart Advertising</span>
+                    <span class="action-subtitle">Restart Bluetooth advertising</span>
+                </button>
+
+                <button
+                    class="action admin-action"
+                    data-action="restart_web"
+                    type="button"
+                >
+                    <span class="action-icon">🌐</span>
+                    <span class="action-title">Restart Web</span>
+                    <span class="action-subtitle">Restart dashboard server</span>
+                </button>
+
+                <button
+                    class="action admin-action"
+                    data-action="reboot"
+                    data-confirm="Reboot SCOREOS now?"
+                    type="button"
+                >
+                    <span class="action-icon">🔁</span>
+                    <span class="action-title">Reboot Pi</span>
+                    <span class="action-subtitle">Restart the whole system</span>
+                </button>
+
+                <button
+                    class="action admin-action"
+                    data-action="shutdown"
+                    data-confirm="Shut SCOREOS down now?"
+                    type="button"
+                >
+                    <span class="action-icon">⏻</span>
+                    <span class="action-title">Shutdown Pi</span>
+                    <span class="action-subtitle">Power off safely</span>
+                </button>
+            </div>
+        </section>
+
 
         <section class="card system-card">
             <div class="card-header">
@@ -830,6 +962,85 @@
                 });
         }
 
+        function formatBluetoothDuration(connectedSince) {
+            if (!connectedSince) {
+                return "—";
+            }
+
+            const seconds = Math.max(
+                0,
+                Math.floor(Date.now() / 1000 - Number(connectedSince))
+            );
+
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const remainingSeconds = seconds % 60;
+
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            }
+
+            if (minutes > 0) {
+                return `${minutes}m ${remainingSeconds}s`;
+            }
+
+            return `${remainingSeconds}s`;
+        }
+
+        function bluetoothIcon(icon) {
+            const icons = {
+                phone: "📱",
+                tablet: "📱",
+                computer: "💻",
+                laptop: "💻",
+                headphones: "🎧",
+                "audio-card": "🎵",
+                "input-keyboard": "⌨️",
+                "input-mouse": "🖱️"
+            };
+
+            return icons[String(icon || "").toLowerCase()] || "📶";
+        }
+
+        function updateBluetoothDetails(bluetooth) {
+            const details = $("bluetooth-details");
+
+            if (!details || !bluetooth || bluetooth.connected !== true) {
+                if (details) {
+                    details.classList.remove("visible");
+                }
+                return;
+            }
+
+            details.classList.add("visible");
+
+            const name =
+                bluetooth.device_alias ||
+                bluetooth.device_name ||
+                "Connected device";
+
+            $("bt-device").textContent =
+                `${bluetoothIcon(bluetooth.device_icon)} ${name}`;
+
+            $("bt-mac").textContent =
+                bluetooth.device_mac || "MAC address unavailable";
+
+            $("bt-battery").textContent =
+                bluetooth.battery !== null &&
+                bluetooth.battery !== undefined
+                    ? `${bluetooth.battery}%`
+                    : "—";
+
+            $("bt-connected").textContent =
+                formatBluetoothDuration(bluetooth.connected_since);
+
+            $("bt-packets").textContent =
+                Number(bluetooth.packet_count || 0).toLocaleString();
+
+            $("bt-reconnects").textContent =
+                Number(bluetooth.reconnects || 0).toLocaleString();
+        }
+
         function updateSystem(payload) {
             const arduinoConnected =
                 payload.arduino &&
@@ -853,12 +1064,18 @@
                 "Not connected"
             );
 
+            const bluetoothConnected =
+                payload.bluetooth &&
+                payload.bluetooth.connected === true;
+
             setStatus(
                 "bluetooth",
-                bluetoothReady,
-                "Ready",
-                "Not ready"
+                bluetoothConnected,
+                "Connected",
+                bluetoothReady ? "Waiting for device" : "Not ready"
             );
+
+            updateBluetoothDetails(payload.bluetooth);
 
             setStatus(
                 "playcricket",
@@ -923,6 +1140,71 @@
 
             return response.json();
         }
+
+        async function runAdminAction(button) {
+            const action = button.dataset.action;
+            const confirmMessage = button.dataset.confirm;
+
+            if (confirmMessage && !window.confirm(confirmMessage)) {
+                return;
+            }
+
+            const originalTitle = button.querySelector(
+                ".action-title"
+            ).textContent;
+
+            button.disabled = true;
+            button.querySelector(".action-title").textContent =
+                "Working...";
+
+            try {
+                const response = await fetch("/api/admin", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        action: action
+                    })
+                });
+
+                const payload = await response.json();
+
+                if (!response.ok || !payload.ok) {
+                    throw new Error(
+                        payload.error ||
+                        payload.message ||
+                        "Action failed"
+                    );
+                }
+
+                showMessage(
+                    payload.message || "Command started"
+                );
+
+            } catch (error) {
+                showMessage(
+                    `Admin action failed: ${error.message}`
+                );
+
+            } finally {
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.querySelector(
+                        ".action-title"
+                    ).textContent = originalTitle;
+                }, 1500);
+            }
+        }
+
+        document.querySelectorAll(".admin-action").forEach(
+            (button) => {
+                button.addEventListener("click", () => {
+                    runAdminAction(button);
+                });
+            }
+        );
+
 
         async function refreshDashboard() {
             const results = await Promise.allSettled([
