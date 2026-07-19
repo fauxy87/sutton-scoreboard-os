@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCOREOS Diagnostics</title>
+
+<style>
+:root {
+  --green: #146b3a;
+  --green-dark: #0a4323;
+  --yellow: #ffd800;
+  --red: #c62828;
+  --amber: #e58a00;
+  --grey: #66706a;
+  --background: #e8ede9;
+  --panel: #ffffff;
+  --text: #172019;
+  --muted: #68736c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+header {
+  background: var(--green);
+  color: white;
+  border-bottom: 7px solid var(--yellow);
+}
+
+.header-inner {
+  max-width: 1200px;
+  margin: auto;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 3px solid white;
+  border-radius: 9px;
+  background: var(--green-dark);
+  color: var(--yellow);
+  font-size: 25px;
+  font-weight: bold;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+
+.subtitle {
+  margin-top: 4px;
+  opacity: .85;
+  font-size: .9rem;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+nav a {
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: white;
+  background: rgba(255,255,255,.12);
+  text-decoration: none;
+  font-weight: bold;
+}
+
+nav a:hover,
+nav a.active {
+  background: var(--yellow);
+  color: #152015;
+}
+
+main {
+  max-width: 1200px;
+  margin: auto;
+  padding: 18px;
+}
+
+.banner {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--green-dark);
+  color: white;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.banner.warning {
+  background: var(--amber);
+}
+
+.banner.error {
+  background: var(--red);
+}
+
+.section-title {
+  margin: 22px 0 10px;
+  color: var(--green-dark);
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  background: var(--panel);
+  border: 2px solid #cbd4ce;
+  border-radius: 11px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,.09);
+}
+
+.card-header {
+  padding: 10px;
+  background: var(--green);
+  color: white;
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.card-body {
+  padding: 14px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 9px 0;
+  border-bottom: 1px solid #e1e6e2;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.label {
+  color: var(--muted);
+}
+
+.value {
+  font-weight: bold;
+  text-align: right;
+  word-break: break-word;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--grey);
+}
+
+.dot.ok {
+  background: #35a853;
+}
+
+.dot.warning {
+  background: var(--amber);
+}
+
+.dot.error {
+  background: var(--red);
+}
+
+footer {
+  margin-top: 24px;
+  padding: 15px;
+  background: #26312a;
+  color: white;
+  text-align: center;
+  font-size: .85rem;
+}
+
+@media (max-width: 760px) {
+  .header-inner {
+    display: block;
+    text-align: center;
+  }
+
+  .brand {
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  nav {
+    justify-content: center;
+  }
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo">S</div>
+      <div>
+        <h1>SCOREOS Diagnostics</h1>
+        <div class="subtitle">System and hardware health</div>
+      </div>
+    </div>
+
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a class="active" href="/diagnostics">Diagnostics</a>
+      <a href="/control">Match Control</a>
+      <a href="/">Live Score</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div id="banner" class="banner">Checking SCOREOS…</div>
+
+  <h2 class="section-title">Services</h2>
+
+  <section class="grid">
+    <div class="card">
+      <div class="card-header">SCOREOS Services</div>
+      <div class="card-body">
+        <div class="row">
+          <span class="label">Scoreboard engine</span>
+          <span id="engineStatus" class="value">Checking</span>
+        </div>
+        <div class="row">
+          <span class="label">Web interface</span>
+          <span id="webStatus" class="value">Checking</span>
+        </div>
+        <div class="row">
+          <span class="label">Advertisement service</span>
+          <span id="advertService" class="value">Checking</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Bluetooth</div>
+      <div class="card-body">
+        <div class="row">
+          <span class="label">Service</span>
+          <span id="bluetoothService" class="value">Checking</span>
+        </div>
+        <div class="row">
+          <span class="label">Adapter name</span>
+          <span id="bluetoothName" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Powered</span>
+          <span id="bluetoothPowered" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Advertising</span>
+          <span id="bluetoothAdvertising" class="value">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Arduino</div>
+      <div class="card-body">
+        <div class="row">
+          <span class="label">Connection</span>
+          <span id="arduinoStatus" class="value">Checking</span>
+        </div>
+        <div class="row">
+          <span class="label">Serial device</span>
+          <span id="arduinoDevice" class="value">—</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <h2 class="section-title">Network</h2>
+
+  <section class="grid">
+    <div class="card">
+      <div class="card-header">Network Status</div>
+      <div class="card-body">
+        <div class="row">
+          <span class="label">Hostname</span>
+          <span id="hostname" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">IP addresses</span>
+          <span id="addresses" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Hotspot</span>
+          <span id="hotspotStatus" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Hotspot address</span>
+          <span id="hotspotAddress" class="value">—</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <h2 class="section-title">System</h2>
+
+  <section class="grid">
+    <div class="card">
+      <div class="card-header">Hardware</div>
+      <div class="card-body">
+        <div class="row">
+          <span class="label">CPU temperature</span>
+          <span id="temperature" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Memory</span>
+          <span id="memory" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Disk free</span>
+          <span id="disk" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Uptime</span>
+          <span id="uptime" class="value">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Match Data</div>
+      <div class="card-body">
+        <div class="row">
+          <span class="label">Input mode</span>
+          <span id="matchMode" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Last update</span>
+          <span id="lastUpdateAge" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Score</span>
+          <span id="score" class="value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Overs</span>
+          <span id="overs" class="value">—</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  SCOREOS <span id="version">v—</span>
+  · <span id="lastRefresh">Waiting for system data</span>
+</footer>
+
+<script>
+function setText(id, value, fallback = "—") {
+  const element = document.getElementById(id);
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent =
+    value === null || value === undefined || value === ""
+      ? fallback
+      : value;
+}
+
+function statusText(value) {
+  return value === "active" ? "Running" : value || "Unknown";
+}
+
+async function refreshDiagnostics() {
+  try {
+    const response = await fetch("/api/system", {
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error("System API returned " + response.status);
+    }
+
+    const data = await response.json();
+    const services = data.services || {};
+    const bluetooth = data.bluetooth || {};
+    const arduino = data.arduino || {};
+    const network = data.network || {};
+    const memory = data.memory || {};
+    const disk = data.disk || {};
+    const match = data.match || {};
+
+    setText("engineStatus", statusText(services.scoreboard));
+    setText("webStatus", statusText(services.web));
+    setText("advertService", statusText(services.advertisement));
+
+    setText("bluetoothService", statusText(bluetooth.service));
+    setText("bluetoothName", bluetooth.name);
+    setText(
+      "bluetoothPowered",
+      bluetooth.powered === true ? "Yes" : "No"
+    );
+    setText(
+      "bluetoothAdvertising",
+      bluetooth.advertising === true ? "Yes" : "No"
+    );
+
+    setText(
+      "arduinoStatus",
+      arduino.connected === true ? "Connected" : "Disconnected"
+    );
+    setText("arduinoDevice", arduino.device, "No serial device");
+
+    setText("hostname", data.hostname);
+    setText(
+      "addresses",
+      (network.addresses || []).join(", "),
+      "No address"
+    );
+    setText(
+      "hotspotStatus",
+      network.hotspot_active === true ? "Active" : "Inactive"
+    );
+    setText("hotspotAddress", network.hotspot_address);
+
+    setText(
+      "temperature",
+      data.temperature_c === null
+        ? "Unavailable"
+        : data.temperature_c + "°C"
+    );
+
+    setText(
+      "memory",
+      memory.used_percent !== null
+        ? memory.used_percent + "% (" +
+          memory.used_mb + " MB of " +
+          memory.total_mb + " MB)"
+        : "Unavailable"
+    );
+
+    setText(
+      "disk",
+      disk.free_gb !== undefined
+        ? disk.free_gb + " GB of " +
+          disk.total_gb + " GB"
+        : "Unavailable"
+    );
+
+    setText("uptime", data.uptime);
+    setText(
+      "matchMode",
+      match.mode === "manual" ? "Web Browser" : "Play-Cricket"
+    );
+
+    setText(
+      "lastUpdateAge",
+      data.last_update_age !== null
+        ? data.last_update_age + " seconds ago"
+        : "Unknown"
+    );
+
+    setText(
+      "score",
+      (match.total || "--0") + "/" + (match.wickets || "0")
+    );
+    setText("overs", match.overs);
+    setText("version", "v" + (data.version || "—"));
+
+    const healthy =
+      services.scoreboard === "active" &&
+      services.web === "active" &&
+      bluetooth.service === "active" &&
+      bluetooth.advertising === true &&
+      arduino.connected === true;
+
+    const partial =
+      services.scoreboard === "active" &&
+      services.web === "active";
+
+    const banner = document.getElementById("banner");
+
+    if (healthy) {
+      banner.className = "banner";
+      banner.textContent = "ALL SCOREOS SYSTEMS HEALTHY";
+    } else if (partial) {
+      banner.className = "banner warning";
+      banner.textContent = "SCOREOS RUNNING — CHECK HARDWARE";
+    } else {
+      banner.className = "banner error";
+      banner.textContent = "SCOREOS SERVICE ATTENTION REQUIRED";
+    }
+
+    setText(
+      "lastRefresh",
+      "Updated " + new Date().toLocaleTimeString()
+    );
+
+  } catch (error) {
+    console.error(error);
+
+    const banner = document.getElementById("banner");
+    banner.className = "banner error";
+    banner.textContent = "CANNOT CONTACT SCOREOS";
+
+    setText("lastRefresh", "Connection failed");
+  }
+}
+
+refreshDiagnostics();
+setInterval(refreshDiagnostics, 2000);
+</script>
+</body>
+</html>

@@ -220,28 +220,87 @@ def network_status():
 
 
 def bluetooth_status():
-    info = run_command([
-        "/usr/bin/btmgmt",
-        "info",
-    ])
-
-    name = "Unknown"
-
-    for line in info.splitlines():
-        stripped = line.strip()
-
-        if stripped.startswith("name "):
-            name = stripped[5:].strip()
-            break
-
+    bluetooth_service = service_status("bluetooth.service")
     advert_service = service_status(
         "sutton-scoreboard-advert.service"
     )
 
+    show_output = run_command([
+        "/usr/bin/bluetoothctl",
+        "show",
+    ])
+
+    mgmt_info = run_command([
+        "/usr/bin/btmgmt",
+        "info",
+    ])
+
+    advert_info = run_command([
+        "/usr/bin/btmgmt",
+        "advinfo",
+    ])
+
+    name = "Unknown"
+    powered = False
+
+    # bluetoothctl normally works without sudo and reports:
+    # Name: SCOREOS
+    # Powered: yes
+    for line in show_output.splitlines():
+        stripped = line.strip()
+
+        if stripped.startswith("Name:"):
+            name = stripped.split(":", 1)[1].strip()
+
+        elif stripped.startswith("Powered:"):
+            powered = (
+                stripped.split(":", 1)[1].strip().lower()
+                == "yes"
+            )
+
+    # Fall back to btmgmt if bluetoothctl did not provide a name.
+    if name == "Unknown":
+        for line in mgmt_info.splitlines():
+            stripped = line.strip()
+
+            if stripped.startswith("name "):
+                name = stripped[5:].strip()
+                break
+
+    # Fall back to btmgmt current settings for powered status.
+    if not powered:
+        for line in mgmt_info.splitlines():
+            stripped = line.strip().lower()
+
+            if stripped.startswith("current settings:"):
+                settings = stripped.split(":", 1)[1].split()
+                powered = "powered" in settings
+                break
+
+    advertising = False
+
+    for line in advert_info.splitlines():
+        stripped = line.strip().lower()
+
+        if stripped.startswith("instances list with"):
+            try:
+                count = int(stripped.split()[3])
+                advertising = count > 0
+            except (ValueError, IndexError):
+                advertising = "with 0 item" not in stripped
+            break
+
+    # If btmgmt cannot be queried by the web-service user,
+    # retain the advertising-service result as a fallback.
+    if not advert_info:
+        advertising = advert_service == "active"
+
     return {
-        "service": service_status("bluetooth.service"),
+        "service": bluetooth_service,
+        "advert_service": advert_service,
         "name": name,
-        "advertising": advert_service == "active",
+        "powered": powered,
+        "advertising": advertising,
     }
 
 def arduino_status():
@@ -343,11 +402,37 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             return
 
         if path in ("/control", "/control/"):
-            self.send_html(CONTROL_HTML)
+            control_path = Path(__file__).with_name("control.html")
+            self.send_html(control_path.read_text(encoding="utf-8"))
             return
 
-        if path in ("/admin", "/admin/"):
-            self.send_html(ADMIN_HTML)
+        if path in (
+            "/admin",
+            "/admin/",
+            "/dashboard",
+            "/dashboard/",
+        ):
+            dashboard_path = Path(__file__).with_name(
+                "dashboard.html"
+            )
+            self.send_html(
+                dashboard_path.read_text(encoding="utf-8")
+            )
+            return
+
+        if path in ("/diagnostics", "/diagnostics/"):
+            diagnostics_path = Path(__file__).with_name(
+                "diagnostics.html"
+            )
+            self.send_html(
+                diagnostics_path.read_text(encoding="utf-8")
+            )
+            return
+
+
+        if path in ("/display-test", "/display-test/"):
+            page = Path(__file__).with_name("display-test.html")
+            self.send_html(page.read_text(encoding="utf-8"))
             return
 
         self.send_error(404)
@@ -1187,743 +1272,391 @@ CONTROL_HTML = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sutton CC Scoreboard Control</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Sutton CC Scoreboard</title>
 <style>
-:root {
-    --green: #146b3a;
-    --green-dark: #0a4323;
-    --yellow: #ffd800;
-    --red: #c62828;
-    --grey: #5c6260;
-    --background: #e7ece8;
-    --panel: #ffffff;
+:root{
+  --black:#11161b;
+  --panel:#ffffff;
+  --line:#c9c9c9;
+  --green:#3d9145;
+  --green-dark:#32783a;
+  --red:#df2720;
+  --red-dark:#bd1f19;
+  --blue:#155aa8;
+  --blue-dark:#104986;
+  --yellow:#f2bd18;
+  --grey:#8b8b8b;
+  --grey-dark:#6f6f6f;
 }
-
-* {
-    box-sizing: border-box;
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;font-family:Arial,Helvetica,sans-serif;background:#efefef;color:#111;overflow:hidden}
+body{display:flex;flex-direction:column}
+header{
+  height:54px;
+  background:#0e1114;
+  color:#fff;
+  display:grid;
+  grid-template-columns:100px 1fr 170px;
+  align-items:center;
+  padding:0 18px;
+  border-bottom:2px solid #222;
 }
-
-html,
-body {
-    margin: 0;
-    min-height: 100%;
-    background: var(--background);
-    color: #172019;
-    font-family: Arial, Helvetica, sans-serif;
+.crest{font-weight:700;font-size:13px;letter-spacing:.4px}
+.title{text-align:center;font-size:29px;font-weight:700;letter-spacing:1px}
+.clock{text-align:right;font-size:16px}
+main{
+  flex:1;
+  padding:8px 10px 6px;
+  display:grid;
+  grid-template-rows:2.25fr 1.18fr .58fr .52fr .52fr;
+  gap:7px;
+  min-height:0;
 }
-
-body {
-    overflow-x: hidden;
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;min-height:0}
+.panel{
+  background:var(--panel);
+  border:1px solid #aaa;
+  border-radius:5px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
 }
-
-header {
-    padding: 6px 10px;
-    background: var(--green);
-    color: white;
-    text-align: center;
-    border-bottom: 5px solid var(--yellow);
+.panel-title{
+  background:var(--black);
+  color:#fff;
+  text-align:center;
+  font-size:18px;
+  font-weight:700;
+  padding:5px 4px;
+  letter-spacing:.5px;
 }
-
-header h1 {
-    margin: 0;
-    font-size: 1.35rem;
-    line-height: 1.15;
+.display{
+  background:#030607;
+  color:#fff;
+  text-align:center;
+  font-family:"Courier New",monospace;
+  font-size:56px;
+  line-height:1;
+  padding:7px 4px 4px;
+  font-weight:700;
+  letter-spacing:4px;
 }
-
-header p {
-    margin: 2px 0 0;
-    font-size: .82rem;
-    line-height: 1.1;
+.display.small{font-size:43px;padding:5px 4px 3px}
+.pad{
+  flex:1;
+  padding:7px;
+  display:grid;
+  gap:7px;
+  min-height:0;
 }
-
-main {
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 6px;
+.two-col{grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr)}
+.total-grid{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}
+.total-grid .zero{grid-column:1/4}
+button{
+  border:1px solid rgba(0,0,0,.28);
+  border-radius:5px;
+  color:#fff;
+  font-weight:700;
+  font-size:24px;
+  cursor:pointer;
+  touch-action:manipulation;
+  min-height:0;
 }
-
-.panel {
-    margin-bottom: 6px;
-    overflow: hidden;
-    background: var(--panel);
-    border: 2px solid var(--green);
-    border-radius: 8px;
+button:active{transform:translateY(1px);filter:brightness(.92)}
+.green{background:linear-gradient(var(--green),var(--green-dark))}
+.red{background:linear-gradient(var(--red),var(--red-dark))}
+.blue{background:linear-gradient(#1c66b9,var(--blue-dark))}
+.yellow{background:linear-gradient(#ffc91b,#e6ab00);color:#111}
+.grey{background:linear-gradient(#aaa,var(--grey-dark))}
+.zero{background:linear-gradient(#aaa,#777)}
+.compact-controls{
+  flex:1;
+  display:grid;
+  grid-template-columns:1fr 1.15fr 1fr;
+  gap:8px;
+  padding:8px;
 }
-
-.panel-title {
-    margin: 0;
-    padding: 5px;
-    background: var(--green);
-    color: white;
-    text-align: center;
-    font-size: .95rem;
-    line-height: 1.1;
+.compact-controls button{font-size:23px}
+.target-controls{
+  padding:6px 8px 7px;
+  display:grid;
+  grid-template-columns:1fr 145px;
+  grid-template-rows:1fr 34px;
+  gap:6px;
+  flex:1;
 }
-
-.panel-body {
-    padding: 6px;
+.target-controls input{
+  width:100%;
+  font-size:24px;
+  font-weight:700;
+  padding:4px 10px;
+  border:1px solid #999;
+  border-radius:5px;
 }
-
-.score-row {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    gap: 6px;
-    text-align: center;
-    align-items: center;
+.target-controls button{font-size:17px}
+.target-controls .clear{grid-column:1/3}
+.info-row .panel{justify-content:center}
+.info-title{text-align:center;font-size:18px;font-weight:700;padding:5px 4px 0}
+.info-value{text-align:center;font-family:"Courier New",monospace;font-size:35px;line-height:1;padding:2px 4px 5px}
+.action-row{
+  display:grid;
+  grid-template-columns:1.25fr repeat(4,1fr);
+  gap:9px;
 }
-
-.label {
-    color: var(--green-dark);
-    font-size: .82rem;
-    font-weight: bold;
-    line-height: 1.1;
+.action-row button,.bottom-row button{font-size:17px}
+.bottom-row{
+  display:grid;
+  grid-template-columns:1.05fr 1fr 1fr 1.05fr;
+  gap:9px;
 }
-
-.main-score {
-    margin-top: 2px;
-    font-size: 3.4rem;
-    line-height: .95;
-    font-weight: bold;
+footer{
+  height:38px;
+  background:#121619;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:space-around;
+  font-size:12px;
+  padding:0 12px;
 }
-
-.secondary-score {
-    margin-top: 3px;
-    font-size: 2.4rem;
-    line-height: .95;
-    font-weight: bold;
-}
-
-.batter-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-}
-
-.batter-card {
-    overflow: hidden;
-    background: white;
-    border: 2px solid var(--green);
-    border-radius: 8px;
-    text-align: center;
-}
-
-.batter-heading {
-    padding: 5px;
-    background: var(--green);
-    color: white;
-    font-size: .9rem;
-    font-weight: bold;
-    line-height: 1.1;
-}
-
-.batter-score {
-    padding: 4px;
-    font-size: 3rem;
-    font-weight: bold;
-    line-height: 1;
-}
-
-.button-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 5px;
-}
-
-.button-grid.four {
-    grid-template-columns: repeat(4, 1fr);
-}
-
-.button-grid.three {
-    grid-template-columns: repeat(3, 1fr);
-}
-
-button {
-    min-width: 0;
-    min-height: 43px;
-    padding: 4px 3px;
-    border: 0;
-    border-radius: 6px;
-    background: var(--green);
-    color: white;
-    box-shadow: 0 2px 3px rgba(0, 0, 0, .18);
-    font-size: 1rem;
-    font-weight: bold;
-    line-height: 1;
-    cursor: pointer;
-    touch-action: manipulation;
-}
-
-button.yellow {
-    background: var(--yellow);
-    color: #111;
-}
-
-button.red {
-    background: var(--red);
-}
-
-button.grey {
-    background: var(--grey);
-}
-
-button.selected {
-    outline: 4px solid var(--yellow);
-    outline-offset: -3px;
-}
-
-button:active {
-    transform: translateY(1px);
-    box-shadow: none;
-}
-
-.target-form {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 6px;
-}
-
-.target-form input {
-    width: 100%;
-    min-height: 43px;
-    padding: 4px 10px;
-    border: 2px solid var(--green);
-    border-radius: 6px;
-    font-size: 1.35rem;
-    font-weight: bold;
-    text-align: center;
-}
-
-.mode-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-}
-
-.info-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    text-align: center;
-}
-
-.info-value {
-    font-size: 1.35rem;
-    font-weight: bold;
-    line-height: 1.05;
-}
-
-.status {
-    padding: 6px;
-    border-radius: 6px;
-    background: var(--green-dark);
-    color: white;
-    text-align: center;
-    font-size: .85rem;
-    font-weight: bold;
-}
-
-.status.error {
-    background: var(--red);
-}
-
-.footer {
-    margin: 5px 0;
-    text-align: center;
-    font-size: .8rem;
-}
-
-/*
- * Compact landscape mode for tablets.
- * Keeps total, overs, target and batter controls visible together.
- */
-@media (orientation: landscape) and (max-height: 800px) {
-    header {
-        padding: 4px 8px;
-        border-bottom-width: 4px;
-    }
-
-    header h1 {
-        font-size: 1.15rem;
-    }
-
-    header p {
-        display: none;
-    }
-
-    main {
-        padding: 4px;
-    }
-
-    .panel {
-        margin-bottom: 4px;
-    }
-
-    .panel-title {
-        padding: 4px;
-        font-size: .82rem;
-    }
-
-    .panel-body {
-        padding: 4px;
-    }
-
-    .score-row,
-    .batter-row,
-    .button-grid,
-    .target-form,
-    .mode-row,
-    .info-row {
-        gap: 4px;
-    }
-
-    .label {
-        font-size: .72rem;
-    }
-
-    .main-score {
-        font-size: 2.8rem;
-    }
-
-    .secondary-score {
-        font-size: 2rem;
-    }
-
-    .batter-heading {
-        padding: 3px;
-        font-size: .8rem;
-    }
-
-    .batter-score {
-        padding: 2px;
-        font-size: 2.35rem;
-    }
-
-    button {
-        min-height: 37px;
-        padding: 3px 2px;
-        font-size: .9rem;
-    }
-
-    .target-form input {
-        min-height: 37px;
-        padding: 3px 8px;
-        font-size: 1.15rem;
-    }
-
-    .info-value {
-        font-size: 1.15rem;
-    }
-
-    .status {
-        padding: 4px;
-        font-size: .75rem;
-    }
-
-    .footer {
-        margin: 3px 0;
-    }
-}
-
-/* Smaller phones and portrait tablets remain usable with scrolling. */
-@media (max-width: 700px) and (orientation: portrait) {
-    .score-row {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .score-row > :first-child {
-        grid-column: 1 / -1;
-    }
-
-    .batter-row {
-        grid-template-columns: 1fr;
-    }
-
-    .button-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-    button {
-        min-height: 48px;
-    }
+.status{display:flex;align-items:center;gap:7px}
+.dot{width:11px;height:11px;border-radius:50%;background:#39b54a;display:inline-block}
+@media (max-height:700px){
+  header{height:46px}
+  .title{font-size:24px}
+  main{padding:5px 7px;gap:5px}
+  .grid3{gap:7px}
+  .panel-title{font-size:15px;padding:3px}
+  .display{font-size:46px;padding:4px 3px 2px}
+  .display.small{font-size:36px}
+  .pad{padding:5px;gap:5px}
+  button{font-size:20px}
+  .compact-controls{padding:5px;gap:5px}
+  .compact-controls button{font-size:19px}
+  .target-controls{padding:4px 5px;gap:4px;grid-template-columns:1fr 120px;grid-template-rows:1fr 28px}
+  .target-controls input{font-size:20px}
+  .target-controls button{font-size:14px}
+  .info-title{font-size:15px;padding-top:3px}
+  .info-value{font-size:29px}
+  .action-row,.bottom-row{gap:6px}
+  .action-row button,.bottom-row button{font-size:14px}
+  footer{height:32px;font-size:10px}
 }
 </style>
 </head>
-
 <body>
 <header>
-    <h1>Sutton CC Scoreboard</h1>
-    <p>SCOREOS Manual Control</p>
+  <div class="crest">SUTTON CC<br>EST. 1854</div>
+  <div class="title">SUTTON CC SCOREBOARD</div>
+  <div class="clock" id="clock">--:--:--</div>
 </header>
 
 <main>
-    <section class="panel">
-        <div class="panel-body">
-            <div class="score-row">
-                <div>
-                    <div class="label">TOTAL</div>
-                    <div class="main-score">
-                        <span id="total">0</span>/<span id="wickets">0</span>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="label">OVERS</div>
-                    <div class="secondary-score" id="overs">0</div>
-                </div>
-
-                <div>
-                    <div class="label">TARGET</div>
-                    <div class="secondary-score" id="target">0</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="batter-row">
-        <div class="batter-card">
-            <div class="batter-heading">BATTER A</div>
-            <div class="batter-score" id="bat-a-score">0</div>
-
-            <div class="panel-body">
-                <div class="button-grid">
-                    <button class="yellow" onclick="control('bat_a', 1)">+1</button>
-                    <button class="yellow" onclick="control('bat_a', 2)">+2</button>
-                    <button class="yellow" onclick="control('bat_a', 3)">+3</button>
-                    <button class="yellow" onclick="control('bat_a', 4)">+4</button>
-                    <button class="yellow" onclick="control('bat_a', 6)">+6</button>
-                    <button class="red" onclick="batterWicket('a')">WICKET</button>
-                    <button class="grey" onclick="control('bat_a', -1)">−1</button>
-                    <button class="grey" onclick="control('bat_a', -4)">−4</button>
-                    <button class="grey" onclick="control('bat_a', -6)">−6</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="batter-card">
-            <div class="batter-heading">BATTER B</div>
-            <div class="batter-score" id="bat-b-score">0</div>
-
-            <div class="panel-body">
-                <div class="button-grid">
-                    <button class="yellow" onclick="control('bat_b', 1)">+1</button>
-                    <button class="yellow" onclick="control('bat_b', 2)">+2</button>
-                    <button class="yellow" onclick="control('bat_b', 3)">+3</button>
-                    <button class="yellow" onclick="control('bat_b', 4)">+4</button>
-                    <button class="yellow" onclick="control('bat_b', 6)">+6</button>
-                    <button class="red" onclick="batterWicket('b')">WICKET</button>
-                    <button class="grey" onclick="control('bat_b', -1)">−1</button>
-                    <button class="grey" onclick="control('bat_b', -4)">−4</button>
-                    <button class="grey" onclick="control('bat_b', -6)">−6</button>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="panel">
-        <h2 class="panel-title">TOTAL RUNS</h2>
-        <div class="panel-body">
-            <div class="button-grid">
-                <button class="grey" onclick="control('score', -1)">−1</button>
-                <button class="yellow" onclick="control('score', 1)">+1</button>
-                <button class="yellow" onclick="control('score', 2)">+2</button>
-                <button class="yellow" onclick="control('score', 3)">+3</button>
-                <button class="yellow" onclick="control('score', 4)">+4</button>
-                <button class="yellow" onclick="control('score', 6)">+6</button>
-            </div>
-        </div>
-    </section>
-
-    <section class="panel">
-        <h2 class="panel-title">WICKETS AND OVERS</h2>
-        <div class="panel-body">
-            <div class="button-grid four">
-                <button class="red" onclick="control('wickets', 1)">
-                    + WICKET
-                </button>
-
-                <button class="grey" onclick="control('wickets', -1)">
-                    − WICKET
-                </button>
-
-                <button onclick="control('overs', 1)">
-                    + OVER
-                </button>
-
-                <button class="grey" onclick="control('overs', -1)">
-                    − OVER
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <section class="panel">
-        <h2 class="panel-title">TARGET</h2>
-        <div class="panel-body">
-            <form class="target-form" onsubmit="setExactTarget(event)">
-                <input
-                    id="target-input"
-                    type="number"
-                    min="0"
-                    max="999"
-                    inputmode="numeric"
-                    placeholder="Enter target"
-                    required>
-
-                <button class="yellow" type="submit">
-                    SET TARGET
-                </button>
-            </form>
-        </div>
-    </section>
-
-    <section class="panel">
-        <div class="panel-body">
-            <div class="info-row">
-                <div>
-                    <div class="label">CURRENT OVER</div>
-                    <div class="info-value" id="current-over">-</div>
-                </div>
-
-                <div>
-                    <div class="label">PARTNERSHIP</div>
-                    <div class="info-value" id="partnership">0</div>
-                </div>
-
-                <div>
-                    <div class="label">LAST WICKET</div>
-                    <div class="info-value" id="last-wicket">---</div>
-                </div>
-
-                <div>
-                    <div class="label">LAST MAN</div>
-                    <div class="info-value" id="last-man">---</div>
-                </div>
-
-                <div>
-                    <div class="label">RUNS REQUIRED</div>
-                    <div class="info-value" id="runs-required">---</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="panel">
-        <div class="panel-body">
-            <div class="button-grid three">
-                <button class="grey" onclick="refreshState()">REFRESH</button>
-                <button class="red" onclick="resetInnings()">RESET INNINGS</button>
-                <button onclick="setMode('playcricket')">
-                    RETURN TO PLAY-CRICKET
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <section class="panel">
-        <h2 class="panel-title">CONTROL MODE</h2>
-        <div class="panel-body">
-            <div class="mode-row">
-                <button id="playcricket-mode"
-                        onclick="setMode('playcricket')">
-                    Play-Cricket
-                </button>
-
-                <button id="manual-mode"
-                        class="yellow"
-                        onclick="setMode('manual')">
-                    Manual Control
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <div id="status" class="status">
-        Connecting to SCOREOS...
+  <section class="grid3">
+    <div class="panel">
+      <div class="panel-title">BATSMAN A</div>
+      <div class="display" id="batA">000</div>
+      <div class="pad two-col">
+        <button class="green" onclick="changeBat('a',1)">+1</button>
+        <button class="red" onclick="changeBat('a',-1)">-1</button>
+        <button class="green" onclick="changeBat('a',4)">+4</button>
+        <button class="red" onclick="changeBat('a',-4)">-4</button>
+        <button class="green" onclick="changeBat('a',6)">+6</button>
+        <button class="red" onclick="changeBat('a',-6)">-6</button>
+        <button class="zero" style="grid-column:1/3" onclick="zeroBat('a')">OUT</button>
+      </div>
     </div>
 
-    <div class="footer">
-        <a href="/">Open spectator display</a>
+    <div class="panel">
+      <div class="panel-title">TOTAL SCORE</div>
+      <div class="display" id="total">000</div>
+      <div class="pad total-grid">
+        <button class="green" onclick="change('total',1)">+1</button>
+        <button class="green" onclick="change('total',2)">+2</button>
+        <button class="green" onclick="change('total',4)">+4</button>
+        <button class="red" onclick="change('total',-1)">-1</button>
+        <button class="red" onclick="change('total',-2)">-2</button>
+        <button class="red" onclick="change('total',-4)">-4</button>
+        <button class="zero" onclick="zero('total')">ZERO</button>
+      </div>
     </div>
+
+    <div class="panel">
+      <div class="panel-title">BATSMAN B</div>
+      <div class="display" id="batB">000</div>
+      <div class="pad two-col">
+        <button class="green" onclick="changeBat('b',1)">+1</button>
+        <button class="red" onclick="changeBat('b',-1)">-1</button>
+        <button class="green" onclick="changeBat('b',4)">+4</button>
+        <button class="red" onclick="changeBat('b',-4)">-4</button>
+        <button class="green" onclick="changeBat('b',6)">+6</button>
+        <button class="red" onclick="changeBat('b',-6)">-6</button>
+        <button class="zero" style="grid-column:1/3" onclick="zeroBat('b')">OUT</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid3">
+    <div class="panel">
+      <div class="panel-title">WICKETS</div>
+      <div class="display small" id="wickets">0</div>
+      <div class="compact-controls">
+        <button class="green" onclick="change('wickets',1)">+1</button>
+        <button class="grey" onclick="zero('wickets')">ZERO</button>
+        <button class="red" onclick="change('wickets',-1)">-1</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">OVERS</div>
+      <div class="display small" id="overs">00</div>
+      <div class="compact-controls">
+        <button class="green" onclick="change('overs',1)">+1</button>
+        <button class="grey" onclick="newOver()">NEW OVER</button>
+        <button class="red" onclick="change('overs',-1)">-1</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">TARGET</div>
+      <div class="display small" id="target">---</div>
+      <div class="target-controls">
+        <input id="targetInput" type="number" min="0" max="999" placeholder="Target">
+        <button class="blue" onclick="setTarget()">SET TARGET</button>
+        <button class="grey clear" onclick="clearTarget()">CLEAR TARGET (---)</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid3 info-row">
+    <div class="panel"><div class="info-title">PARTNERSHIP</div><div class="info-value" id="partnership">000</div></div>
+    <div class="panel"><div class="info-title">LAST MAN</div><div class="info-value" id="lastMan">000</div></div>
+    <div class="panel"><div class="info-title">RUNS REQUIRED</div><div class="info-value" id="required">---</div></div>
+  </section>
+
+  <section class="action-row">
+    <button class="yellow" onclick="undo()">↻ UNDO LAST ACTION</button>
+    <button class="blue" onclick="extra(1)">+ WIDE</button>
+    <button class="blue" onclick="extra(1)">+ NO BALL</button>
+    <button class="blue" onclick="extra(1)">+ BYE</button>
+    <button class="blue" onclick="extra(1)">+ LEG BYE</button>
+  </section>
+
+  <section class="bottom-row">
+    <button class="blue" onclick="resend()">↻ RESEND SCOREBOARD</button>
+    <button class="blue" onclick="testBoard()">▣ TEST BOARD</button>
+    <button class="blue" onclick="newOver()">● NEW OVER</button>
+    <button class="red" onclick="resetMatch()">▱ RESET MATCH</button>
+  </section>
 </main>
 
+<footer>
+  <div class="status">ARDUINO <span class="dot"></span> CONNECTED</div>
+  <div class="status">BLUETOOTH <span class="dot"></span> CONNECTED</div>
+  <div class="status">PLAY-CRICKET <span class="dot"></span> CONNECTED</div>
+  <div class="status">AUTO SAVE <span class="dot"></span> ON</div>
+  <div>SCOREOS v2.0</div>
+</footer>
+
 <script>
-function visibleNumber(value) {
-    if (value === null || value === undefined) {
-        return "0";
-    }
+let state={batA:0,batB:0,total:0,wickets:0,overs:0,target:null,lastWicket:0,lastMan:0};
+let history=[];
 
-    const cleaned = String(value).replaceAll("-", "");
-    return cleaned === "" ? "0" : cleaned;
+function snap(){history.push(JSON.stringify(state));if(history.length>50)history.shift()}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function pad(v,n){return String(Math.max(0,v)).padStart(n,'0')}
+
+function render(){
+  batA.textContent=pad(state.batA,3);
+  batB.textContent=pad(state.batB,3);
+  total.textContent=pad(state.total,3);
+  wickets.textContent=state.wickets;
+  overs.textContent=pad(state.overs,2);
+  target.textContent=state.target===null?'---':pad(state.target,3);
+  partnership.textContent=pad(Math.max(0,state.total-state.lastWicket),3);
+  lastMan.textContent=pad(state.lastMan,3);
+  required.textContent=state.target===null?'---':pad(Math.max(0,state.target-state.total),3);
+  localStorage.setItem('scoreos-ui-state',JSON.stringify(state));
 }
 
-async function apiControl(action, value = 0) {
-    const response = await fetch("/api/control", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            action: action,
-            value: value
-        })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.ok) {
-        throw new Error(result.error || "Control request failed");
-    }
-
-    return result;
+function change(field,amount){
+  snap();
+  const max=field==='wickets'?9:field==='overs'?99:999;
+  state[field]=clamp(state[field]+amount,0,max);
+  render();sendState();
 }
 
-async function control(action, value) {
-    try {
-        setStatus("Updating scoreboard...");
-        await apiControl(action, value);
-        await refreshState();
-        setStatus("Scoreboard updated");
-    } catch (error) {
-        setStatus(error.message, true);
-    }
+function changeBat(which,amount){
+  snap();
+  const key=which==='a'?'batA':'batB';
+  const before=state[key];
+  state[key]=clamp(state[key]+amount,0,999);
+  state.total=clamp(state.total+(state[key]-before),0,999);
+  render();sendState();
 }
 
-async function batterWicket(batter) {
-    const confirmed = window.confirm(
-        "Record a wicket and reset this batter to zero?"
-    );
-
-    if (!confirmed) {
-        return;
-    }
-
-    try {
-        setStatus("Recording wicket...");
-        await apiControl("batter_wicket", batter);
-        await refreshState();
-        setStatus("Wicket recorded");
-    } catch (error) {
-        setStatus(error.message, true);
-    }
+function zero(field){
+  if(!confirm('Set '+field+' to zero?'))return;
+  snap();state[field]=0;render();sendState();
 }
 
-async function setExactTarget(event) {
-    event.preventDefault();
-
-    const input = document.getElementById("target-input");
-    const target = Number(input.value);
-
-    if (!Number.isInteger(target) || target < 0 || target > 999) {
-        setStatus("Target must be between 0 and 999", true);
-        return;
-    }
-
-    try {
-        setStatus("Setting target...");
-        await apiControl("set_target", target);
-        input.value = "";
-        await refreshState();
-        setStatus("Target updated");
-    } catch (error) {
-        setStatus(error.message, true);
-    }
+function zeroBat(which){
+  if(!confirm('Record this batsman as out?'))return;
+  snap();
+  const key=which==='a'?'batA':'batB';
+  state.lastMan=state[key];
+  state.lastWicket=state.total;
+  state[key]=0;
+  state.wickets=clamp(state.wickets+1,0,9);
+  render();sendState();
 }
 
-async function setMode(mode) {
-    try {
-        await apiControl("set_mode", mode);
-        await refreshState();
-        setStatus("Mode changed to " + mode);
-    } catch (error) {
-        setStatus(error.message, true);
-    }
+function setTarget(){
+  const v=Number(targetInput.value);
+  if(!Number.isInteger(v)||v<0||v>999)return;
+  snap();state.target=v;targetInput.value='';render();sendState();
+}
+function clearTarget(){snap();state.target=null;render();sendState()}
+function newOver(){change('overs',1)}
+function extra(n){change('total',n)}
+function undo(){if(!history.length)return;state=JSON.parse(history.pop());render();sendState()}
+function resetMatch(){if(!confirm('Reset the whole match?'))return;snap();state={batA:0,batB:0,total:0,wickets:0,overs:0,target:null,lastWicket:0,lastMan:0};render();sendState()}
+function resend(){sendState()}
+function testBoard(){fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test'})}).catch(()=>{})}
+
+function sendState(){
+  fetch('/api/control',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      action:'set_state',
+      state:{
+        total:pad(state.total,3),
+        wickets:String(state.wickets),
+        overs:pad(state.overs,2),
+        target:state.target===null?'---':pad(state.target,3),
+        BatAscore:pad(state.batA,3),
+        BatBscore:pad(state.batB,3),
+        PshipTOT:pad(Math.max(0,state.total-state.lastWicket),3),
+        LastWicket:pad(state.lastWicket,3),
+        LastMan:pad(state.lastMan,3)
+      }
+    })
+  }).catch(()=>{});
 }
 
-async function resetInnings() {
-    if (!window.confirm("Reset the complete innings to zero?")) {
-        return;
-    }
-
-    try {
-        await apiControl("reset", 0);
-        await refreshState();
-        setStatus("Innings reset");
-    } catch (error) {
-        setStatus(error.message, true);
-    }
-}
-
-function setStatus(message, error = false) {
-    const element = document.getElementById("status");
-    element.textContent = message;
-    element.classList.toggle("error", error);
-}
-
-function updateMode(mode) {
-    document.getElementById("playcricket-mode")
-        .classList.toggle("selected", mode === "playcricket");
-
-    document.getElementById("manual-mode")
-        .classList.toggle("selected", mode === "manual");
-}
-
-async function refreshState() {
-    try {
-        const response = await fetch("/api/state", {
-            cache: "no-store"
-        });
-
-        const state = await response.json();
-
-        document.getElementById("total").textContent =
-            visibleNumber(state.total);
-
-        document.getElementById("wickets").textContent =
-            visibleNumber(state.wickets);
-
-        document.getElementById("overs").textContent =
-            visibleNumber(state.overs);
-
-        document.getElementById("target").textContent =
-            visibleNumber(state.target);
-
-        document.getElementById("bat-a-score").textContent =
-            visibleNumber(state.BatAscore);
-
-        document.getElementById("bat-b-score").textContent =
-            visibleNumber(state.BatBscore);
-
-        document.getElementById("current-over").textContent =
-            state.CurrentOver || "-";
-
-        document.getElementById("partnership").textContent =
-            visibleNumber(state.PshipTOT);
-
-        document.getElementById("last-wicket").textContent =
-            state.LastWicket || "---";
-
-        document.getElementById("last-man").textContent =
-            visibleNumber(state.LastMan);
-
-        document.getElementById("runs-required").textContent =
-            visibleNumber(state.RunsRequired);
-
-        updateMode(state.mode || "playcricket");
-        setStatus("Connected — " + (state.mode || "playcricket"));
-
-    } catch (error) {
-        setStatus("Unable to reach SCOREOS", true);
-    }
-}
-
-refreshState();
-setInterval(refreshState, 1000);
+try{
+  const saved=JSON.parse(localStorage.getItem('scoreos-ui-state'));
+  if(saved)state={...state,...saved};
+}catch(e){}
+render();
+setInterval(()=>clock.textContent=new Date().toLocaleTimeString(),1000);
 </script>
 </body>
 </html>
+
 """
 
 

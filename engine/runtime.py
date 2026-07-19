@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import copy
 import json
 import os
 import socket
@@ -12,6 +13,64 @@ from engine.parser import parse_playcricket_packet
 
 STATE_FILE = "/run/scoreos/state.json"
 CONTROL_SOCKET = "/run/scoreos/control.sock"
+
+
+DISPLAY_TEST_PATTERNS = [
+    {
+        "name": "All segments",
+        "total": 888,
+        "wickets": 8,
+        "overs": 888,
+        "target": 888,
+        "bat_a_runs": 888,
+        "bat_b_runs": 888,
+    },
+    {
+        "name": "Maximum digits",
+        "total": 999,
+        "wickets": 9,
+        "overs": 999,
+        "target": 999,
+        "bat_a_runs": 999,
+        "bat_b_runs": 999,
+    },
+    {
+        "name": "Mixed segments",
+        "total": 123,
+        "wickets": 4,
+        "overs": 123,
+        "target": 187,
+        "bat_a_runs": 45,
+        "bat_b_runs": 78,
+    },
+    {
+        "name": "Typical innings",
+        "total": 200,
+        "wickets": 0,
+        "overs": 200,
+        "target": 201,
+        "bat_a_runs": 100,
+        "bat_b_runs": 100,
+    },
+    {
+        "name": "Match situation",
+        "total": 175,
+        "wickets": 7,
+        "overs": 395,
+        "target": 176,
+        "bat_a_runs": 75,
+        "bat_b_runs": 25,
+    },
+    {
+        "name": "Zero test",
+        "total": 0,
+        "wickets": 0,
+        "overs": 0,
+        "target": 0,
+        "bat_a_runs": 0,
+        "bat_b_runs": 0,
+    },
+]
 
 
 def number(value):
@@ -36,6 +95,9 @@ class ScoreboardEngine:
         self.lock = threading.RLock()
         self.timer = None
         self.mode = "playcricket"
+        self.pre_test_mode = None
+        self.pre_test_state = None
+        self.test_pattern_index = 0
 
         self.start_control_server()
 
@@ -184,11 +246,113 @@ class ScoreboardEngine:
         self.state.update("target", padded(target, 3))
         self.calculate_runs_required()
 
+    def apply_test_pattern(self, index):
+        index = int(index) % len(DISPLAY_TEST_PATTERNS)
+        pattern = DISPLAY_TEST_PATTERNS[index]
+
+        self.test_pattern_index = index
+
+        self.state.update(
+            "total",
+            padded(pattern["total"], 3),
+        )
+        self.state.update(
+            "wickets",
+            str(pattern["wickets"]),
+        )
+        self.state.update(
+            "overs",
+            padded(pattern["overs"], 3),
+        )
+        self.state.update(
+            "target",
+            padded(pattern["target"], 3),
+        )
+        self.state.update(
+            "bat_a_runs",
+            padded(pattern["bat_a_runs"], 3),
+        )
+        self.state.update(
+            "bat_b_runs",
+            padded(pattern["bat_b_runs"], 3),
+        )
+
+        self.calculate_runs_required()
+
+        return {
+            "index": index,
+            "count": len(DISPLAY_TEST_PATTERNS),
+            "name": pattern["name"],
+            "pattern": pattern,
+        }
+
     def apply_control(self, request):
         action = request.get("action")
         value = request.get("value", 0)
 
         with self.lock:
+            if action == "display_test_start":
+                if self.mode != "test":
+                    self.pre_test_mode = self.mode
+                    self.pre_test_state = copy.deepcopy(self.state)
+
+                self.mode = "test"
+                result = self.apply_test_pattern(
+                    request.get("index", 0)
+                )
+                self.publish_locked()
+
+                return {
+                    "ok": True,
+                    "mode": self.mode,
+                    "test": result,
+                    "state": self.state.snapshot(),
+                }
+
+            if action == "display_test_pattern":
+                if self.mode != "test":
+                    raise ValueError(
+                        "Display test has not been started"
+                    )
+
+                result = self.apply_test_pattern(
+                    request.get("index", 0)
+                )
+                self.publish_locked()
+
+                return {
+                    "ok": True,
+                    "mode": self.mode,
+                    "test": result,
+                    "state": self.state.snapshot(),
+                }
+
+            if action == "display_test_restore":
+                if self.pre_test_state is not None:
+                    self.state = self.pre_test_state
+
+                self.mode = (
+                    self.pre_test_mode
+                    if self.pre_test_mode in (
+                        "manual",
+                        "playcricket",
+                    )
+                    else "playcricket"
+                )
+
+                restored_mode = self.mode
+                self.pre_test_state = None
+                self.pre_test_mode = None
+                self.test_pattern_index = 0
+
+                self.publish_locked()
+
+                return {
+                    "ok": True,
+                    "mode": restored_mode,
+                    "state": self.state.snapshot(),
+                }
+
             if action == "set_mode":
                 if value not in ("manual", "playcricket"):
                     raise ValueError("Invalid mode")
@@ -202,7 +366,10 @@ class ScoreboardEngine:
                     "mode": self.mode,
                 }
 
-            self.mode = "manual"
+            if self.mode != "manual":
+                raise ValueError(
+                    "Web controls are locked. Select Web Control mode first."
+                )
 
             if action == "score":
                 self.adjust_score(int(value))

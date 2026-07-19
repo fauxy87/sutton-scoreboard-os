@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
+    <meta name="theme-color" content="#174f32">
+
+    <title>SCOREOS Dashboard</title>
+
+    <style>
+        :root {
+            --green: #174f32;
+            --green-dark: #0e3823;
+            --green-light: #28724b;
+            --gold: #d6b34b;
+            --gold-light: #f1df9b;
+            --background: #eef2ef;
+            --card: #ffffff;
+            --text: #18211c;
+            --muted: #65716a;
+            --border: #d7dfda;
+            --success: #209653;
+            --warning: #d98b16;
+            --danger: #c43c3c;
+            --shadow: 0 8px 24px rgba(15, 55, 35, 0.10);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            min-height: 100%;
+            background: var(--background);
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                linear-gradient(
+                    180deg,
+                    var(--green-dark) 0,
+                    var(--green) 220px,
+                    var(--background) 220px
+                );
+            color: var(--text);
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                Arial,
+                sans-serif;
+        }
+
+        button,
+        a {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .topbar {
+            padding:
+                calc(18px + env(safe-area-inset-top))
+                20px
+                18px;
+            color: white;
+        }
+
+        .topbar-inner {
+            width: min(1100px, 100%);
+            margin: 0 auto;
+        }
+
+        .brand-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo {
+            display: grid;
+            width: 54px;
+            height: 54px;
+            flex: 0 0 54px;
+            place-items: center;
+            border: 2px solid var(--gold);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--gold);
+            font-size: 26px;
+            font-weight: 900;
+        }
+
+        .brand h1 {
+            margin: 0;
+            letter-spacing: 0.06em;
+            font-size: clamp(25px, 5vw, 36px);
+            line-height: 1;
+        }
+
+        .brand p {
+            margin: 7px 0 0;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 14px;
+        }
+
+        .version {
+            padding: 8px 11px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--gold-light);
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .nav {
+            display: flex;
+            gap: 8px;
+            margin-top: 20px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+            scrollbar-width: none;
+        }
+
+        .nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav a {
+            padding: 10px 14px;
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .nav a:hover,
+        .nav a.active {
+            background: var(--gold);
+            color: #243018;
+        }
+
+        main {
+            width: min(1100px, calc(100% - 28px));
+            margin: 0 auto;
+            padding: 22px 0 40px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+            gap: 18px;
+        }
+
+        .card {
+            overflow: hidden;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h2 {
+            margin: 0;
+            font-size: 15px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--success);
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .live-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 0 5px rgba(32, 150, 83, 0.12);
+        }
+
+        .score-area {
+            padding: 30px 20px 26px;
+            text-align: center;
+        }
+
+        .score {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 10px;
+            color: var(--green-dark);
+            font-size: clamp(58px, 12vw, 100px);
+            font-weight: 900;
+            letter-spacing: -0.06em;
+            line-height: 0.95;
+        }
+
+        .slash {
+            color: var(--gold);
+            font-size: 0.58em;
+        }
+
+        .match-details {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 23px;
+        }
+
+        .detail {
+            min-width: 125px;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            background: #f7f9f8;
+        }
+
+        .detail-label {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .detail-value {
+            font-size: 21px;
+            font-weight: 900;
+        }
+
+        .mode-strip {
+            padding: 13px 18px;
+            border-top: 1px solid var(--border);
+            background: #f7f9f8;
+            color: var(--muted);
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .mode-strip strong {
+            color: var(--green);
+        }
+
+        .status-list {
+            padding: 8px 18px 16px;
+        }
+
+        .status-row {
+            display: grid;
+            grid-template-columns: 15px 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 2px;
+            border-bottom: 1px solid #edf1ee;
+        }
+
+        .status-row:last-child {
+            border-bottom: 0;
+        }
+
+        .status-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: var(--warning);
+            box-shadow: 0 0 0 4px rgba(217, 139, 22, 0.12);
+        }
+
+        .status-dot.online {
+            background: var(--success);
+            box-shadow: 0 0 0 4px rgba(32, 150, 83, 0.12);
+        }
+
+        .status-dot.offline {
+            background: var(--danger);
+            box-shadow: 0 0 0 4px rgba(196, 60, 60, 0.12);
+        }
+
+        .status-name {
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .status-value {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .actions-card {
+            margin-top: 18px;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            padding: 18px;
+        }
+
+        .action {
+            display: flex;
+            min-height: 112px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            padding: 16px 10px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: #f8faf8;
+            color: var(--green-dark);
+            text-align: center;
+            text-decoration: none;
+            transition:
+                transform 0.12s ease,
+                border-color 0.12s ease,
+                background 0.12s ease;
+        }
+
+        .action:hover,
+        .action:focus-visible {
+            transform: translateY(-2px);
+            border-color: var(--gold);
+            background: #fffdf5;
+            outline: none;
+        }
+
+        .action-icon {
+            font-size: 30px;
+            line-height: 1;
+        }
+
+        .action-title {
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .action-subtitle {
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .system-card {
+            margin-top: 18px;
+        }
+
+        .system-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border);
+        }
+
+        .system-stat {
+            min-width: 0;
+            padding: 18px 14px;
+            background: white;
+            text-align: center;
+        }
+
+        .system-stat span {
+            display: block;
+            overflow: hidden;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-overflow: ellipsis;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .system-stat strong {
+            display: block;
+            margin-top: 7px;
+            color: var(--green-dark);
+            font-size: 20px;
+        }
+
+        .message {
+            display: none;
+            margin: 0 0 18px;
+            padding: 12px 15px;
+            border: 1px solid #e9cc75;
+            border-radius: 12px;
+            background: #fff8dc;
+            color: #68500e;
+            font-size: 13px;
+        }
+
+        .message.visible {
+            display: block;
+        }
+
+        footer {
+            padding: 8px 12px 0;
+            color: var(--muted);
+            text-align: center;
+            font-size: 12px;
+        }
+
+        @media (max-width: 780px) {
+            body {
+                background:
+                    linear-gradient(
+                        180deg,
+                        var(--green-dark) 0,
+                        var(--green) 260px,
+                        var(--background) 260px
+                    );
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .system-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .brand-row {
+                align-items: flex-start;
+            }
+
+            .version {
+                margin-top: 3px;
+            }
+        }
+
+        @media (max-width: 430px) {
+            .topbar {
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+
+            main {
+                width: min(100% - 18px, 1100px);
+            }
+
+            .logo {
+                width: 47px;
+                height: 47px;
+                flex-basis: 47px;
+                border-radius: 14px;
+                font-size: 22px;
+            }
+
+            .brand p {
+                font-size: 12px;
+            }
+
+            .version {
+                padding: 7px 9px;
+                font-size: 10px;
+            }
+
+            .score-area {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .detail {
+                min-width: 104px;
+                flex: 1;
+            }
+
+            .actions {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand-row">
+                <div class="brand">
+                    <div class="logo">S</div>
+
+                    <div>
+                        <h1>SCOREOS</h1>
+                        <p>Sutton CC Electronic Scoreboard</p>
+                    </div>
+                </div>
+
+                <div class="version">v1.0 RC</div>
+            </div>
+
+            <nav class="nav" aria-label="Main navigation">
+                <a class="active" href="/dashboard">Dashboard</a>
+                <a href="/control">Control</a>
+                <a href="/display-test">Display Test</a>
+                <a href="/diagnostics">Diagnostics</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div id="message" class="message"></div>
+
+        <section class="grid">
+            <article class="card">
+                <div class="card-header">
+                    <h2>Live Scoreboard</h2>
+
+                    <div class="live-badge">
+                        <span class="live-dot"></span>
+                        Live
+                    </div>
+                </div>
+
+                <div class="score-area">
+                    <div class="score">
+                        <span id="runs">0</span>
+                        <span class="slash">/</span>
+                        <span id="wickets">0</span>
+                    </div>
+
+                    <div class="match-details">
+                        <div class="detail">
+                            <span class="detail-label">Overs</span>
+                            <span id="overs" class="detail-value">0.0</span>
+                        </div>
+
+                        <div class="detail">
+                            <span class="detail-label">Target</span>
+                            <span id="target" class="detail-value">—</span>
+                        </div>
+
+                        <div class="detail">
+                            <span class="detail-label">Batter A</span>
+                            <span id="batter-a" class="detail-value">0</span>
+                        </div>
+
+                        <div class="detail">
+                            <span class="detail-label">Batter B</span>
+                            <span id="batter-b" class="detail-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mode-strip">
+                    Scoring mode:
+                    <strong id="mode">Loading…</strong>
+                </div>
+            </article>
+
+            <article class="card">
+                <div class="card-header">
+                    <h2>System Status</h2>
+                    <span id="last-update" class="status-value">Checking…</span>
+                </div>
+
+                <div class="status-list">
+                    <div class="status-row">
+                        <span id="arduino-dot" class="status-dot"></span>
+                        <span class="status-name">Arduino</span>
+                        <span id="arduino-status" class="status-value">
+                            Checking
+                        </span>
+                    </div>
+
+                    <div class="status-row">
+                        <span id="bluetooth-dot" class="status-dot"></span>
+                        <span class="status-name">Bluetooth</span>
+                        <span id="bluetooth-status" class="status-value">
+                            Checking
+                        </span>
+                    </div>
+
+                    <div class="status-row">
+                        <span id="playcricket-dot" class="status-dot"></span>
+                        <span class="status-name">Play-Cricket</span>
+                        <span id="playcricket-status" class="status-value">
+                            Checking
+                        </span>
+                    </div>
+
+                    <div class="status-row">
+                        <span id="web-dot" class="status-dot online"></span>
+                        <span class="status-name">Web Server</span>
+                        <span id="web-status" class="status-value">
+                            Running
+                        </span>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="card actions-card">
+            <div class="card-header">
+                <h2>Quick Actions</h2>
+            </div>
+
+            <div class="actions">
+                <a class="action" href="/control">
+                    <span class="action-icon">🎮</span>
+                    <span class="action-title">Manual Control</span>
+                    <span class="action-subtitle">Update the score</span>
+                </a>
+
+                <a class="action" href="/display-test">
+                    <span class="action-icon">📺</span>
+                    <span class="action-title">Display Test</span>
+                    <span class="action-subtitle">Test every panel</span>
+                </a>
+
+                <a class="action" href="/diagnostics">
+                    <span class="action-icon">📊</span>
+                    <span class="action-title">Diagnostics</span>
+                    <span class="action-subtitle">Connections and logs</span>
+                </a>
+
+                <a class="action" href="/">
+                    <span class="action-icon">🏏</span>
+                    <span class="action-title">SCOREOS Home</span>
+                    <span class="action-subtitle">Main interface</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="card system-card">
+            <div class="card-header">
+                <h2>System</h2>
+            </div>
+
+            <div class="system-grid">
+                <div class="system-stat">
+                    <span>CPU Temperature</span>
+                    <strong id="cpu-temp">—</strong>
+                </div>
+
+                <div class="system-stat">
+                    <span>Memory</span>
+                    <strong id="memory">—</strong>
+                </div>
+
+                <div class="system-stat">
+                    <span>Disk</span>
+                    <strong id="disk">—</strong>
+                </div>
+
+                <div class="system-stat">
+                    <span>Uptime</span>
+                    <strong id="uptime">—</strong>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            SCOREOS v1.0 Release Candidate · Sutton Cricket Club
+        </footer>
+    </main>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        function firstValue(object, keys, fallback = null) {
+            if (!object || typeof object !== "object") {
+                return fallback;
+            }
+
+            for (const key of keys) {
+                if (
+                    Object.prototype.hasOwnProperty.call(object, key) &&
+                    object[key] !== null &&
+                    object[key] !== undefined &&
+                    object[key] !== ""
+                ) {
+                    return object[key];
+                }
+            }
+
+            return fallback;
+        }
+
+        function booleanValue(object, keys, fallback = false) {
+            const value = firstValue(object, keys, null);
+
+            if (value === null) {
+                return fallback;
+            }
+
+            if (typeof value === "boolean") {
+                return value;
+            }
+
+            if (typeof value === "number") {
+                return value !== 0;
+            }
+
+            return [
+                "true",
+                "yes",
+                "connected",
+                "online",
+                "active",
+                "ready",
+                "running"
+            ].includes(String(value).toLowerCase());
+        }
+
+        function setStatus(prefix, online, onlineText, offlineText) {
+            const dot = $(`${prefix}-dot`);
+            const value = $(`${prefix}-status`);
+
+            dot.classList.remove("online", "offline");
+            dot.classList.add(online ? "online" : "offline");
+
+            value.textContent = online ? onlineText : offlineText;
+        }
+
+        function formatPercent(value) {
+            if (value === null || value === undefined || value === "") {
+                return "—";
+            }
+
+            const text = String(value);
+
+            return text.includes("%") ? text : `${text}%`;
+        }
+
+        function formatTemperature(value) {
+            if (value === null || value === undefined || value === "") {
+                return "—";
+            }
+
+            const text = String(value);
+
+            return text.includes("°") ? text : `${text}°C`;
+        }
+
+        function cleanScoreValue(value, fallback = "0") {
+            if (value === null || value === undefined || value === "") {
+                return fallback;
+            }
+
+            const text = String(value);
+
+            if (/^-+$/.test(text)) {
+                return "—";
+            }
+
+            return text.replace(/^-+/, "");
+        }
+
+        function updateScore(payload) {
+            const state = payload.match || payload.state || payload;
+
+            $("runs").textContent = cleanScoreValue(
+                firstValue(state, ["total"], "0")
+            );
+
+            $("wickets").textContent = cleanScoreValue(
+                firstValue(state, ["wickets"], "0")
+            );
+
+            $("overs").textContent = cleanScoreValue(
+                firstValue(state, ["overs"], "0")
+            );
+
+            $("target").textContent = cleanScoreValue(
+                firstValue(state, ["target"], "---"),
+                "—"
+            );
+
+            $("batter-a").textContent = cleanScoreValue(
+                firstValue(state, ["BatAscore"], "0")
+            );
+
+            $("batter-b").textContent = cleanScoreValue(
+                firstValue(state, ["BatBscore"], "0")
+            );
+
+            const mode = firstValue(state, ["mode"], "Unknown");
+
+            $("mode").textContent =
+                String(mode).toLowerCase() === "playcricket"
+                    ? "Play-Cricket"
+                    : String(mode)
+                        .replaceAll("_", " ")
+                        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+            $("last-update").textContent =
+                new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit"
+                });
+        }
+
+        function updateSystem(payload) {
+            const arduinoConnected =
+                payload.arduino &&
+                payload.arduino.connected === true;
+
+            const bluetoothReady =
+                payload.bluetooth &&
+                payload.bluetooth.service === "active" &&
+                payload.bluetooth.powered === true &&
+                payload.bluetooth.advertising === true;
+
+            const playCricketActive =
+                payload.match &&
+                String(payload.match.mode).toLowerCase() === "playcricket" &&
+                Number(payload.last_update_age) < 30;
+
+            setStatus(
+                "arduino",
+                arduinoConnected,
+                "Connected",
+                "Not connected"
+            );
+
+            setStatus(
+                "bluetooth",
+                bluetoothReady,
+                "Ready",
+                "Not ready"
+            );
+
+            setStatus(
+                "playcricket",
+                playCricketActive,
+                "Receiving data",
+                "Waiting"
+            );
+
+            $("cpu-temp").textContent = formatTemperature(
+                payload.temperature_c
+            );
+
+            $("memory").textContent = formatPercent(
+                payload.memory
+                    ? payload.memory.used_percent
+                    : null
+            );
+
+            if (
+                payload.disk &&
+                payload.disk.total_gb &&
+                payload.disk.free_gb !== undefined
+            ) {
+                const used =
+                    100 -
+                    (
+                        Number(payload.disk.free_gb) /
+                        Number(payload.disk.total_gb) *
+                        100
+                    );
+
+                $("disk").textContent =
+                    `${Math.round(used)}%`;
+            } else {
+                $("disk").textContent = "—";
+            }
+
+            $("uptime").textContent =
+                payload.uptime || "—";
+        }
+
+        function showMessage(message) {
+            const box = $("message");
+            box.textContent = message;
+            box.classList.add("visible");
+        }
+
+        function hideMessage() {
+            $("message").classList.remove("visible");
+        }
+
+        async function getJson(url) {
+            const response = await fetch(url, {
+                cache: "no-store"
+            });
+
+            if (!response.ok) {
+                throw new Error(
+                    `${url} returned HTTP ${response.status}`
+                );
+            }
+
+            return response.json();
+        }
+
+        async function refreshDashboard() {
+            const results = await Promise.allSettled([
+                getJson("/api/state"),
+                getJson("/api/system")
+            ]);
+
+            let successful = false;
+
+            if (results[0].status === "fulfilled") {
+                updateScore(results[0].value);
+                successful = true;
+            }
+
+            if (results[1].status === "fulfilled") {
+                updateSystem(results[1].value);
+                successful = true;
+            }
+
+            if (successful) {
+                hideMessage();
+                $("web-dot").classList.add("online");
+                $("web-status").textContent = "Running";
+            } else {
+                showMessage(
+                    "SCOREOS could not retrieve the latest system state."
+                );
+
+                setStatus(
+                    "web",
+                    false,
+                    "Running",
+                    "API unavailable"
+                );
+            }
+        }
+
+        refreshDashboard();
+        setInterval(refreshDashboard, 1500);
+    </script>
+</body>
+</html>

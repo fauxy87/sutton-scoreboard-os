@@ -1,15 +1,10 @@
 __pycache__/
 *.pyc
-*.pyo
-*.before-*
-*.backup
 *.log
-logs/
 
-# Local development backups
-*.before-*
-*.working
+*.backup*
+*.bak
+*backup-*
 
-# Temporary BLE experiments
-bluetooth/ble_test.py
-bluetooth/gatt_test.py
+.vscode/
+.idea/
