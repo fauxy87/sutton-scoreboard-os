@@ -44,12 +44,36 @@ def parse_batter2_balls(state, incoming):
     state.update("bat_b_balls", incoming)
 
 
+def parse_batter1_striker(state, incoming):
+    state.update("bat_a_striker", incoming)
+
+
+def parse_batter2_striker(state, incoming):
+    state.update("bat_b_striker", incoming)
+
+
 def parse_batting_team(state, incoming):
     state.update("batting_team", incoming)
 
 
 def parse_fielding_team(state, incoming):
     state.update("fielding_team", incoming)
+
+
+def parse_bowler1_name(state, incoming):
+    state.update("bowler_a_name", incoming)
+
+
+def parse_bowler1_figures(state, incoming):
+    state.update("bowler_a_figures", incoming)
+
+
+def parse_bowler2_name(state, incoming):
+    state.update("bowler_b_name", incoming)
+
+
+def parse_bowler2_figures(state, incoming):
+    state.update("bowler_b_figures", incoming)
 
 
 def parse_current_over(state, incoming):
@@ -77,11 +101,13 @@ PACKET_HANDLERS = {
     "B1N": parse_batter1_name,
     "B1S": parse_batter1_score,
     "B1B": parse_batter1_balls,
+    "B1K": parse_batter1_striker,
     "B1D": ignore_packet,
 
     "B2N": parse_batter2_name,
     "B2S": parse_batter2_score,
     "B2B": parse_batter2_balls,
+    "B2K": parse_batter2_striker,
     "B2D": ignore_packet,
 
     "BTN": parse_batting_team,
@@ -93,10 +119,10 @@ PACKET_HANDLERS = {
 
     "BTR": ignore_packet,
     "BTW": ignore_packet,
-    "F1N": ignore_packet,
-    "F1S": ignore_packet,
-    "F2N": ignore_packet,
-    "F2S": ignore_packet,
+    "F1N": parse_bowler1_name,
+    "F1S": parse_bowler1_figures,
+    "F2N": parse_bowler2_name,
+    "F2S": parse_bowler2_figures,
     "RRQ": ignore_packet,
     "RRR": ignore_packet,
     "OVR": ignore_packet,

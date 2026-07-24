@@ -17,8 +17,16 @@ class MatchState:
         self.bat_b_runs = "--0"
         self.bat_b_balls = "-"
 
+        self.bat_a_striker = "0"
+        self.bat_b_striker = "0"
+
         self.batting_team = "-"
         self.fielding_team = "-"
+
+        self.bowler_a_name = "-"
+        self.bowler_a_figures = "-"
+        self.bowler_b_name = "-"
+        self.bowler_b_figures = "-"
 
         self.current_over = "-"
         self.partnership = "0"
@@ -48,8 +56,14 @@ class MatchState:
             "Bat2Name": self.bat_b_name,
             "BatBscore": self.bat_b_runs,
             "BatBBallsFaced": self.bat_b_balls,
+            "BatAStriker": self.bat_a_striker,
+            "BatBStriker": self.bat_b_striker,
             "BatTeamName": self.batting_team,
             "FieldTeamName": self.fielding_team,
+            "Bowler1Name": self.bowler_a_name,
+            "Bowler1Figures": self.bowler_a_figures,
+            "Bowler2Name": self.bowler_b_name,
+            "Bowler2Figures": self.bowler_b_figures,
             "CurrentOver": self.current_over,
             "PshipTOT": self.partnership,
             "LastWicket": self.last_wicket,

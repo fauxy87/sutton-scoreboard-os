@@ -486,6 +486,11 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.send_html(SPECTATOR_HTML)
             return
 
+        if path in ("/tv", "/tv/"):
+            tv_path = Path(__file__).with_name("tv.html")
+            self.send_html(tv_path.read_text(encoding="utf-8"))
+            return
+
         if path in ("/control", "/control/"):
             control_path = Path(__file__).with_name("control.html")
             self.send_html(control_path.read_text(encoding="utf-8"))
