@@ -612,6 +612,104 @@
             }
         }
 
+
+        .event-log-card {
+            margin-top: 18px;
+        }
+
+        .event-log-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .event-log-clear {
+            padding: 7px 11px;
+            border: 0;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.16);
+            color: inherit;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .event-log-clear:hover {
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        .event-log {
+            max-height: 340px;
+            overflow-y: auto;
+            padding: 4px 18px 12px;
+        }
+
+        .event-empty {
+            padding: 22px 0;
+            color: var(--muted);
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .event-row {
+            display: grid;
+            grid-template-columns: 82px 14px 1fr;
+            align-items: start;
+            gap: 10px;
+            padding: 11px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .event-row:last-child {
+            border-bottom: 0;
+        }
+
+        .event-time {
+            color: var(--muted);
+            font-family: monospace;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .event-indicator {
+            width: 10px;
+            height: 10px;
+            margin-top: 3px;
+            border-radius: 50%;
+            background: #728078;
+        }
+
+        .event-indicator.success {
+            background: #22964f;
+        }
+
+        .event-indicator.warning {
+            background: #e08b13;
+        }
+
+        .event-indicator.error {
+            background: #c83c3c;
+        }
+
+        .event-indicator.score {
+            background: var(--green);
+        }
+
+        .event-text {
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+
+        @media (max-width: 620px) {
+            .event-row {
+                grid-template-columns: 68px 12px 1fr;
+                gap: 8px;
+            }
+        }
+
     </style>
 </head>
 
@@ -880,6 +978,31 @@
         </section>
 
 
+
+        <section class="card event-log-card">
+            <div class="card-header">
+                <h2>Live Event Log</h2>
+
+                <div class="event-log-header-actions">
+                    <span id="event-count" class="status-value">0 events</span>
+
+                    <button
+                        id="clear-event-log"
+                        class="event-log-clear"
+                        type="button"
+                    >
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            <div id="event-log" class="event-log">
+                <div id="event-empty" class="event-empty">
+                    Waiting for SCOREOS activity…
+                </div>
+            </div>
+        </section>
+
         <section class="card system-card">
             <div class="card-header">
                 <h2>System</h2>
@@ -915,6 +1038,228 @@
 
     <script>
         const $ = (id) => document.getElementById(id);
+
+
+        const eventLogState = {
+            events: [],
+            systemInitialised: false,
+            scoreInitialised: false,
+            connections: {
+                bluetooth: null,
+                arduino: null,
+                playCricket: null,
+                advertising: null
+            },
+            score: null
+        };
+
+        function eventTime() {
+            return new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+            });
+        }
+
+        function addEvent(message, type = "info") {
+            if (!message) {
+                return;
+            }
+
+            eventLogState.events.unshift({
+                time: eventTime(),
+                message,
+                type
+            });
+
+            eventLogState.events =
+                eventLogState.events.slice(0, 50);
+
+            renderEventLog();
+        }
+
+        function renderEventLog() {
+            const log = $("event-log");
+            const count = $("event-count");
+
+            if (!log || !count) {
+                return;
+            }
+
+            count.textContent =
+                `${eventLogState.events.length} ` +
+                `${eventLogState.events.length === 1 ? "event" : "events"}`;
+
+            if (eventLogState.events.length === 0) {
+                log.innerHTML = `
+                    <div class="event-empty">
+                        Waiting for SCOREOS activity…
+                    </div>
+                `;
+                return;
+            }
+
+            log.innerHTML = "";
+
+            for (const event of eventLogState.events) {
+                const row = document.createElement("div");
+                row.className = "event-row";
+
+                const time = document.createElement("span");
+                time.className = "event-time";
+                time.textContent = event.time;
+
+                const indicator = document.createElement("span");
+                indicator.className =
+                    `event-indicator ${event.type || "info"}`;
+
+                const message = document.createElement("span");
+                message.className = "event-text";
+                message.textContent = event.message;
+
+                row.append(time, indicator, message);
+                log.appendChild(row);
+            }
+        }
+
+        function recordConnectionChange(
+            key,
+            connected,
+            connectedMessage,
+            disconnectedMessage
+        ) {
+            const previous = eventLogState.connections[key];
+
+            if (previous === connected) {
+                return;
+            }
+
+            eventLogState.connections[key] = connected;
+
+            if (!eventLogState.systemInitialised) {
+                return;
+            }
+
+            addEvent(
+                connected ? connectedMessage : disconnectedMessage,
+                connected ? "success" : "error"
+            );
+        }
+
+        function recordSystemEvents(payload) {
+            const services = payload.services || {};
+            const bluetooth = payload.bluetooth || {};
+            const arduino = payload.arduino || {};
+            const match = payload.match || {};
+
+            const advertisingReady =
+                services.advertisement === "active" &&
+                bluetooth.powered === true &&
+                bluetooth.advertising === true;
+
+            const bluetoothConnected =
+                bluetooth.connected === true;
+
+            const arduinoConnected =
+                arduino.connected === true;
+
+            const playCricketConnected =
+                String(match.mode || "").toLowerCase() === "playcricket" &&
+                payload.last_update_age !== null &&
+                payload.last_update_age !== undefined &&
+                Number(payload.last_update_age) < 30;
+
+            recordConnectionChange(
+                "advertising",
+                advertisingReady,
+                "Bluetooth advertising started",
+                "Bluetooth advertising stopped"
+            );
+
+            recordConnectionChange(
+                "bluetooth",
+                bluetoothConnected,
+                "Play-Cricket device connected by Bluetooth",
+                "Bluetooth device disconnected"
+            );
+
+            recordConnectionChange(
+                "arduino",
+                arduinoConnected,
+                "Arduino scoreboard connected",
+                "Arduino scoreboard disconnected"
+            );
+
+            recordConnectionChange(
+                "playCricket",
+                playCricketConnected,
+                "Play-Cricket score data is being received",
+                "Play-Cricket score data has stopped"
+            );
+
+            if (!eventLogState.systemInitialised) {
+                eventLogState.systemInitialised = true;
+
+                const readyCount = [
+                    advertisingReady,
+                    bluetoothConnected,
+                    arduinoConnected,
+                    playCricketConnected
+                ].filter(Boolean).length;
+
+                addEvent(
+                    `Ground Control started — ${readyCount}/4 match systems ready`,
+                    readyCount === 4 ? "success" : "warning"
+                );
+            }
+        }
+
+        function recordScoreEvent(state) {
+            const total = cleanScoreValue(
+                firstValue(state, ["total"], "0")
+            );
+
+            const wickets = cleanScoreValue(
+                firstValue(state, ["wickets"], "0")
+            );
+
+            const overs = cleanScoreValue(
+                firstValue(state, ["overs"], "0")
+            );
+
+            const currentScore = `${total}/${wickets} (${overs})`;
+
+            if (!eventLogState.scoreInitialised) {
+                eventLogState.scoreInitialised = true;
+                eventLogState.score = currentScore;
+
+                addEvent(
+                    `Current score ${currentScore}`,
+                    "score"
+                );
+
+                return;
+            }
+
+            if (eventLogState.score === currentScore) {
+                return;
+            }
+
+            const previous = eventLogState.score;
+            eventLogState.score = currentScore;
+
+            addEvent(
+                `Score changed: ${previous} → ${currentScore}`,
+                "score"
+            );
+        }
+
+        function clearEventLog() {
+            eventLogState.events = [];
+            renderEventLog();
+        }
+
+
 
         function firstValue(object, keys, fallback = null) {
             if (!object || typeof object !== "object") {
@@ -1007,6 +1352,8 @@
 
         function updateScore(payload) {
             const state = payload.match || payload.state || payload;
+
+            recordScoreEvent(state);
 
             $("runs").textContent = cleanScoreValue(
                 firstValue(state, ["total"], "0")
@@ -1197,6 +1544,7 @@
         }
 
         function updateSystem(payload) {
+            recordSystemEvents(payload);
             updateReadiness(payload);
             const arduinoConnected =
                 payload.arduino &&
@@ -1282,6 +1630,20 @@
         function hideMessage() {
             $("message").classList.remove("visible");
         }
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const clearButton = $("clear-event-log");
+
+            if (clearButton) {
+                clearButton.addEventListener(
+                    "click",
+                    clearEventLog
+                );
+            }
+
+            renderEventLog();
+        });
 
         async function getJson(url) {
             const response = await fetch(url, {
