@@ -541,6 +541,77 @@
                 padding: 12px;
             }
         }
+
+        .readiness-banner {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+            padding: 18px 20px;
+            border: 1px solid rgba(32, 150, 83, 0.30);
+            border-radius: 18px;
+            background: #eaf7ef;
+            box-shadow: var(--shadow);
+        }
+
+        .readiness-banner.warning {
+            border-color: rgba(217, 139, 22, 0.35);
+            background: #fff6e6;
+        }
+
+        .readiness-banner.error {
+            border-color: rgba(196, 60, 60, 0.35);
+            background: #fdecec;
+        }
+
+        .readiness-icon {
+            font-size: 34px;
+            line-height: 1;
+        }
+
+        .readiness-title {
+            margin: 0;
+            color: var(--green-dark);
+            font-size: clamp(20px, 4vw, 28px);
+            font-weight: 900;
+            letter-spacing: 0.04em;
+        }
+
+        .readiness-banner.warning .readiness-title {
+            color: #8a5300;
+        }
+
+        .readiness-banner.error .readiness-title {
+            color: #8d2020;
+        }
+
+        .readiness-detail {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .readiness-score {
+            min-width: 72px;
+            color: var(--green-dark);
+            font-size: 28px;
+            font-weight: 900;
+            text-align: right;
+        }
+
+        @media (max-width: 620px) {
+            .readiness-banner {
+                grid-template-columns: auto 1fr;
+            }
+
+            .readiness-score {
+                grid-column: 1 / -1;
+                text-align: center;
+            }
+        }
+
     </style>
 </head>
 
@@ -571,6 +642,23 @@
 
     <main>
         <div id="message" class="message"></div>
+
+
+        <section id="readiness-banner" class="readiness-banner">
+            <div id="readiness-icon" class="readiness-icon">⏳</div>
+
+            <div>
+                <h2 id="readiness-title" class="readiness-title">
+                    Checking SCOREOS
+                </h2>
+
+                <div id="readiness-detail" class="readiness-detail">
+                    Reading system status…
+                </div>
+            </div>
+
+            <div id="readiness-score" class="readiness-score">—</div>
+        </section>
 
         <section class="grid">
             <article class="card">
@@ -1041,7 +1129,75 @@
                 Number(bluetooth.reconnects || 0).toLocaleString();
         }
 
+
+        function updateReadiness(payload) {
+            const banner = $("readiness-banner");
+            const icon = $("readiness-icon");
+            const title = $("readiness-title");
+            const detail = $("readiness-detail");
+            const score = $("readiness-score");
+
+            const services = payload.services || {};
+            const bluetooth = payload.bluetooth || {};
+            const arduino = payload.arduino || {};
+            const match = payload.match || {};
+
+            const engineReady = services.scoreboard === "active";
+            const webReady = services.web === "active";
+            const advertisingReady =
+                services.advertisement === "active" &&
+                bluetooth.powered === true &&
+                bluetooth.advertising === true;
+
+            const bluetoothConnected = bluetooth.connected === true;
+            const arduinoConnected = arduino.connected === true;
+
+            const playCricketActive =
+                String(match.mode || "").toLowerCase() === "playcricket" &&
+                payload.last_update_age !== null &&
+                payload.last_update_age !== undefined &&
+                Number(payload.last_update_age) < 30;
+
+            const checks = [
+                ["Scoreboard service", engineReady],
+                ["Web service", webReady],
+                ["Bluetooth advertising", advertisingReady],
+                ["Arduino", arduinoConnected],
+                ["Play-Cricket", playCricketActive]
+            ];
+
+            const passed = checks.filter(([, ready]) => ready).length;
+            const percentage = Math.round((passed / checks.length) * 100);
+            const missing = checks
+                .filter(([, ready]) => !ready)
+                .map(([name]) => name);
+
+            banner.classList.remove("warning", "error");
+            score.textContent = `${percentage}%`;
+
+            if (passed === checks.length) {
+                icon.textContent = "✅";
+                title.textContent = "MATCH READY";
+                detail.textContent = "Everything is connected and receiving data";
+                return;
+            }
+
+            if (!engineReady || !webReady || !advertisingReady) {
+                banner.classList.add("error");
+                icon.textContent = "🔴";
+                title.textContent = "NOT READY";
+                detail.textContent = missing.join(" · ");
+                return;
+            }
+
+            banner.classList.add("warning");
+            icon.textContent = "⚠️";
+            title.textContent = "ATTENTION";
+            detail.textContent = missing.join(" · ");
+        }
+
         function updateSystem(payload) {
+            updateReadiness(payload);
             const arduinoConnected =
                 payload.arduino &&
                 payload.arduino.connected === true;
