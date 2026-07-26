@@ -143,6 +143,8 @@ class Application(dbus.service.Object):
 
 
 def find_adapter(bus):
+    preferred_address = "18:69:45:F3:58:B9"
+
     manager = dbus.Interface(
         bus.get_object(BLUEZ_SERVICE, "/"),
         DBUS_OBJECT_MANAGER,
@@ -151,8 +153,13 @@ def find_adapter(bus):
     objects = manager.GetManagedObjects()
 
     for path, interfaces in objects.items():
+        adapter_properties = interfaces.get("org.bluez.Adapter1")
+
         if (
-            GATT_MANAGER in interfaces
+            adapter_properties
+            and GATT_MANAGER in interfaces
+            and str(adapter_properties.get("Address", "")).upper()
+                == preferred_address
         ):
             return path
 

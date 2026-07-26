@@ -1833,10 +1833,7 @@ setInterval(()=>clock.textContent=new Date().toLocaleTimeString(),1000);
 """
 
 if __name__ == "__main__":
-    startup_manager.set_stage(
-        "services",
-        "✓ SCOREOS web server started"
-    )
+    startup_manager.add_log("✓ SCOREOS web server started")
 
     print(f"SCOREOS web server listening on port {PORT}")
     ThreadingHTTPServer((HOST, PORT), ScoreboardHandler).serve_forever()

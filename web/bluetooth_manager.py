@@ -201,8 +201,6 @@ def _pairing_worker(seconds):
 
         commands = [
             "power on",
-            "agent NoInputNoOutput",
-            "default-agent",
             "pairable on",
             "discoverable on",
         ]

@@ -3,27 +3,35 @@
 set timeout 15
 set uuid "5a0d6a15-b664-4304-8530-3a0ec53e5bc1"
 
-spawn /usr/bin/btmgmt
+set adapter [lindex $argv 0]
 
-expect -re {\[mgmt\].*>}
+if {$adapter eq ""} {
+    puts "No Bluetooth adapter was supplied"
+    exit 1
+}
+
+puts "Using Bluetooth adapter: $adapter"
+spawn /usr/bin/btmgmt -i $adapter
+
+expect -re {\[[^]]+\]>}
 
 send "power on\r"
-expect -re {\[mgmt\].*>}
+expect -re {\[[^]]+\]>}
 
 send "le on\r"
-expect -re {\[mgmt\].*>}
+expect -re {\[[^]]+\]>}
 
 send "name SCOREOS\r"
-expect -re {\[mgmt\].*>}
+expect -re {\[[^]]+\]>}
 
 send "connectable on\r"
-expect -re {\[mgmt\].*>}
+expect -re {\[[^]]+\]>}
 
 send "advertising off\r"
-expect -re {\[mgmt\].*>}
+expect -re {\[[^]]+\]>}
 
 send "clr-adv\r"
-expect -re {\[mgmt\].*>}
+expect -re {\[[^]]+\]>}
 
 send "add-adv -c -g -n -u $uuid 1\r"
 
@@ -35,7 +43,10 @@ expect {
     }
 }
 
-expect -re {\[mgmt\].*>}
+expect -re {\[[^]]+\]>}
+
+send "advertising on\r"
+expect -re {\[[^]]+\]>}
 
 send "advinfo\r"
 
@@ -47,7 +58,7 @@ expect {
     }
 }
 
-expect -re {\[mgmt\].*>}
+expect -re {\[[^]]+\]>}
 
 send "quit\r"
 expect eof

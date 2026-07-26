@@ -1,29 +1,20 @@
 #!/bin/bash
-set -e
 
-UUID="5a0d6a15-b664-4304-8530-3a0ec53e5bc1"
-NAME="SCOREOS"
+PREFERRED_MAC="18:69:45:F3:58:B9"
 
-echo "Starting Bluetooth advertisement..."
+for adapter in /sys/class/bluetooth/hci*; do
+    [ -d "$adapter" ] || continue
 
-btmgmt --index 0 name "$NAME"
-btmgmt --index 0 connectable on
+    hci=$(basename "$adapter")
 
-# Remove any previous advertisement
-btmgmt --index 0 rm-adv 1 >/dev/null 2>&1 || true
+    mac=$(hciconfig "$hci" 2>/dev/null | awk '/BD Address/ {print $3}')
 
-# Create advertisement
-btmgmt --index 0 add-adv \
-    -c \
-    -g \
-    -n \
-    -u "$UUID" \
-    1
-
-echo "Bluetooth advertisement started"
-
-# Keep the service alive
-while true
-do
-    sleep 3600
+    if [ "$mac" = "$PREFERRED_MAC" ]; then
+        exec /usr/bin/expect \
+            /home/pi/sutton-scoreboard-os/scripts/start-advertisement.exp \
+            "$hci"
+    fi
 done
+
+echo "Preferred adapter not found"
+exit 1
