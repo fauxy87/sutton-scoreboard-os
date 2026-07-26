@@ -83,27 +83,36 @@ def adapter_info():
 
 
 def paired_devices():
-    output, _ = bluetoothctl(["devices", "Paired"])
+    devices_seen = {}
+
+    for command in (["devices", "Paired"], ["devices", "Connected"]):
+        output, _ = bluetoothctl(command)
+
+        for raw_line in output.splitlines():
+            match = re.match(
+                r"^Device\s+([0-9A-Fa-f:]{17})\s+(.+)$",
+                raw_line.strip(),
+            )
+
+            if not match:
+                continue
+
+            address = match.group(1).upper()
+            name = match.group(2).strip()
+
+            devices_seen[address] = name
 
     devices = []
 
-    for raw_line in output.splitlines():
-        match = re.match(
-            r"^Device\s+([0-9A-Fa-f:]{17})\s+(.+)$",
-            raw_line.strip(),
-        )
-
-        if not match:
-            continue
-
-        address = match.group(1).upper()
-        name = match.group(2).strip()
-
+    for address, name in devices_seen.items():
         details, _ = bluetoothctl(["info", address])
 
         connected = "Connected: yes" in details
         trusted = "Trusted: yes" in details
-        bonded = "Bonded: yes" in details or "Paired: yes" in details
+        bonded = (
+            "Bonded: yes" in details
+            or "Paired: yes" in details
+        )
 
         devices.append(
             {
@@ -116,7 +125,6 @@ def paired_devices():
         )
 
     return devices
-
 
 def advertising_active():
     output, code = run_command(

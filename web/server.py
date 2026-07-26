@@ -296,6 +296,35 @@ def bluetooth_status():
     # retain the advertising-service result as a fallback.
     if not advert_info:
         advertising = advert_service == "active"
+    connected_device = {
+        "name": None,
+        "alias": None,
+        "mac": None,
+    }
+
+    connected_output = run_command([
+        "/usr/bin/bluetoothctl",
+        "info",
+    ])
+
+    for line in connected_output.splitlines():
+        stripped = line.strip()
+
+        if stripped.startswith("Device "):
+            parts = stripped.split()
+
+            if len(parts) >= 2:
+                connected_device["mac"] = parts[1]
+
+        elif stripped.startswith("Name:"):
+            connected_device["name"] = (
+                stripped.split(":", 1)[1].strip()
+            )
+
+        elif stripped.startswith("Alias:"):
+            connected_device["alias"] = (
+                stripped.split(":", 1)[1].strip()
+            )
 
     diagnostics = read_diagnostics().get(
         "bluetooth",
@@ -314,9 +343,18 @@ def bluetooth_status():
         "last_packet_iso": diagnostics.get("last_packet_iso"),
         "packet_count": diagnostics.get("packet_count", 0),
         "reconnects": diagnostics.get("reconnects", 0),
-        "device_name": diagnostics.get("device_name"),
-        "device_alias": diagnostics.get("device_alias"),
-        "device_mac": diagnostics.get("device_mac"),
+                "device_name": (
+            diagnostics.get("device_name")
+            or connected_device["name"]
+        ),
+        "device_alias": (
+            diagnostics.get("device_alias")
+            or connected_device["alias"]
+        ),
+        "device_mac": (
+            diagnostics.get("device_mac")
+            or connected_device["mac"]
+        ),
         "device_icon": diagnostics.get("device_icon"),
         "battery": diagnostics.get("battery"),
         "rssi": diagnostics.get("rssi"),
