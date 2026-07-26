@@ -184,6 +184,7 @@ class ScoreboardEngine:
         message = self.arduino_message()
         self.arduino.send(message)
         self.write_state_json()
+   
         self.state.changed = False
         self.timer = None
 

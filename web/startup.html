@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+    <title>SCOREOS Ground Control</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            overflow-y: auto;
+            background:
+                radial-gradient(
+                    circle at top,
+                    #183c2b 0%,
+                    #09140f 48%,
+                    #030705 100%
+                );
+            color: #ffffff;
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+        }
+
+        .startup-panel {
+            width: min(900px, 90vw);
+            text-align: center;
+        }
+
+        .logo-mark {
+            font-size: clamp(48px, 7vw, 88px);
+            margin-bottom: 10px;
+        }
+
+        .product-name {
+            margin: 0;
+            font-size: clamp(52px, 9vw, 110px);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+        }
+
+        .subtitle {
+            margin: 14px 0 55px;
+            color: #b8c9c0;
+            font-size: clamp(18px, 2.5vw, 32px);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .stage-title {
+            min-height: 52px;
+            margin-bottom: 24px;
+            font-size: clamp(24px, 3.5vw, 42px);
+            font-weight: 600;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 28px;
+            overflow: hidden;
+            border: 2px solid #5c7468;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow:
+                inset 0 0 12px rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(65, 210, 125, 0.12);
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            border-radius: inherit;
+            background:
+                linear-gradient(
+                    90deg,
+                    #1fa65a,
+                    #58e890
+                );
+            transition: width 0.6s ease;
+        }
+
+        .progress-value {
+            margin-top: 16px;
+            color: #9fb2a8;
+            font-size: 22px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-top: 44px;
+            color: #d5dfda;
+            font-size: clamp(18px, 2vw, 26px);
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #58e890;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+
+        .footer {
+            position: fixed;
+            right: 28px;
+            bottom: 22px;
+            left: 28px;
+            display: flex;
+            justify-content: space-between;
+            color: #708078;
+            font-size: 15px;
+        }
+
+        .connection-error {
+            color: #ffba57;
+        }
+        
+       .startup-log {
+    margin-top: 24px;
+    padding: 16px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.18);
+    text-align: left;
+    font-size: 0.95rem;
+    line-height: 1.8;
+}
+
+.startup-log div {
+    opacity: 0.75;
+}
+
+.startup-log .active {
+    opacity: 1;
+    font-weight: 700;
+}
+
+.startup-log .complete {
+    opacity: 1;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+    </style>
+</head>
+
+<body>
+    <main class="startup-panel">
+        <div class="logo-mark">🏏</div>
+
+        <h1 class="product-name">SCOREOS</h1>
+
+        <div class="subtitle">
+            Ground Control Startup
+        </div>
+
+        <div
+            id="stage-title"
+            class="stage-title"
+        >
+            Initialising SCOREOS
+        </div>
+
+        <div
+            class="progress-track"
+            role="progressbar"
+            aria-label="Startup progress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+        >
+            <div
+                id="progress-fill"
+                class="progress-fill"
+            ></div>
+        </div>
+
+        <div
+            id="progress-value"
+            class="progress-value"
+        >
+            0%
+        </div>
+
+        <div
+            id="status-row"
+            class="status-row"
+        >
+            <div class="spinner"></div>
+            <span id="status-text">
+                Connecting to Ground Control...
+            </span>
+        </div>
+
+       <div id="startup-log" class="startup-log">
+     <div>• Waiting for startup...</div> 
+    </div>
+
+    </main>
+
+    <footer class="footer">
+        <span>Sutton Cricket Club</span>
+        <span>SCOREOS Ground Control</span>
+    </footer>
+
+    <script>
+        const stageTitle = document.getElementById(
+            "stage-title"
+        );
+        const progressFill = document.getElementById(
+            "progress-fill"
+        );
+        const progressValue = document.getElementById(
+            "progress-value"
+        );
+        const statusRow = document.getElementById(
+            "status-row"
+        );
+        const statusText = document.getElementById(
+            "status-text"
+        );
+        const startupLog = document.getElementById(
+             "startup-log"
+        );
+        async function updateStartupStatus() {
+            try {
+                const response = await fetch(
+                    "/api/startup",
+                    {
+                        cache: "no-store"
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `HTTP ${response.status}`
+                    );
+                }
+
+                const startup = await response.json();
+                const stages = [
+                  { id: "boot", title: "Starting SCOREOS", progress: 10 },
+                  { id: "services", title: "Loading services", progress: 25 },
+                  { id: "arduino", title: "Checking Arduino", progress: 40 },
+                  { id: "display", title: "Testing scoreboard", progress: 60 },
+                  { id: "bluetooth", title: "Starting Bluetooth", progress: 80 },
+                  { id: "ready", title: "Match Ready", progress: 100 }
+               ];
+
+               startupLog.innerHTML = stages.map((stage) => {
+                   if (stage.progress < startup.stage.progress) {
+                      return `<div class="complete">✓ ${stage.title}</div>`;
+                   }
+
+                   if (stage.id === startup.stage.id) {
+                   return `<div class="active">⟳ ${stage.title}</div>`;
+                   } 
+
+                    return `<div>• ${stage.title}</div>`;
+                }).join("");
+
+                const progress = Math.max(
+                    0,
+                    Math.min(
+                        100,
+                        Number(startup.stage?.progress) || 0
+                    )
+                );
+
+                stageTitle.textContent =
+                    startup.title || "Starting SCOREOS";
+
+                progressFill.style.width =
+                    `${progress}%`;
+
+                progressValue.textContent =
+                    `${progress}%`;
+
+                statusRow.classList.remove(
+                    "connection-error"
+                );
+
+                statusText.textContent =
+                    progress >= 100
+                        ? "Ground Control ready"
+                        : "Initialising match systems...";
+
+            } catch (error) {
+                statusRow.classList.add(
+                    "connection-error"
+                );
+
+                statusText.textContent =
+                    "Waiting for SCOREOS services...";
+            }
+        }
+
+        updateStartupStatus();
+
+        window.setInterval(
+            updateStartupStatus,
+            1000
+        );
+    </script>
+</body>
+</html>

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+    <title>SCOREOS Ground Control</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #eef1f3;
+            color: #182026;
+        }
+
+        header {
+            background: #0d1216;
+            color: white;
+            padding: 18px 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+
+        header p {
+            margin: 4px 0 0;
+            color: #c9d1d6;
+        }
+
+        nav {
+            background: white;
+            border-bottom: 1px solid #ccd3d8;
+            padding: 12px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        nav a {
+            color: #182026;
+            text-decoration: none;
+            border: 1px solid #aeb8bf;
+            border-radius: 7px;
+            padding: 10px 16px;
+            font-weight: bold;
+        }
+
+        nav a.active {
+            background: #18743a;
+            border-color: #18743a;
+            color: white;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .status-banner {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            background: #dfe5e8;
+            font-weight: bold;
+        }
+
+        .status-banner.good {
+            background: #d9f0df;
+            color: #155f2d;
+        }
+
+        .status-banner.bad {
+            background: #f3dddd;
+            color: #8a2424;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(
+                auto-fit,
+                minmax(300px, 1fr)
+            );
+            gap: 18px;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #cbd2d7;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .card h2 {
+            margin: 0;
+            padding: 14px 16px;
+            background: #11181d;
+            color: white;
+            font-size: 18px;
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e6e9;
+        }
+
+        .status-row:last-child {
+            border-bottom: 0;
+        }
+
+        .status-value {
+            font-weight: bold;
+            text-align: right;
+        }
+
+        .indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 7px;
+            border-radius: 50%;
+            background: #939da4;
+        }
+
+        .indicator.good {
+            background: #2dac50;
+        }
+
+        .indicator.bad {
+            background: #d43c3c;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(
+                auto-fit,
+                minmax(150px, 1fr)
+            );
+            gap: 10px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 7px;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #1769aa;
+            color: white;
+        }
+
+        button.warning {
+            background: #9b6420;
+        }
+
+        button.danger {
+            background: #a73333;
+        }
+
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .device {
+            border: 1px solid #d1d7db;
+            border-radius: 8px;
+            padding: 13px;
+            margin-bottom: 10px;
+        }
+
+        .device:last-child {
+            margin-bottom: 0;
+        }
+
+        .device-name {
+            font-size: 17px;
+            font-weight: bold;
+        }
+
+        .device-address {
+            margin-top: 4px;
+            color: #5f6970;
+            font-family: monospace;
+        }
+
+        .device-flags {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .tag {
+            display: inline-block;
+            margin: 2px 4px 2px 0;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #e1e6e9;
+        }
+
+        .tag.good {
+            background: #d7efdd;
+            color: #17652f;
+        }
+
+        .empty {
+            color: #657078;
+            font-style: italic;
+        }
+
+        #message {
+            min-height: 22px;
+            margin-top: 12px;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            main {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<header>
+    <div>
+        <h1>SCOREOS GROUND CONTROL</h1>
+        <p>Sutton CC Scoreboard Management</p>
+    </div>
+
+    <div id="clock">--:--:--</div>
+</header>
+
+<nav>
+    <a class="active" href="/groundcontrol">Ground Control</a>
+    <a href="/control">Scoring Control</a>
+    <a href="/tv">TV Display</a>
+    <a href="/diagnostics">Diagnostics</a>
+    <a href="/startup">Startup</a>
+</nav>
+
+<main>
+    <div id="overallStatus" class="status-banner">
+        Checking Bluetooth status…
+    </div>
+
+    <div class="grid">
+        <section class="card">
+            <h2>Bluetooth Status</h2>
+
+            <div class="card-body">
+                <div class="status-row">
+                    <span>Adapter</span>
+                    <span id="adapterStatus" class="status-value">
+                        Checking…
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>Advertising</span>
+                    <span id="advertisingStatus" class="status-value">
+                        Checking…
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>GATT Service</span>
+                    <span id="gattStatus" class="status-value">
+                        Checking…
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>Advertising Service</span>
+                    <span id="advertServiceStatus" class="status-value">
+                        Checking…
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>Pairing Mode</span>
+                    <span id="pairingStatus" class="status-value">
+                        Checking…
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>Adapter Name</span>
+                    <span id="adapterName" class="status-value">
+                        —
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Bluetooth Controls</h2>
+
+            <div class="card-body">
+                <div class="actions">
+                    <button
+                        id="startPairingButton"
+                        onclick="bluetoothAction('start_pairing')"
+                    >
+                        Start Pairing
+                    </button>
+
+                    <button
+                        id="stopPairingButton"
+                        class="warning"
+                        onclick="bluetoothAction('stop_pairing')"
+                    >
+                        Stop Pairing
+                    </button>
+
+                    <button
+                        onclick="bluetoothAction('restart_bluetooth')"
+                    >
+                        Restart Bluetooth
+                    </button>
+
+                    <button
+                        onclick="bluetoothAction('restart_advertising')"
+                    >
+                        Restart Advertising
+                    </button>
+                </div>
+
+                <div id="message"></div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Connected Devices</h2>
+
+            <div id="connectedDevices" class="card-body">
+                Loading…
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Paired Devices</h2>
+
+            <div id="pairedDevices" class="card-body">
+                Loading…
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+    let actionInProgress = false;
+
+    function updateClock() {
+        document.getElementById("clock").textContent =
+            new Date().toLocaleTimeString("en-GB");
+    }
+
+    function statusHtml(value, goodText, badText) {
+        const stateClass = value ? "good" : "bad";
+        const text = value ? goodText : badText;
+
+        return `
+            <span class="indicator ${stateClass}"></span>
+            ${text}
+        `;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function renderDevices(elementId, devices, allowForget) {
+        const container = document.getElementById(elementId);
+
+        if (!Array.isArray(devices) || devices.length === 0) {
+            container.innerHTML =
+                '<div class="empty">No devices found</div>';
+            return;
+        }
+
+        container.innerHTML = devices.map(device => {
+            const address = escapeHtml(device.address);
+            const name = escapeHtml(
+                device.name || "Unknown device"
+            );
+
+            const flags = [
+                device.connected
+                    ? '<span class="tag good">Connected</span>'
+                    : '<span class="tag">Disconnected</span>',
+                device.trusted
+                    ? '<span class="tag good">Trusted</span>'
+                    : '<span class="tag">Not trusted</span>',
+                device.bonded
+                    ? '<span class="tag good">Bonded</span>'
+                    : '<span class="tag">Not bonded</span>'
+            ].join("");
+
+            const forgetButton = allowForget
+                ? `
+                    <button
+                        class="danger"
+                        onclick="forgetDevice('${address}')"
+                    >
+                        Forget Device
+                    </button>
+                `
+                : "";
+
+            return `
+                <div class="device">
+                    <div class="device-name">${name}</div>
+                    <div class="device-address">${address}</div>
+                    <div class="device-flags">${flags}</div>
+                    ${forgetButton}
+                </div>
+            `;
+        }).join("");
+    }
+
+    async function loadBluetoothStatus() {
+        try {
+            const response = await fetch(
+                "/api/bluetooth",
+                { cache: "no-store" }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || data.ok === false) {
+                throw new Error(
+                    data.error || "Unable to load Bluetooth status"
+                );
+            }
+
+            const adapterPowered =
+                data.adapter &&
+                data.adapter.available === true &&
+                data.adapter.powered === true;
+
+            document.getElementById("adapterStatus").innerHTML =
+                statusHtml(
+                    adapterPowered,
+                    "Powered",
+                    "Unavailable"
+                );
+
+            document.getElementById("advertisingStatus").innerHTML =
+                statusHtml(
+                    data.advertising === true,
+                    "Active",
+                    "Stopped"
+                );
+
+            document.getElementById("gattStatus").innerHTML =
+                statusHtml(
+                    data.gatt_service === true,
+                    "Running",
+                    "Stopped"
+                );
+
+            document.getElementById(
+                "advertServiceStatus"
+            ).innerHTML = statusHtml(
+                data.advert_service === true,
+                "Running",
+                "Stopped"
+            );
+
+            const pairingActive =
+                data.pairing_active === true;
+
+            let pairingText = pairingActive
+                ? `Active (${data.pairing_seconds_remaining}s)`
+                : "Inactive";
+
+            document.getElementById("pairingStatus").innerHTML =
+                statusHtml(
+                    pairingActive,
+                    pairingText,
+                    pairingText
+                );
+
+            document.getElementById("adapterName").textContent =
+                data.adapter?.name || "—";
+
+            document.getElementById(
+                "startPairingButton"
+            ).disabled = pairingActive || actionInProgress;
+
+            document.getElementById(
+                "stopPairingButton"
+            ).disabled = !pairingActive || actionInProgress;
+
+            renderDevices(
+                "connectedDevices",
+                data.connected_devices,
+                false
+            );
+
+            renderDevices(
+                "pairedDevices",
+                data.paired_devices,
+                true
+            );
+
+            const healthy =
+                adapterPowered &&
+                data.advertising === true &&
+                data.gatt_service === true;
+
+            const banner =
+                document.getElementById("overallStatus");
+
+            banner.className =
+                "status-banner " + (healthy ? "good" : "bad");
+
+            banner.textContent = healthy
+                ? "Bluetooth system ready"
+                : "Bluetooth system needs attention";
+
+        } catch (error) {
+            const banner =
+                document.getElementById("overallStatus");
+
+            banner.className = "status-banner bad";
+            banner.textContent =
+                "Unable to read Bluetooth status: " +
+                error.message;
+        }
+    }
+
+    async function bluetoothAction(action, extra = {}) {
+        if (actionInProgress) {
+            return;
+        }
+
+        actionInProgress = true;
+
+        const message =
+            document.getElementById("message");
+
+        message.textContent = "Working…";
+
+        try {
+            const response = await fetch("/api/bluetooth", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    action,
+                    ...extra
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.ok === false) {
+                throw new Error(
+                    data.error ||
+                    data.message ||
+                    "Bluetooth action failed"
+                );
+            }
+
+            message.textContent =
+                data.message || "Action completed";
+
+        } catch (error) {
+            message.textContent =
+                "Error: " + error.message;
+
+        } finally {
+            actionInProgress = false;
+
+            setTimeout(loadBluetoothStatus, 500);
+        }
+    }
+
+    function forgetDevice(address) {
+        const confirmed = window.confirm(
+            "Forget Bluetooth device " + address + "?"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        bluetoothAction("forget_device", {
+            address
+        });
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    loadBluetoothStatus();
+    setInterval(loadBluetoothStatus, 3000);
+</script>
+</body>
+</html>

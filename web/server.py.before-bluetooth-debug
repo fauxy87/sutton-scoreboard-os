@@ -490,9 +490,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
         if path == "/api/bluetooth":
             try:
-                self.send_json(
-                    bluetooth_manager.get_status()
-                )
+                self.send_json(bluetooth_manager.get_status())
             except Exception as exc:
                 self.send_json(
                     {
@@ -520,15 +518,6 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
         if path in ("/startup-v2", "/startup-v2/"):
             startup_path = Path(__file__).with_name("startup-v2.html")
             self.send_html(startup_path.read_text(encoding="utf-8"))
-            return
-
-        if path in ("/groundcontrol", "/groundcontrol/"):
-            groundcontrol_path = Path(__file__).with_name(
-                "groundcontrol.html"
-            )
-            self.send_html(
-                groundcontrol_path.read_text(encoding="utf-8")
-            )
             return
 
         if path in ("/control", "/control/"):

@@ -6,6 +6,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
+from web.startup import startup_manager
 
 import serial
 
@@ -89,6 +90,10 @@ class ArduinoConnection:
                 f"out_waiting={self.serial.out_waiting}"
             )
 
+            startup_manager.set_stage(
+              "arduino",
+              "✓ Arduino connected"
+            )
             return True
 
         except Exception as exc:

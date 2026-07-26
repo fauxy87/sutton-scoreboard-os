@@ -16,19 +16,17 @@ from engine.runtime import ScoreboardEngine
 from engine.live_diagnostics import packet_received
 
 arduino = ArduinoConnection()
+arduino.connect()
 scoreboard_engine = ScoreboardEngine(arduino)
-
 
 BLUEZ_SERVICE = "org.bluez"
 DBUS_OBJECT_MANAGER = "org.freedesktop.DBus.ObjectManager"
 DBUS_PROPERTIES = "org.freedesktop.DBus.Properties"
 
 GATT_MANAGER = "org.bluez.GattManager1"
-LE_ADVERTISING_MANAGER = "org.bluez.LEAdvertisingManager1"
 
 GATT_SERVICE = "org.bluez.GattService1"
 GATT_CHARACTERISTIC = "org.bluez.GattCharacteristic1"
-LE_ADVERTISEMENT = "org.bluez.LEAdvertisement1"
 
 SERVICE_UUID = "5a0d6a15-b664-4304-8530-3a0ec53e5bc1"
 CHARACTERISTIC_UUID = "df531f62-fc0b-40ce-81b2-32a6262ea440"
@@ -38,44 +36,6 @@ LOCAL_NAME = "FoSCC-Scoreboard-TGT"
 class InvalidArguments(dbus.exceptions.DBusException):
     _dbus_error_name = "org.freedesktop.DBus.Error.InvalidArgs"
 
-
-class Advertisement(dbus.service.Object):
-    PATH = "/org/suttoncc/scoreboard/advertisement0"
-
-    def __init__(self, bus):
-        super().__init__(bus, self.PATH)
-
-    def get_path(self):
-        return dbus.ObjectPath(self.PATH)
-
-    def get_properties(self):
-        properties = {
-            LE_ADVERTISEMENT: {
-                "Type": dbus.String("peripheral"),
-            }
-        }
-        print("Advertisement data:", properties)
-        return properties
-
-    @dbus.service.method(
-        DBUS_PROPERTIES,
-        in_signature="s",
-        out_signature="a{sv}",
-    )
-    def GetAll(self, interface):
-        if interface != LE_ADVERTISEMENT:
-            raise InvalidArguments()
-
-        print("Advertisement properties requested")
-        return self.get_properties()[LE_ADVERTISEMENT]
-
-    @dbus.service.method(
-        LE_ADVERTISEMENT,
-        in_signature="",
-        out_signature="",
-    )
-    def Release(self):
-        print("Advertisement released")
 
 
 class Characteristic(dbus.service.Object):
@@ -170,11 +130,16 @@ class Application(dbus.service.Object):
         out_signature="a{oa{sa{sv}}}",
     )
     def GetManagedObjects(self):
-        return {
+        objects = {
             self.service.get_path(): self.service.get_properties(),
             self.service.characteristic.get_path():
                 self.service.characteristic.get_properties(),
         }
+
+        print("GetManagedObjects called")
+        print("GATT objects:", objects)
+
+        return objects
 
 
 def find_adapter(bus):
@@ -188,7 +153,6 @@ def find_adapter(bus):
     for path, interfaces in objects.items():
         if (
             GATT_MANAGER in interfaces
-            and LE_ADVERTISING_MANAGER in interfaces
         ):
             return path
 
@@ -200,6 +164,7 @@ def main():
 
     bus = dbus.SystemBus()
     adapter_path = find_adapter(bus)
+    print("Using Bluetooth adapter:", adapter_path)
 
     if adapter_path is None:
         raise RuntimeError("No BLE adapter found")
@@ -210,6 +175,8 @@ def main():
         adapter,
         GATT_MANAGER,
     )
+ 
+
 
     application = Application(bus)
     mainloop = GLib.MainLoop()
@@ -217,9 +184,36 @@ def main():
     def app_registered():
         print("GATT application registered")
 
+        from web.startup import startup_manager
+
+        startup_manager.set_stage(
+            "bluetooth",
+            "✓ Bluetooth GATT service registered",
+        )
+
+        startup_manager.add_log(
+            "✓ Match engine ready"
+        )
+
+        startup_manager.set_stage(
+            "ready",
+            "✓ SCOREOS ready for play",
+        )
+
+
     def app_failed(error):
         print("GATT registration failed:", error)
+
         mainloop.quit()
+
+
+
+        from web.startup import startup_manager
+
+        startup_manager.set_stage(
+            "bluetooth",
+            "✓ Bluetooth advertising",
+        )
 
     gatt_manager.RegisterApplication(
         application.get_path(),
@@ -227,7 +221,6 @@ def main():
         reply_handler=app_registered,
         error_handler=app_failed,
     )
-
 
 
     print("Starting Sutton Scoreboard OS")
