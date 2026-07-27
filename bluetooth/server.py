@@ -13,9 +13,12 @@ if PROJECT_ROOT not in sys.path:
 
 from arduino.connection import ArduinoConnection
 from engine.runtime import ScoreboardEngine
-from engine.live_diagnostics import packet_received
+from engine.live_diagnostics import initialise, packet_received
+
+initialise()
 
 arduino = ArduinoConnection()
+
 arduino.connect()
 scoreboard_engine = ScoreboardEngine(arduino)
 
@@ -83,6 +86,7 @@ class Characteristic(dbus.service.Object):
       
         packet_received()
         scoreboard_engine.receive_packet(packet)
+
 
 
 class Service(dbus.service.Object):

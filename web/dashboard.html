@@ -1524,10 +1524,13 @@
 
             const bluetoothConnected = bluetooth.connected === true;
             const arduinoConnected = arduino.connected === true;
-
-            const playCricketConnected =
-                String(match.mode || "").toLowerCase() === "playcricket" &&
-                bluetoothConnected;
+            const waitingForFirstPacket =
+            bluetooth.waiting_for_first_packet === true;
+ 
+           const playCricketConnected =
+            String(match.mode || "").toLowerCase() === "playcricket" &&
+            bluetoothConnected &&
+            !waitingForFirstPacket;
 
             const checks = [
                 ["Scoreboard service", engineReady],
@@ -1614,16 +1617,22 @@
 
             let playCricketText = "Disconnected";
 
-            if (playCricketConnected) {
-                if (lastUpdateAge !== null && lastUpdateAge < 5) {
-                    playCricketText = "Live";
-                } else if (lastUpdateAge !== null) {
-                    playCricketText =
-                        `Connected · last update ${formatElapsed(lastUpdateAge)}`;
-                } else {
-                    playCricketText = "Connected · waiting for next score";
-                }
+             const waitingForFirstPacket =
+             payload.bluetooth &&
+             payload.bluetooth.waiting_for_first_packet === true;
+
+             if (waitingForFirstPacket) {
+                  playCricketText = "Reconnect Play-Cricket Scorer";
+            } else if (playCricketConnected) {
+              if (lastUpdateAge !== null && lastUpdateAge < 5) {
+              playCricketText = "Live";
+            } else if (lastUpdateAge !== null) {
+              playCricketText =
+                  `Connected · last update ${formatElapsed(lastUpdateAge)}`;
+              } else {
+               playCricketText = "Connected · waiting for next score";
             }
+          }
 
             setStatus(
                 "playcricket",

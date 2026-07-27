@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+#<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -870,6 +870,7 @@ const lines = visibleStages.map(
             consoleBody.scrollTop =
                 consoleBody.scrollHeight;
         }
+        let redirectStarted = false;
 
         async function updateStartupStatus() {
             try {
@@ -968,6 +969,21 @@ const lines = visibleStages.map(
 
                 renderStatus(currentStage);
                 renderConsole(startup);
+                if (
+                 !redirectStarted &&
+                startup.bluetooth?.waiting_for_first_packet === false &&
+                startup.bluetooth?.connected === true &&
+                String(startup.match?.mode || "").toLowerCase() === "playcricket"
+             ) {
+                redirectStarted = true;
+
+
+                setTimeout(() => {
+                   window.location.replace("/tv");
+                 }, 3000);
+
+                   return;
+                }
             } catch (error) {
                 apiBadge.textContent =
                     "Status API offline";

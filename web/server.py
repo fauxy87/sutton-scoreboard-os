@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import re
 import os
 import shutil
 import socket
@@ -181,12 +182,16 @@ def network_status():
     devices = {}
 
     for line in device_output.splitlines():
-        parts = line.split(":", 3)
+        protected = line.replace(r"\:", "__COLON__")
+        parts = protected.split(":", 3)
 
         if len(parts) != 4:
             continue
 
-        device, device_type, state, connection = parts
+        device, device_type, state, connection = [
+            part.replace("__COLON__", ":")
+            for part in parts
+        ]
 
         devices[device] = {
             "type": device_type,
@@ -221,8 +226,12 @@ def network_status():
     }
 
 
+RSSI_CACHE = {"mac": None, "value": None, "quality": None, "time": 0}
+RSSI_CACHE_SECONDS = 10
+
 def bluetooth_status():
     bluetooth_service = service_status("bluetooth.service")
+    global RSSI_CACHE
     advert_service = service_status(
         "sutton-scoreboard-advert.service"
     )
@@ -232,18 +241,13 @@ def bluetooth_status():
         "show",
     ])
 
-    mgmt_info = run_command([
-        "/usr/bin/btmgmt",
-        "info",
-    ])
-
-    advert_info = run_command([
-        "/usr/bin/btmgmt",
-        "advinfo",
-    ])
+    mgmt_info = ""
+    advert_info = ""
 
     name = "Unknown"
     powered = False
+    rssi = None
+    signal_quality = None
 
     # bluetoothctl normally works without sudo and reports:
     # Name: SCOREOS
@@ -326,6 +330,31 @@ def bluetooth_status():
                 stripped.split(":", 1)[1].strip()
             )
 
+    # # if connected_device["mac"]:
+##        rssi_output = run_command([
+##            "/usr/bin/btmgmt",
+##            "--index",
+##            "1",
+##            "conn-info",
+##            "-t",
+##            "2",
+##            connected_device["mac"],
+##        ])
+##
+##        match = re.search(r"RSSI\s+(-?\d+)", rssi_output)
+##
+##        if match:
+##            rssi = int(match.group(1))
+##
+##            if rssi >= -60:
+##                signal_quality = "Excellent"
+##            elif rssi >= -70:
+##                signal_quality = "Good"
+##            elif rssi >= -80:
+##                signal_quality = "Fair"
+##            else:
+##                signal_quality = "Poor"
+
     diagnostics = read_diagnostics().get(
         "bluetooth",
         {}
@@ -339,6 +368,11 @@ def bluetooth_status():
         "advertising": advertising,
         "connected": diagnostics.get("connected", False),
         "connected_since": diagnostics.get("connected_since"),
+        "service_started": diagnostics.get("service_started"),
+        "waiting_for_first_packet": diagnostics.get(
+           "waiting_for_first_packet",
+            True ,
+        ),
         "last_packet": diagnostics.get("last_packet"),
         "last_packet_iso": diagnostics.get("last_packet_iso"),
         "packet_count": diagnostics.get("packet_count", 0),
@@ -357,7 +391,8 @@ def bluetooth_status():
         ),
         "device_icon": diagnostics.get("device_icon"),
         "battery": diagnostics.get("battery"),
-        "rssi": diagnostics.get("rssi"),
+        "rssi": diagnostics.get("rssi") or rssi,
+        "signal_quality": signal_quality,
     }
 
 def arduino_status():
@@ -521,9 +556,12 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.send_json(system_snapshot())
             return
 
+        
         if path == "/api/startup":
-
-            self.send_json(startup_manager.get_status())
+            startup = startup_manager.get_status()
+            startup["bluetooth"] = system_snapshot()["bluetooth"]
+            startup["match"] = system_snapshot()["match"]
+            self.send_json(startup)
             return
 
         if path == "/api/bluetooth":

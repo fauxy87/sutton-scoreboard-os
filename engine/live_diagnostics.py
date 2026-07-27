@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+##!/usr/bin/env python3
 
 import json
 import os
@@ -11,6 +11,7 @@ from pathlib import Path
 DIAGNOSTICS_FILE = Path("/run/scoreos/diagnostics.json")
 _lock = threading.Lock()
 _last_device_refresh = 0.0
+SERVICE_STARTED = time.time()
 
 
 def _default():
@@ -18,6 +19,8 @@ def _default():
         "bluetooth": {
             "connected": False,
             "connected_since": None,
+            "service_started": SERVICE_STARTED,
+            "waiting_for_first_packet": True,
             "last_packet": None,
             "packet_count": 0,
             "reconnects": 0,
@@ -47,6 +50,9 @@ def write(data):
     tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
     os.replace(tmp, DIAGNOSTICS_FILE)
 
+def initialise():
+    """Create a fresh diagnostics file whenever the service starts."""
+    write(_default())
 
 def _run_bluetoothctl(*arguments):
     try:
@@ -61,14 +67,29 @@ def _run_bluetoothctl(*arguments):
     except Exception:
         return ""
 
-
 def _connected_device_info():
     output = _run_bluetoothctl("devices", "Connected")
 
     if not output:
         return {}
 
-    first_line = output.splitlines()[0].strip()
+    lines = [
+        line.strip()
+        for line in output.splitlines()
+        if line.strip()
+    ]
+
+    SCORER_MAC = "80:19:31:6C:1B:61"
+
+    first_line = next(
+      (
+        line
+        for line in lines
+        if SCORER_MAC in line.upper()
+      ),
+      lines[0],
+    )
+
     parts = first_line.split(maxsplit=2)
 
     if len(parts) < 2 or parts[0] != "Device":
@@ -139,6 +160,8 @@ def packet_received():
             bt["connected"] = True
             bt["connected_since"] = now
             bt["reconnects"] = int(bt.get("reconnects", 0)) + 1
+
+        bt["waiting_for_first_packet"] = False
 
         bt["last_packet"] = now
         bt["last_packet_iso"] = time.strftime(
