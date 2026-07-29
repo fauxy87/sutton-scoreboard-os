@@ -17,6 +17,13 @@ source installer/repository.sh
 
 
 print_header
+
+if [[ -f VERSION ]]; then
+    VERSION=$(tr -d '\r\n' < VERSION)
+    info "Version: $VERSION"
+    echo
+fi
+
 info "Starting installation..."
 echo
 
