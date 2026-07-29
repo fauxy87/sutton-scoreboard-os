@@ -4,6 +4,7 @@ set -e
 
 source installer/common.sh
 source installer/checks.sh
+source installer/packages.sh
 
 # --------------------------------------------------
 # SCOREOS Installer Functions
@@ -42,20 +43,7 @@ install_scoreos() {
 
     run_system_checks
 
-    info "Updating package information..."
-    sudo apt update
-
-    info "Installing SCOREOS system dependencies..."
-
-    sudo apt install -y \
-        python3 \
-        python3-pip \
-        python3-venv \
-        git \
-        bluez \
-        bluetooth \
-        chromium \
-        curl
+   install_packages()
 
     success "Dependencies installed successfully."
 
