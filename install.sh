@@ -8,6 +8,7 @@ source installer/packages.sh
 source installer/python.sh
 source installer/services.sh
 source installer/config.sh
+source installer/health.sh
 
 # --------------------------------------------------
 # SCOREOS Installer Functions
@@ -36,6 +37,7 @@ show_menu() {
     echo "4) Backup Configuration"
     echo "5) Restore Configuration"
     echo "6) Uninstall SCOREOS"
+    echo "7) Health Check"
     echo "0) Exit"
     echo
 }
@@ -88,6 +90,7 @@ main_menu() {
             4) backup_scoreos ;;
             5) restore_scoreos ;;
             6) uninstall_scoreos ;;
+            7) health_check ;;
             0)
                 info "Goodbye!"
                 exit 0
