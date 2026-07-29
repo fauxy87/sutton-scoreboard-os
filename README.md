@@ -1,195 +1,65 @@
 # 🏏 SCOREOS
 
-**Bluetooth cricket scoreboard system for Play-Cricket Scorer**
-
-SCOREOS is a Raspberry Pi and Arduino based scoreboard system designed for cricket clubs.
-
-It connects directly to **Play-Cricket Scorer** over Bluetooth and automatically updates a physical LED scoreboard while also providing live spectator and control webpages over Wi-Fi.
+![Version](https://img.shields.io/badge/Version-v2.1.0-blue)
+![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi-red)
+![Status](https://img.shields.io/badge/Status-Active-success)
 
 ---
 
-# Features
+# What is SCOREOS?
 
-✅ Play-Cricket Bluetooth integration
+SCOREOS is a Raspberry Pi based electronic cricket scoreboard system designed to provide a reliable, modern and easy-to-use scoreboard for cricket clubs.
 
-✅ Arduino LED scoreboard
+Originally developed for **Sutton Cricket Club (Cambridgeshire)**, SCOREOS combines Bluetooth communication, a live TV display, diagnostics and a web-based Ground Control interface into one complete system.
 
-✅ Live spectator webpage
-
-✅ Manual scoring webpage
-
-✅ Wi-Fi Hotspot
-
-✅ Automatic startup
-
-✅ Raspberry Pi 4 compatible
-
-✅ Installable from GitHub
+The aim of the project is to provide a professional electronic scoreboard that is simple to install, reliable to operate and easy to expand with new features.
 
 ---
+# ✨ Features
 
-# Hardware
-
-- Raspberry Pi 4
-- Arduino Uno
-- LED scoreboard
-- USB cable
-- Bluetooth
-- Wi-Fi
-
----
-
-# Screenshots
-
-Coming soon
-
-- Spectator webpage
-- Control webpage
-- Physical scoreboard
+- 📺 Full screen TV scoreboard display
+- 📱 Ground Control web interface
+- 📡 Bluetooth Low Energy (BLE) communication
+- 🔄 Automatic Bluetooth adapter detection
+- 🚀 Startup health checks
+- 📊 Real-time score updates
+- 🔍 Live diagnostics
+- 📈 System health monitoring
+- 🌐 Web-based management
+- ⚡ Raspberry Pi powered
 
 ---
+# 🖥️ Hardware Requirements
 
-# Installation
+### Recommended Hardware
 
-Clone the repository
+| Component | Recommendation |
+|-----------|----------------|
+| Computer | Raspberry Pi 5 (Pi 4 supported) |
+| Operating System | Raspberry Pi OS (Bookworm, based on Debian 12) |
+| Bluetooth | TP-Link UB500 USB Bluetooth Adapter |
+| Score Controller | Arduino-based BLE controller |
+| Display | HDMI TV or Monitor |
+| Network | Ethernet or Wi-Fi |
 
-```bash
-git clone https://github.com/fauxy87/sutton-scoreboard-os.git
+---
+# 🏗️ System Overview
 
-cd sutton-scoreboard-os
-```
+SCOREOS is designed around a Raspberry Pi acting as the central controller for an electronic cricket scoreboard.
 
-Install
+The Raspberry Pi receives live score data over Bluetooth Low Energy (BLE) from an Arduino-based controller and updates the TV display in real time. A built-in web interface provides Ground Control, diagnostics and system management from any device on the local network.
 
-```bash
-sudo ./install/install.sh
-```
-
-Configure hotspot
-
-```bash
-sudo ./install/setup-hotspot.sh
+```text
+               Bluetooth LE
+                     │
+              Arduino Controller
+                     │
+                     ▼
+        Raspberry Pi (SCOREOS)
+                     │
+      ┌──────────────┼──────────────┐
+      │              │              │
+ TV Display     Ground Control   Dashboard
 ```
 
 ---
-
-# Default Hotspot
-
-SSID
-
-```
-SuttonCC-Scoreboard
-```
-
-Password
-
-```
-Sutton1877
-```
-
-Control Page
-
-```
-http://192.168.4.1:8080/control
-```
-
-Spectator Page
-
-```
-http://192.168.4.1:8080
-```
-
----
-
-# Bluetooth
-
-Bluetooth Device Name
-
-```
-SCOREOS
-```
-
-Connect using the Play-Cricket Scorer App.
-
----
-
-# Arduino Protocol
-
-The Arduino receives:
-
-```
-4,BatAScore,Total,BatBScore,Wickets,Overs,Target#
-```
-
-Example
-
-```
-4,045,123,033,4,17,201#
-```
-
-Display Test
-
-```
-5#
-```
-
----
-
-# Repository Structure
-
-```
-arduino/
-bluetooth/
-engine/
-install/
-scripts/
-services/
-web/
-README.md
-```
-
----
-
-# Current Version
-
-**SCOREOS v1.0.0**
-
-Features
-
-- Bluetooth
-- Arduino
-- Web Interface
-- Manual Scoring
-- Wi-Fi Hotspot
-- Automatic Services
-
----
-
-# Roadmap
-
-## Version 1.1
-
-- Admin Dashboard
-- Match Archive
-- GitHub Updater
-- Improved Installer
-- Settings Page
-- Branding Support
-
----
-
-# Developed By
-
-Craig Faux
-
-Facilities Manager
-
-Sutton Cricket Club
-
-Cambridgeshire
-
----
-
-# Licence
-
-MIT Licence
