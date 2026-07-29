@@ -6,6 +6,7 @@ source installer/common.sh
 source installer/checks.sh
 source installer/packages.sh
 source installer/python.sh
+source installer/services.sh
 
 # --------------------------------------------------
 # SCOREOS Installer Functions
@@ -49,6 +50,7 @@ install_scoreos() {
     success "Dependencies installed successfully."
 
 install_python()
+install_services()
 
 }
 
