@@ -10,6 +10,7 @@ source installer/services.sh
 source installer/config.sh
 source installer/health.sh
 source installer/repository.sh
+source installer/progress.sh
 
 # --------------------------------------------------
 # SCOREOS Installer Functions
@@ -54,13 +55,23 @@ install_scoreos() {
     info "Starting SCOREOS installation..."
     echo
 
-    check_repository
-    run_system_checks
-    install_packages
-    install_python
-    install_services
-    configure_scoreos
+    next_step "Checking repository..."
+check_repository
 
+next_step "Running system checks..."
+run_system_checks
+
+next_step "Installing system packages..."
+install_packages
+
+next_step "Installing Python environment..."
+install_python
+
+next_step "Installing SCOREOS services..."
+install_services
+
+next_step "Creating configuration..."
+configure_scoreos
     echo
     success "SCOREOS installation completed."
     echo
