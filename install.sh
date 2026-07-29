@@ -9,6 +9,7 @@ source installer/python.sh
 source installer/services.sh
 source installer/config.sh
 source installer/health.sh
+source installer/repository.sh
 
 # --------------------------------------------------
 # SCOREOS Installer Functions
@@ -43,20 +44,28 @@ show_menu() {
 }
 
 install_scoreos() {
-
     info "Starting SCOREOS installation..."
+    echo
 
+    check_repository
     run_system_checks
+    install_packages
+    install_python
+    install_services
+    configure_scoreos
 
-   install_packages()
+    echo
+    success "SCOREOS installation completed."
+    echo
 
-    success "Dependencies installed successfully."
+    read -rp "Reboot now? (y/N): " reboot_choice
 
-install_python()
-install_services()
-configure_scoreos()
-
-}
+    if [[ "$reboot_choice" =~ ^[Yy]$ ]]; then
+        info "Rebooting Raspberry Pi..."
+        sudo reboot
+    else
+        warning "Please reboot before using SCOREOS."
+    fi
 
 update_scoreos() {
     info "Update feature coming soon."
