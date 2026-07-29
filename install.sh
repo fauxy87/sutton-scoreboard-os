@@ -9,36 +9,6 @@ source installer/checks.sh
 # SCOREOS Installer Functions
 # --------------------------------------------------
 
-GREEN="\033[0;32m"
-RED="\033[0;31m"
-YELLOW="\033[1;33m"
-BLUE="\033[0;34m"
-NC="\033[0m"
-
-print_header() {
-    clear
-    echo -e "${BLUE}"
-    echo "=================================================="
-    echo "               SCOREOS INSTALLER"
-    echo "=================================================="
-    echo -e "${NC}"
-}
-
-success() {
-    echo -e "${GREEN}✓${NC} $1"
-}
-
-warning() {
-    echo -e "${YELLOW}!${NC} $1"
-}
-
-error() {
-    echo -e "${RED}✗${NC} $1"
-}
-
-info() {
-    echo -e "${BLUE}>${NC} $1"
-}
 
 print_header
 info "Starting installation..."
@@ -49,6 +19,47 @@ if [[ $EUID -eq 0 ]]; then
     echo "Run it using: ./install.sh"
     exit 1
 fi
+
+show_menu() {
+    echo
+    echo "=========================================="
+    echo "             SCOREOS MENU"
+    echo "=========================================="
+    echo
+    echo "1) Install SCOREOS"
+    echo "2) Update SCOREOS"
+    echo "3) Repair Installation"
+    echo "4) Backup Configuration"
+    echo "5) Restore Configuration"
+    echo "6) Uninstall SCOREOS"
+    echo "0) Exit"
+    echo
+}
+
+install_scoreos() {
+
+    info "Starting SCOREOS installation..."
+
+    run_system_checks
+
+    info "Updating package information..."
+    sudo apt update
+
+    info "Installing SCOREOS system dependencies..."
+
+    sudo apt install -y \
+        python3 \
+        python3-pip \
+        python3-venv \
+        git \
+        bluez \
+        bluetooth \
+        chromium \
+        curl
+
+    success "Dependencies installed successfully."
+
+    info "Python environment configuration will be added in the next stage."
 
 }
 
