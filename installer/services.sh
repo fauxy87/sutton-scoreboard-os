@@ -5,35 +5,36 @@ install_services() {
     info "Installing SCOREOS services..."
 
     if [[ ! -d services ]]; then
-        error "Services directory not found."
+        error "The 'services' directory was not found."
         exit 1
     fi
 
-    for service in services/*.service; do
+    shopt -s nullglob
+    local service_files=(services/*.service)
 
-        if [[ -f "$service" ]]; then
-            sudo cp "$service" /etc/systemd/system/
-            success "Installed $(basename "$service")"
-        fi
+    if [[ ${#service_files[@]} -eq 0 ]]; then
+        error "No .service files were found."
+        exit 1
+    fi
 
+    for service in "${service_files[@]}"; do
+        sudo cp "$service" /etc/systemd/system/
+        success "Installed $(basename "$service")"
     done
 
     info "Reloading systemd..."
-
     sudo systemctl daemon-reload
 
     info "Enabling SCOREOS services..."
 
-    for service in services/*.service; do
+    for service in "${service_files[@]}"; do
+        local service_name
+        service_name=$(basename "$service")
 
-        if [[ -f "$service" ]]; then
-            SERVICE_NAME=$(basename "$service")
-            sudo systemctl enable "$SERVICE_NAME"
-            success "Enabled $SERVICE_NAME"
-        fi
-
+        sudo systemctl enable "$service_name"
+        success "Enabled $service_name"
     done
 
-    success "All services installed."
+    success "All SCOREOS services installed."
 
 }
