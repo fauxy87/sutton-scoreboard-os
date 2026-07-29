@@ -2,6 +2,29 @@
 
 set -e
 
+if [[ "$1" == "--version" ]]; then
+    if [[ -f VERSION ]]; then
+        cat VERSION
+    else
+        echo "Unknown"
+    fi
+    exit 0
+fi
+
+if [[ "$1" == "--help" ]]; then
+    cat <<EOF
+SCOREOS Installer
+
+Usage:
+  ./install.sh
+
+Options:
+  --help       Show this help
+  --version    Show installer version
+EOF
+    exit 0
+fi
+
 source installer/common.sh
 source installer/checks.sh
 source installer/packages.sh
