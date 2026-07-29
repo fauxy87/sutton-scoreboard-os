@@ -62,4 +62,4 @@ The Raspberry Pi receives live score data over Bluetooth Low Energy (BLE) from a
  TV Display     Ground Control   Dashboard
 ```
 
----
+---.
