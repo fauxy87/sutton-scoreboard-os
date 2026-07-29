@@ -37,8 +37,36 @@ if [[ -f /proc/device-tree/model ]]; then
 else
     echo "Warning: Raspberry Pi hardware could not be detected."
 fi
+echo
+echo "Checking internet connection..."
+
+if ping -c 1 -W 3 github.com >/dev/null 2>&1; then
+    echo "Internet connection available."
+else
+    echo "Unable to reach the internet."
+    echo "Check the network connection and try again."
+    exit 1
+fi
 
 echo
-echo "Initial system checks completed successfully."
+echo "Updating package information..."
+
+sudo apt update
+
 echo
-echo "SCOREOS installation stages will be added next."
+echo "Installing SCOREOS system dependencies..."
+
+sudo apt install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    git \
+    bluez \
+    bluetooth \
+    chromium \
+    curl
+
+echo
+echo "SCOREOS dependency installation completed successfully."
+echo
+echo "The Python environment will be configured in the next stage."
