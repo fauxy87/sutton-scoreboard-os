@@ -1,0 +1,4 @@
+Flask
+bleak
+requests
+psutil
