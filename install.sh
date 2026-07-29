@@ -47,62 +47,51 @@ if [[ $EUID -eq 0 ]]; then
     exit 1
 fi
 
-info "Checking operating system..."
+}
 
-if [[ ! -f /etc/os-release ]]; then
-    error "Unable to identify the operating system."
-    exit 1
-fi
+update_scoreos() {
+    info "Update feature coming soon."
+}
 
-source /etc/os-release
+repair_scoreos() {
+    info "Repair feature coming soon."
+}
 
-success "Detected: $PRETTY_NAME"
+backup_scoreos() {
+    info "Backup feature coming soon."
+}
 
-if [[ "$ID" != "debian" && "$ID" != "raspbian" ]]; then
-    warning "SCOREOS is designed for Raspberry Pi OS Bookworm."
-fi
+restore_scoreos() {
+    info "Restore feature coming soon."
+}
 
-echo
-info "Checking Raspberry Pi hardware..."
+uninstall_scoreos() {
+    warning "Uninstall feature coming soon."
+}
 
-if [[ -f /proc/device-tree/model ]]; then
-    PI_MODEL=$(tr -d '\0' < /proc/device-tree/model)
-    success "Detected: $PI_MODEL"
-else
-    warning "Raspberry Pi hardware could not be detected."
-fi
+main_menu() {
+    while true; do
+        show_menu
+        read -rp "Choice: " choice
 
-echo
-info "Checking internet connection..."
+        case "$choice" in
+            1) install_scoreos ;;
+            2) update_scoreos ;;
+            3) repair_scoreos ;;
+            4) backup_scoreos ;;
+            5) restore_scoreos ;;
+            6) uninstall_scoreos ;;
+            0)
+                info "Goodbye!"
+                exit 0
+                ;;
+            *)
+                error "Invalid option."
+                ;;
+        esac
 
-if ping -c 1 -W 3 github.com >/dev/null 2>&1; then
-    success "Internet connection available."
-else
-    error "Unable to reach the internet."
-    echo "Check the network connection and try again."
-    exit 1
-fi
-
-echo
-info "Updating package information..."
-
-sudo apt update
-
-echo
-info "Installing SCOREOS system dependencies..."
-
-sudo apt install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    git \
-    bluez \
-    bluetooth \
-    chromium \
-    curl
-
-echo
-success "SCOREOS dependency installation completed successfully."
-
-echo
-info "The Python environment will be configured in the next stage."
+        echo
+        read -rp "Press Enter to return to the menu..."
+    done
+}
+main_menu
