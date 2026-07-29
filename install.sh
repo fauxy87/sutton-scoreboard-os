@@ -2,6 +2,9 @@
 
 set -e
 
+source installer/common.sh
+source installer/checks.sh
+
 # --------------------------------------------------
 # SCOREOS Installer Functions
 # --------------------------------------------------
