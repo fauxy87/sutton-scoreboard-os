@@ -5,6 +5,7 @@ set -e
 source installer/common.sh
 source installer/checks.sh
 source installer/packages.sh
+source installer/python.sh
 
 # --------------------------------------------------
 # SCOREOS Installer Functions
@@ -47,7 +48,7 @@ install_scoreos() {
 
     success "Dependencies installed successfully."
 
-    info "Python environment configuration will be added in the next stage."
+install_python()
 
 }
 
