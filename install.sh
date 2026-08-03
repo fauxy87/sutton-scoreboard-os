@@ -34,6 +34,9 @@ source installer/config.sh
 source installer/health.sh
 source installer/repository.sh
 source installer/progress.sh
+source installer/environment.sh
+source installer/bluetooth.sh
+source installer/wizard.sh
 
 # --------------------------------------------------
 # SCOREOS Installer Functions
@@ -78,6 +81,8 @@ install_scoreos() {
     info "Starting SCOREOS installation..."
     echo
 
+detect_bluetooth || true
+
     next_step "Checking repository..."
 check_repository
 
@@ -107,6 +112,7 @@ configure_scoreos
     else
         warning "Please reboot before using SCOREOS."
     fi
+}
 
 update_scoreos() {
     info "Update feature coming soon."
@@ -154,4 +160,6 @@ main_menu() {
         read -rp "Press Enter to return to the menu..."
     done
 }
+run_setup_wizard
+validate_installation
 main_menu

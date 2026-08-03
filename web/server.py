@@ -12,6 +12,7 @@ from pathlib import Path
 from startup import startup_manager
 import bluetooth_manager
 from urllib.parse import urlparse
+import camera_manager
 
 STATE_FILE = Path("/run/scoreos/state.json")
 CONTROL_SOCKET = "/run/scoreos/control.sock"
@@ -556,13 +557,68 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.send_json(system_snapshot())
             return
 
-        
+        if path == "/api/camera/status":
+            self.send_json(camera_manager.status())
+            return
+
+        if path == "/api/camera/settings":
+            camera = camera_manager.load()
+
+            safe_camera = {
+                **camera,
+                "password": "",
+                "password_saved": bool(camera.get("password")),
+            }
+
+            self.send_json(safe_camera)
+            return
+
         if path == "/api/startup":
             startup = startup_manager.get_status()
             startup["bluetooth"] = system_snapshot()["bluetooth"]
             startup["match"] = system_snapshot()["match"]
             self.send_json(startup)
             return
+
+        if path == "/api/camera/settings":
+
+            try:
+                length = int(
+                    self.headers.get(
+                        "Content-Length",
+                        "0"
+                    )
+                )
+
+                body = self.rfile.read(length)
+
+                settings = json.loads(
+                    body.decode("utf-8")
+                )
+
+                camera = camera_manager.save(
+                    settings
+                )
+
+                self.send_json(
+                    {
+                        "ok": True,
+                        "camera": camera,
+                    }
+                )
+
+            except Exception as exc:
+
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=500,
+                )
+
+            return
+
 
         if path == "/api/bluetooth":
             try:
@@ -660,6 +716,35 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 status=400,
             )
             return
+
+        if path == "/api/camera/settings":
+            try:
+                camera = camera_manager.save(request)
+
+                safe_camera = {
+                    **camera,
+                    "password": "",
+                    "password_saved": bool(camera.get("password")),
+                }
+
+                self.send_json(
+                    {
+                        "ok": True,
+                        "camera": safe_camera,
+                    }
+                )
+
+            except Exception as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=500,
+                )
+
+            return
+
 
         if path == "/api/bluetooth":
             try:

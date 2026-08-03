@@ -358,6 +358,88 @@
                 <div id="message"></div>
             </div>
         </section>
+        <section class="card">
+            <h2>Camera Status</h2>
+
+            <div class="card-body">
+                <div class="status-row">
+                    <span>Configured</span>
+                    <span id="cameraConfigured" class="status-value">
+                        Checking…
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>Connection</span>
+                    <span id="cameraConnection" class="status-value">
+                        Checking…
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>Camera Name</span>
+                    <span id="cameraName" class="status-value">
+                        —
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>IP Address</span>
+                    <span id="cameraHost" class="status-value">
+                        —
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>RTSP Path</span>
+                    <span id="cameraPath" class="status-value">
+                        —
+                    </span>
+                </div>
+
+                <div class="status-row">
+                    <span>Recording</span>
+                    <span id="cameraRecording" class="status-value">
+                        Not installed
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Camera Controls</h2>
+
+            <div class="card-body">
+                <div class="actions">
+                    <button
+                        onclick="loadCameraStatus()"
+                    >
+                        Refresh Camera
+                    </button>
+
+                    <button
+                        onclick="testCamera()"
+                    >
+                        Test Connection
+                    </button>
+
+                    <button
+                        class="warning"
+                        disabled
+                    >
+                        Start Recording
+                    </button>
+
+                    <button
+                        disabled
+                    >
+                        Take Snapshot
+                    </button>
+                </div>
+
+                <div id="cameraMessage"></div>
+            </div>
+        </section>
 
         <section class="card">
             <h2>Connected Devices</h2>
@@ -630,6 +712,372 @@
     updateClock();
     setInterval(updateClock, 1000);
 
+    function cameraStatusIsConnected(data) {
+        return Boolean(
+            data.connected ||
+            data.reachable ||
+            data.online
+        );
+    }
+
+    async function loadCameraStatus(showMessage = false) {
+        const message =
+            document.getElementById("cameraMessage");
+
+        if (showMessage) {
+            message.textContent =
+                "Refreshing camera status…";
+        }
+
+        try {
+            const response = await fetch(
+                "/api/camera/status?_=" + Date.now(),
+                {
+                    cache: "no-store"
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "HTTP " +
+                    response.status +
+                    " " +
+                    response.statusText
+                );
+            }
+
+            const data = await response.json();
+
+            const configured =
+                Boolean(data.configured);
+
+            const connected =
+                cameraStatusIsConnected(data);
+
+            document
+                .getElementById("cameraConfigured")
+                .innerHTML = statusHtml(
+                    configured,
+                    "Configured",
+                    "Not configured"
+                );
+
+            document
+                .getElementById("cameraConnection")
+                .innerHTML = statusHtml(
+                    connected,
+                    "Connected",
+                    "Not connected"
+                );
+
+            document
+                .getElementById("cameraName")
+                .textContent =
+                    data.name || "—";
+
+            document
+                .getElementById("cameraHost")
+                .textContent =
+                    data.host ||
+                    data.ip_address ||
+                    "—";
+
+            document
+                .getElementById("cameraPath")
+                .textContent =
+                    data.rtsp_path ||
+                    data.path ||
+                    "—";
+
+            document
+                .getElementById("cameraRecording")
+                .textContent =
+                    data.recording
+                        ? "Recording"
+                        : "Stopped";
+
+            if (showMessage) {
+                message.textContent =
+                    "Camera status refreshed at " +
+                    new Date().toLocaleTimeString(
+                        "en-GB"
+                    );
+            }
+
+        } catch (error) {
+            document
+                .getElementById("cameraConfigured")
+                .innerHTML = statusHtml(
+                    false,
+                    "Configured",
+                    "Unavailable"
+                );
+
+            document
+                .getElementById("cameraConnection")
+                .innerHTML = statusHtml(
+                    false,
+                    "Connected",
+                    "Unavailable"
+                );
+
+            message.textContent =
+                "Unable to load camera status: " +
+                error.message;
+        }
+    }
+
+    async function loadCameraSettings(
+        showMessage = false
+    ) {
+        const message =
+            document.getElementById(
+                "cameraSettingsMessage"
+            );
+
+        if (showMessage) {
+            message.textContent =
+                "Loading camera settings…";
+        }
+
+        try {
+            const response = await fetch(
+                "/api/camera/settings?_=" +
+                Date.now(),
+                {
+                    cache: "no-store"
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "HTTP " +
+                    response.status +
+                    " " +
+                    response.statusText
+                );
+            }
+
+            const camera =
+                await response.json();
+
+            document
+                .getElementById("camName")
+                .value =
+                    camera.name || "";
+
+            document
+                .getElementById("camHost")
+                .value =
+                    camera.host || "";
+
+            document
+                .getElementById("camPort")
+                .value =
+                    camera.port || 554;
+
+            document
+                .getElementById("camUser")
+                .value =
+                    camera.username || "";
+
+            document
+                .getElementById("camPass")
+                .value = "";
+
+            document
+                .getElementById("camPath")
+                .value =
+                    camera.rtsp_path ||
+                    "/h264Preview_01_main";
+
+            document
+                .getElementById("camEnabled")
+                .checked =
+                    Boolean(camera.enabled);
+
+            if (showMessage) {
+                message.textContent =
+                    camera.password_saved
+                        ? "Settings loaded. A password is saved."
+                        : "Settings loaded.";
+            }
+
+        } catch (error) {
+            message.textContent =
+                "Unable to load settings: " +
+                error.message;
+        }
+    }
+
+    async function saveCameraSettings() {
+        const message =
+            document.getElementById(
+                "cameraSettingsMessage"
+            );
+
+        const host =
+            document
+                .getElementById("camHost")
+                .value
+                .trim();
+
+        const port =
+            Number(
+                document
+                    .getElementById("camPort")
+                    .value
+            );
+
+        if (
+            port < 1 ||
+            port > 65535 ||
+            !Number.isInteger(port)
+        ) {
+            message.textContent =
+                "Enter a valid RTSP port.";
+            return;
+        }
+
+        const settings = {
+            enabled:
+                document
+                    .getElementById("camEnabled")
+                    .checked,
+
+            name:
+                document
+                    .getElementById("camName")
+                    .value
+                    .trim(),
+
+            host,
+
+            port,
+
+            username:
+                document
+                    .getElementById("camUser")
+                    .value
+                    .trim(),
+
+            rtsp_path:
+                document
+                    .getElementById("camPath")
+                    .value
+                    .trim()
+        };
+
+        const password =
+            document
+                .getElementById("camPass")
+                .value;
+
+        if (password !== "") {
+            settings.password = password;
+        }
+
+        message.textContent =
+            "Saving camera settings…";
+
+        try {
+            const response = await fetch(
+                "/api/camera/settings",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(settings)
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok ||
+                data.ok === false
+            ) {
+                throw new Error(
+                    data.error ||
+                    data.message ||
+                    "Settings could not be saved"
+                );
+            }
+
+            document
+                .getElementById("camPass")
+                .value = "";
+
+            message.textContent =
+                "Camera settings saved successfully.";
+
+            await loadCameraStatus(false);
+
+        } catch (error) {
+            message.textContent =
+                "Unable to save settings: " +
+                error.message;
+        }
+    }
+
+    async function testCamera() {
+        const message =
+            document.getElementById(
+                "cameraMessage"
+            );
+
+        message.textContent =
+            "Testing camera connection…";
+
+        try {
+            const response = await fetch(
+                "/api/camera/status?_=" +
+                Date.now(),
+                {
+                    cache: "no-store"
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "HTTP " +
+                    response.status +
+                    " " +
+                    response.statusText
+                );
+            }
+
+            const data =
+                await response.json();
+
+            if (cameraStatusIsConnected(data)) {
+                message.textContent =
+                    "Camera connection successful.";
+            } else if (!data.configured) {
+                message.textContent =
+                    "Save the camera settings first.";
+            } else {
+                message.textContent =
+                    data.error ||
+                    "Camera is not currently connected.";
+            }
+
+            await loadCameraStatus(false);
+
+        } catch (error) {
+            message.textContent =
+                "Camera test failed: " +
+                error.message;
+        }
+    }
+    loadCameraStatus();
+    setInterval(loadCameraStatus, 10000);
     loadBluetoothStatus();
     setInterval(loadBluetoothStatus, 3000);
 </script>
