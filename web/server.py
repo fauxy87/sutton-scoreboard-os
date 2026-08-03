@@ -13,6 +13,7 @@ from startup import startup_manager
 import bluetooth_manager
 from urllib.parse import urlparse
 import camera_manager
+import camera_stream
 
 STATE_FILE = Path("/run/scoreos/state.json")
 CONTROL_SOCKET = "/run/scoreos/control.sock"
@@ -567,6 +568,71 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/camera/preview":
+            process = None
+
+            try:
+                process = camera_stream.start_preview()
+
+                self.send_response(200)
+                self.send_header(
+                    "Content-Type",
+                    "multipart/x-mixed-replace; "
+                    "boundary=scoreosframe",
+                )
+                self.send_header(
+                    "Cache-Control",
+                    "no-store, no-cache, "
+                    "must-revalidate",
+                )
+                self.send_header(
+                    "Pragma",
+                    "no-cache",
+                )
+                self.end_headers()
+
+                while True:
+                    chunk = process.stdout.read(16384)
+
+                    if not chunk:
+                        break
+
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+
+            except (
+                BrokenPipeError,
+                ConnectionResetError,
+            ):
+                pass
+
+            except Exception as exc:
+                if not self.wfile.closed:
+                    try:
+                        self.send_json(
+                            {
+                                "ok": False,
+                                "error": str(exc),
+                            },
+                            status=500,
+                        )
+                    except Exception:
+                        pass
+
+            finally:
+                if (
+                    process is not None
+                    and process.poll() is None
+                ):
+                    process.terminate()
+
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+
+            return
+
         if path == "/api/camera/settings":
             camera = camera_manager.load()
 
@@ -648,6 +714,15 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
         if path in ("/tv", "/tv/"):
             tv_path = Path(__file__).with_name("tv.html")
             self.send_html(tv_path.read_text(encoding="utf-8"))
+
+            return
+        if path in ("/tv-camera", "/tv-camera/"):
+            page = Path(__file__).with_name(
+                "tv-camera.html"
+            )
+            self.send_html(
+                page.read_text(encoding="utf-8")
+            )
             return
 
         if path in ("/startup", "/startup/"):
