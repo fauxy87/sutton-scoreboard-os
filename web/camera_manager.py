@@ -2,7 +2,10 @@
 
 import json
 import socket
+import subprocess
+
 from pathlib import Path
+from urllib.parse import quote
 
 CAMERA_CONFIG = Path("/etc/scoreos/camera.json")
 

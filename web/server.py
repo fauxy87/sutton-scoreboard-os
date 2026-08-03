@@ -561,6 +561,12 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.send_json(camera_manager.status())
             return
 
+        if path == "/api/camera/test":
+            self.send_json(
+                camera_manager.test_stream()
+            )
+            return
+
         if path == "/api/camera/settings":
             camera = camera_manager.load()
 
