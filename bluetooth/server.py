@@ -156,19 +156,34 @@ def find_adapter(bus):
 
     objects = manager.GetManagedObjects()
 
-    for path, interfaces in objects.items():
-        adapter_properties = interfaces.get("org.bluez.Adapter1")
+    fallback_path = None
 
-        if (
-            adapter_properties
-            and GATT_MANAGER in interfaces
-            and str(adapter_properties.get("Address", "")).upper()
-                == preferred_address
-        ):
+    for path, interfaces in objects.items():
+
+        adapter_properties = interfaces.get(
+            "org.bluez.Adapter1"
+        )
+
+        if not adapter_properties:
+            continue
+
+        if GATT_MANAGER not in interfaces:
+            continue
+
+        address = str(
+            adapter_properties.get(
+                "Address",
+                "",
+            )
+        ).upper()
+
+        if address == preferred_address:
             return path
 
-    return None
+        if fallback_path is None:
+            fallback_path = path
 
+    return fallback_path
 
 def main():
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)

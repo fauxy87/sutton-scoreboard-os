@@ -21,7 +21,7 @@ expect -re {\[[^]]+\]>}
 send "le on\r"
 expect -re {\[[^]]+\]>}
 
-send "name SCOREOS\r"
+send "name pi\r"
 expect -re {\[[^]]+\]>}
 
 send "connectable on\r"
