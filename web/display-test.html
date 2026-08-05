@@ -174,14 +174,27 @@ let currentIndex = 0;
 let patternCount = 1;
 let timer = null;
 let testStarted = false;
+let automaticRunning = false;
+
+const PATTERN_DELAY_MS = 3000;
 
 const nameBox = document.getElementById("patternName");
 const positionBox = document.getElementById("patternPosition");
 const scoreBox = document.getElementById("scorePreview");
 const statusBox = document.getElementById("status");
 const errorBox = document.getElementById("error");
+
 const startButton = document.getElementById("start");
 const pauseButton = document.getElementById("pause");
+const nextButton = document.getElementById("next");
+const previousButton = document.getElementById("previous");
+const restoreButton = document.getElementById("restore");
+
+function sleep(milliseconds) {
+    return new Promise(
+        (resolve) => setTimeout(resolve, milliseconds)
+    );
+}
 
 async function control(action, index) {
     errorBox.textContent = "";
@@ -192,16 +205,34 @@ async function control(action, index) {
         payload.index = index;
     }
 
-    const response = await fetch("/api/control", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload)
-    });
+    const response = await fetch(
+        "/api/control",
+        {
+            method: "POST",
+            cache: "no-store",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        }
+    );
 
-    const result = await response.json();
+    let result;
 
-    if (!response.ok || !result.ok) {
-        throw new Error(result.error || "Command failed");
+    try {
+        result = await response.json();
+    } catch (error) {
+        throw new Error(
+            `Invalid response from SCOREOS (${response.status})`
+        );
+    }
+
+    if (!response.ok || result.ok === false) {
+        throw new Error(
+            result.error ||
+            result.message ||
+            "Display command failed"
+        );
     }
 
     return result;
@@ -211,86 +242,170 @@ function showPattern(result) {
     const test = result.test;
     const pattern = test.pattern;
 
-    currentIndex = test.index;
-    patternCount = test.count;
+    currentIndex = Number(test.index);
+    patternCount = Number(test.count);
 
     nameBox.textContent = test.name;
+
     positionBox.textContent =
-        `Pattern ${test.index + 1} of ${test.count}`;
+        `Pattern ${currentIndex + 1} of ${patternCount}`;
 
     scoreBox.textContent =
         `${pattern.total}/${pattern.wickets}`;
 
     statusBox.textContent =
-        "Display Test active — live match saved";
+        `Pattern ${currentIndex + 1} command sent to Arduino — ` +
+        `visually check the physical scoreboard`;
+}
+
+function setControlsRunning(running) {
+    startButton.disabled = running;
+    pauseButton.disabled = !running;
+    nextButton.disabled = running;
+    previousButton.disabled = running;
+    restoreButton.disabled = false;
+}
+
+async function loadSystemStatus() {
+    try {
+        const response = await fetch(
+            "/api/system",
+            {cache: "no-store"}
+        );
+
+        if (!response.ok) {
+            return;
+        }
+
+        const system = await response.json();
+        const arduino = system.arduino || {};
+
+        if (arduino.connected === true) {
+            statusBox.textContent =
+                `Arduino connected: ` +
+                `${arduino.device || "serial device ready"}. ` +
+                `Press Start Test.`;
+        } else {
+            statusBox.textContent =
+                "Arduino is not connected — the physical display " +
+                "test may not work.";
+        }
+    } catch (error) {
+        statusBox.textContent =
+            "Unable to read Arduino status. Press Start Test to try.";
+    }
 }
 
 async function startTest() {
+    if (automaticRunning) {
+        return;
+    }
+
+    automaticRunning = true;
+    setControlsRunning(true);
+
+    errorBox.textContent = "";
+    nameBox.textContent = "Automatic Display Test";
+    positionBox.textContent = "Starting";
+    scoreBox.textContent = "---";
+
+    statusBox.textContent =
+        "Starting test — watch the physical scoreboard";
+
     try {
-        const result = await control(
+        const firstResult = await control(
             "display_test_start",
-            currentIndex
+            0
         );
 
         testStarted = true;
-        showPattern(result);
-        startAutomatic();
+        showPattern(firstResult);
+
+        await sleep(PATTERN_DELAY_MS);
+
+        for (
+            let index = 1;
+            index < patternCount;
+            index += 1
+        ) {
+            if (!automaticRunning) {
+                break;
+            }
+
+            const result = await control(
+                "display_test_pattern",
+                index
+            );
+
+            showPattern(result);
+            await sleep(PATTERN_DELAY_MS);
+        }
+
+        if (automaticRunning) {
+            automaticRunning = false;
+            setControlsRunning(false);
+
+            nameBox.textContent =
+                "Automatic Test Completed";
+
+            positionBox.textContent =
+                `${patternCount} commands sent`;
+
+            statusBox.textContent =
+                "Test sequence completed. Confirm visually that " +
+                "the physical scoreboard changed through every pattern, " +
+                "then press Restore Live Match.";
+        }
     } catch (error) {
+        automaticRunning = false;
+        setControlsRunning(false);
+
         errorBox.textContent = error.message;
+        statusBox.textContent =
+            "Display test stopped because a command failed.";
+    }
+}
+
+function pauseTest() {
+    automaticRunning = false;
+
+    if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+    }
+
+    setControlsRunning(false);
+
+    if (testStarted) {
+        statusBox.textContent =
+            "Display test paused — the current pattern remains " +
+            "on the physical scoreboard.";
     }
 }
 
 async function sendPattern(index) {
+    pauseTest();
+
     try {
+        let result;
+
         if (!testStarted) {
-            const result = await control(
+            result = await control(
                 "display_test_start",
                 index
             );
 
             testStarted = true;
-            showPattern(result);
-            return;
+        } else {
+            result = await control(
+                "display_test_pattern",
+                index
+            );
         }
-
-        const result = await control(
-            "display_test_pattern",
-            index
-        );
 
         showPattern(result);
     } catch (error) {
         errorBox.textContent = error.message;
-        pauseTest();
-    }
-}
-
-function startAutomatic() {
-    pauseTest();
-
-    startButton.disabled = true;
-    pauseButton.disabled = false;
-
-    timer = setInterval(() => {
-        const nextIndex =
-            (currentIndex + 1) % patternCount;
-
-        sendPattern(nextIndex);
-    }, 3000);
-}
-
-function pauseTest() {
-    if (timer !== null) {
-        clearInterval(timer);
-        timer = null;
-    }
-
-    startButton.disabled = false;
-    pauseButton.disabled = true;
-
-    if (testStarted) {
-        statusBox.textContent =
-            "Display Test paused — pattern remains displayed";
     }
 }
 
@@ -303,6 +418,7 @@ async function restoreMatch() {
         );
 
         testStarted = false;
+        automaticRunning = false;
         currentIndex = 0;
         patternCount = 1;
 
@@ -310,38 +426,58 @@ async function restoreMatch() {
         positionBox.textContent =
             `Mode: ${result.mode}`;
         scoreBox.textContent = "LIVE";
+
         statusBox.textContent =
-            "The saved match has been returned to the scoreboard";
+            "Restore command sent to Arduino — the saved live " +
+            "match should now be displayed.";
     } catch (error) {
         errorBox.textContent = error.message;
     }
 }
 
-document.getElementById("start")
-    .addEventListener("click", startTest);
+startButton.addEventListener(
+    "click",
+    startTest
+);
 
-document.getElementById("pause")
-    .addEventListener("click", pauseTest);
+pauseButton.addEventListener(
+    "click",
+    pauseTest
+);
 
-document.getElementById("next")
-    .addEventListener("click", () => {
-        pauseTest();
-        sendPattern((currentIndex + 1) % patternCount);
-    });
+nextButton.addEventListener(
+    "click",
+    () => {
+        const next =
+            testStarted
+                ? (currentIndex + 1) % patternCount
+                : 0;
 
-document.getElementById("previous")
-    .addEventListener("click", () => {
-        pauseTest();
+        sendPattern(next);
+    }
+);
 
+previousButton.addEventListener(
+    "click",
+    () => {
         const previous =
-            (currentIndex - 1 + patternCount) %
-            patternCount;
+            testStarted
+                ? (
+                    currentIndex - 1 + patternCount
+                ) % patternCount
+                : 0;
 
         sendPattern(previous);
-    });
+    }
+);
 
-document.getElementById("restore")
-    .addEventListener("click", restoreMatch);
+restoreButton.addEventListener(
+    "click",
+    restoreMatch
+);
+
+setControlsRunning(false);
+loadSystemStatus();
 </script>
 </body>
 </html>

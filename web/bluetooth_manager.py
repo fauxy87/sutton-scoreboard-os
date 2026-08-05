@@ -165,25 +165,37 @@ def pairing_seconds_remaining():
 
     return max(0, int(_pairing_ends_at - time.time()))
 
-
 def get_status():
-    adapter = adapter_info()
-    devices = paired_devices()
+    bluetooth_running = service_active(
+        "bluetooth.service"
+    )
+
+    gatt_running = service_active(
+        "sutton-scoreboard.service"
+    )
+
+    advert_running = service_active(
+        "sutton-scoreboard-advert.service"
+    )
 
     return {
         "ok": True,
-        "adapter": adapter,
-        "advertising": advertising_active(),
-        "gatt_service": service_active("sutton-scoreboard.service"),
-        "advert_service": service_active(
-            "sutton-scoreboard-advert.service"
-        ),
+        "adapter": {
+            "available": bluetooth_running,
+            "powered": bluetooth_running,
+            "discoverable": False,
+            "pairable": _pairing_active,
+            "address": None,
+            "name": "SCOREOS",
+        },
+        "advertising": advert_running,
+        "gatt_service": gatt_running,
+        "advert_service": advert_running,
         "pairing_active": _pairing_active,
-        "pairing_seconds_remaining": pairing_seconds_remaining(),
-        "paired_devices": devices,
-        "connected_devices": [
-            device for device in devices if device["connected"]
-        ],
+        "pairing_seconds_remaining":
+            pairing_seconds_remaining(),
+        "paired_devices": [],
+        "connected_devices": [],
         "message": _last_message,
     }
 

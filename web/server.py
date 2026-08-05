@@ -646,9 +646,13 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/startup":
+            snapshot = system_snapshot()
+
             startup = startup_manager.get_status()
-            startup["bluetooth"] = system_snapshot()["bluetooth"]
-            startup["match"] = system_snapshot()["match"]
+            startup["bluetooth"] = snapshot["bluetooth"]
+            startup["match"] = snapshot["match"]
+            startup["network"] = snapshot["network"]
+
             self.send_json(startup)
             return
 

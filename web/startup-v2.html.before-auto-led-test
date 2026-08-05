@@ -681,15 +681,44 @@
     </main>
 
     <script>
-        const LED_PATTERN_COUNT = 6;
-        const LED_PATTERN_SECONDS = 1.5;
-
-        let ledTestRunning = false;
-        let ledTestComplete = false;
-        let redirectStarted = false;
-        let baselinePacketCount = null;
-        let startupPoll = null;
-        let cameraStatus = null;
+        const stages = [
+            {
+                id: "boot",
+                title: "Starting SCOREOS",
+                system: "SCOREOS Core",
+                progress: 10
+            },
+            {
+                id: "services",
+                title: "Loading services",
+                system: "Ground Control",
+                progress: 25
+            },
+            {
+                id: "arduino",
+                title: "Checking Arduino",
+                system: "Arduino",
+                progress: 40
+            },
+            {
+                id: "display",
+                title: "Testing scoreboard",
+                system: "LED Display",
+                progress: 60
+            },
+            {
+                id: "bluetooth",
+                title: "Starting Bluetooth",
+                system: "Bluetooth",
+                progress: 80
+            },
+            {
+                id: "ready",
+                title: "Match Ready",
+                system: "Match Engine",
+                progress: 100
+            }
+        ];
 
         const stageTitle =
             document.getElementById("stage-title");
@@ -705,449 +734,151 @@
             document.getElementById("api-badge");
         const footerStatus =
             document.getElementById("footer-status");
-        const readyCard =
-            document.getElementById("ready-card");
-        const readyLabel =
-            document.getElementById("ready-label");
-        const readyTitle =
-            document.getElementById("ready-title");
-        const readyMessage =
-            document.getElementById("ready-message");
-        const readyIcon =
-            document.getElementById("ready-icon");
-        const startupActions =
-            document.getElementById("startup-actions");
 
-        const consoleMessages = [];
-
-        function sleep(milliseconds) {
-            return new Promise(
-                (resolve) => setTimeout(resolve, milliseconds)
+        function getStageIndex(stageId) {
+            return stages.findIndex(
+                (stage) => stage.id === stageId
             );
         }
 
-        function cleanNumber(value) {
-            const cleaned = String(value ?? "")
-                .replaceAll("-", "")
-                .trim();
+        function renderStatus(currentStage) {
+            const currentIndex =
+                getStageIndex(currentStage.id);
 
-            const parsed = Number.parseInt(cleaned || "0", 10);
-            return Number.isFinite(parsed) ? parsed : 0;
-        }
+            statusList.innerHTML = stages.map(
+                (stage, index) => {
+                    let className = "";
+                    let state = "Waiting";
 
-        function addConsoleMessage(message, type = "complete") {
-            consoleMessages.push({
-                time: new Date(),
-                message,
-                type
-            });
+                    if (index < currentIndex) {
+                        className = "complete";
+                        state = "Online";
+                    } else if (index === currentIndex) {
+                        className = "active";
+                        state = "Starting";
+                    }
 
-            if (consoleMessages.length > 18) {
-                consoleMessages.shift();
-            }
-
-            renderConsole();
-        }
-
-        function renderConsole() {
-            consoleBody.innerHTML = consoleMessages.map(
-                (entry) => {
-                    const time = entry.time.toLocaleTimeString(
-                        "en-GB",
-                        { hour12: false }
-                    );
-
-                    const symbol =
-                        entry.type === "active" ? "›" :
-                        entry.type === "error" ? "!" :
-                        "✓";
+                    if (
+                        currentStage.progress >= 100 &&
+                        index <= currentIndex
+                    ) {
+                        className = "complete";
+                        state = "Online";
+                    }
 
                     return `
-                        <div class="console-line ${entry.type}">
-                            <span class="console-time">${time}</span>
-                            <span class="console-symbol">${symbol}</span>
-                            <span>${entry.message}</span>
+                        <div class="status-item ${className}">
+                            <span class="status-dot"></span>
+                            <span class="status-name">
+                                ${stage.system}
+                            </span>
+                            <span class="status-state">
+                                ${state}
+                            </span>
                         </div>
                     `;
                 }
             ).join("");
+        }
 
+        function renderConsole(startup) {
+            const currentIndex =
+                getStageIndex(startup.stage.id);
+
+            const now = new Date();
+
+                   const visibleStages = stages.filter(
+    (stage, index) => index <= currentIndex
+);
+
+const lines = visibleStages.map(
+    (stage, index) => {
+        const time = new Date(
+            now.getTime() -
+            Math.max(
+                0,
+                currentIndex - index
+            ) * 1000
+        ).toLocaleTimeString(
+            "en-GB",
+            {
+                hour12: false
+            }
+        );
+
+        let className = "";
+        let symbol = "•";
+
+        if (index < currentIndex) {
+            className = "complete";
+            symbol = "✓";
+        } else if (index === currentIndex) {
+            className = "active";
+            symbol = "›";
+        }
+
+        if (
+            startup.stage.progress >= 100 &&
+            index <= currentIndex
+        ) {
+            className = "complete";
+            symbol = "✓";
+        }
+
+        return `
+            <div class="console-line ${className}">
+                <span class="console-time">
+                    ${time}
+                </span>
+                <span class="console-symbol">
+                    ${symbol}
+                </span>
+                <span>${stage.title}</span>
+            </div>
+        `;
+    }
+);
+
+            if (
+                Array.isArray(startup.log) &&
+                startup.log.length
+            ) {
+                startup.log.forEach((message) => {
+                    const time =
+                        new Date().toLocaleTimeString(
+                            "en-GB",
+                            {
+                                hour12: false
+                            }
+                        );
+
+                    lines.push(`
+                        <div class="console-line complete">
+                            <span class="console-time">
+                                ${time}
+                            </span>
+                            <span class="console-symbol">
+                                ✓
+                            </span>
+                            <span>${message}</span>
+                        </div>
+                    `);
+                });
+            }
+
+            consoleBody.innerHTML = lines.join("");
             consoleBody.scrollTop =
                 consoleBody.scrollHeight;
         }
-
-        function statusItem(name, state, healthy, active = false) {
-            const className =
-                healthy ? "complete" :
-                active ? "active" : "";
-
-            return `
-                <div class="status-item ${className}">
-                    <span class="status-dot"></span>
-                    <span class="status-name">${name}</span>
-                    <span class="status-state">${state}</span>
-                </div>
-            `;
-        }
-
-        function renderStatus(startup) {
-            const bluetooth = startup.bluetooth || {};
-            const match = startup.match || {};
-
-            const network = startup.network || {};
-            const addresses = Array.isArray(network.addresses)
-                 ? network.addresses
-                 : [];
-
-           const ipAddress =
-                 addresses.find(
-                 (address) =>
-                     address !== "127.0.0.1" &&
-                     !address.startsWith("169.254.")
-                    ) || "Not connected";
-
-            const groundControlUrl =
-                 ipAddress !== "Not connected"
-                 ? `http://${ipAddress}:8080/groundcontrol`
-                 : "Network not connected";
-
-            const bluetoothReady =
-                bluetooth.service === "active" &&
-                bluetooth.advertising === true;
-
-            const playCricketConnected =
-                bluetooth.connected === true;
-
-            const cameraConfigured =
-                cameraStatus?.configured === true;
-
-            const cameraConnected =
-                cameraStatus?.connected === true ||
-                cameraStatus?.online === true;
-
-            const cameraText =
-                cameraConnected ? "Connected" :
-                cameraConfigured ? "Offline" :
-                "Not configured";
-
-            const cameraHealthy =
-                cameraConnected || !cameraConfigured;
-
-            const items = [
-                statusItem(
-                    "SCOREOS Core",
-                    "Online",
-                    true
-                ),
-                statusItem(
-                    "Arduino",
-                    startup.log?.some(
-                        (line) =>
-                            String(line).toLowerCase()
-                                .includes("arduino connected")
-                    ) ? "Connected" : "Checking",
-                    true
-                ),
-                statusItem(
-                    "LED Display",
-                    ledTestComplete
-                        ? "Test passed"
-                        : ledTestRunning
-                            ? "Testing"
-                            : "Waiting",
-                    ledTestComplete,
-                    ledTestRunning
-                ),
-                statusItem(
-                    "Bluetooth",
-                    bluetoothReady
-                        ? "Ready"
-                        : "Checking",
-                    bluetoothReady,
-                    !bluetoothReady
-                ),
-                statusItem(
-                    "Play-Cricket",
-                    playCricketConnected
-                        ? "Connected"
-                        : "Waiting",
-                    playCricketConnected,
-                    !playCricketConnected
-                ),
-                statusItem(
-                    "Network IP",
-                    ipAddress,
-                    true
-                ),
-                statusItem(
-                    "Camera",
-                    cameraText,
-                    cameraHealthy
-                )
-            ];
-
-            statusList.innerHTML = items.join("");
-
-            const total = cleanNumber(match.total);
-            const wickets = cleanNumber(match.wickets);
-
-            if (total > 0 || wickets > 0) {
-                footerStatus.textContent =
-                    `${match.BatTeamName || "Match"} ` +
-                    `${total}/${wickets}`;
-            } else {
-                footerStatus.textContent =
-                    "Waiting for first ball";
-            }
-        }
-
-        async function control(action, extra = {}) {
-            const response = await fetch(
-                "/api/control",
-                {
-                    method: "POST",
-                    cache: "no-store",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        action,
-                        ...extra
-                    })
-                }
-            );
-
-            const result = await response.json();
-
-            if (!response.ok || result.ok === false) {
-                throw new Error(
-                    result.error ||
-                    result.message ||
-                    `Control request failed: ${response.status}`
-                );
-            }
-
-            return result;
-        }
-
-        async function fetchCameraStatus() {
-            try {
-                const response = await fetch(
-                    "/api/camera/status",
-                    { cache: "no-store" }
-                );
-
-                if (response.ok) {
-                    cameraStatus = await response.json();
-                }
-            } catch (error) {
-                cameraStatus = {
-                    configured: false,
-                    connected: false
-                };
-            }
-        }
-
-        function setProgress(value, title) {
-            const progress = Math.max(
-                0,
-                Math.min(100, Number(value) || 0)
-            );
-
-            stageTitle.textContent = title;
-            progressFill.style.width = `${progress}%`;
-            progressValue.textContent = `${progress}%`;
-
-            progressFill.parentElement.setAttribute(
-                "aria-valuenow",
-                String(progress)
-            );
-        }
-
-        async function runLedSelfTest() {
-            if (ledTestRunning || ledTestComplete) {
-                return;
-            }
-
-            ledTestRunning = true;
-            setProgress(40, "Running LED self test");
-
-            readyCard.classList.remove("ready");
-            readyLabel.textContent = "LED Display Check";
-            readyTitle.textContent = "Testing scoreboard LEDs";
-            readyMessage.textContent =
-                "Check that every digit and segment illuminates.";
-            readyIcon.textContent = "◌";
-
-            addConsoleMessage(
-                "Starting automatic LED display test",
-                "active"
-            );
-
-            try {
-                await control(
-                    "display_test_start",
-                    { index: 0 }
-                );
-
-                addConsoleMessage(
-                    "LED pattern 1 displayed"
-                );
-
-                await sleep(LED_PATTERN_SECONDS * 1000);
-
-                for (
-                    let index = 1;
-                    index < LED_PATTERN_COUNT;
-                    index += 1
-                ) {
-                    setProgress(
-                        40 + Math.round(
-                            ((index + 1) / LED_PATTERN_COUNT) * 35
-                        ),
-                        `Testing LED pattern ${index + 1} of ` +
-                        `${LED_PATTERN_COUNT}`
-                    );
-
-                    await control(
-                        "display_test_pattern",
-                        { index }
-                    );
-
-                    addConsoleMessage(
-                        `LED pattern ${index + 1} displayed`
-                    );
-
-                    await sleep(LED_PATTERN_SECONDS * 1000);
-                }
-
-                await control("display_test_restore");
-
-                ledTestComplete = true;
-                addConsoleMessage(
-                    "LED self test completed and score restored"
-                );
-            } catch (error) {
-                addConsoleMessage(
-                    `LED test error: ${error.message}`,
-                    "error"
-                );
-
-                try {
-                    await control("display_test_restore");
-                } catch (restoreError) {
-                    addConsoleMessage(
-                        "Unable to restore display automatically",
-                        "error"
-                    );
-                }
-
-                /*
-                 * Do not trap the startup screen forever if the
-                 * physical scoreboard is disconnected.
-                 */
-                ledTestComplete = true;
-            } finally {
-                ledTestRunning = false;
-            }
-        }
-
-function showReady(startup) {
-    const bluetooth = startup.bluetooth || {};
-    const network = startup.network || {};
-    const addresses = Array.isArray(network.addresses)
-        ? network.addresses
-        : [];
-
-    const ipAddress =
-        addresses.find(
-            (address) =>
-                address !== "127.0.0.1" &&
-                !address.startsWith("169.254.")
-        ) || "Not connected";
-
-    const devices = network.devices || {};
-
-    const wifiConnected =
-        String(devices.wlan0?.state || "")
-            .startsWith("connected");
-
-    const ethernetConnected =
-        String(devices.eth0?.state || "")
-            .startsWith("connected");
-
-    const networkName =
-        wifiConnected
-            ? devices.wlan0.connection
-            : ethernetConnected
-                ? devices.eth0.connection
-                : "Not connected";
-
-    const groundControlUrl =
-        ipAddress !== "Not connected"
-            ? `http://${ipAddress}:8080/groundcontrol`
-            : "Network not connected";
-
-            setProgress(100, "🏏 Ready for First Ball");
-
-            readyCard.classList.add("ready");
-            startupActions.classList.add("visible");
-    readyLabel.textContent = "Match Day Ready";
-    readyTitle.textContent = "🏏 Ready for First Ball";
-
-    readyMessage.innerHTML =
-        `Network: ${networkName} &nbsp;•&nbsp; ` +
-        `IP: <strong>${ipAddress}</strong><br>` +
-        `Ground Control: ${groundControlUrl}<br>` +
-        (
-            bluetooth.connected
-                ? `Play-Cricket connected to ` +
-                  `${bluetooth.device_name || "scoring device"}`
-                : "Waiting for Play-Cricket connection"
-        );
-
-    readyIcon.textContent = "✓";
-    footerStatus.textContent =
-        "Waiting for first ball";
-}
-
-        function shouldOpenTv(startup) {
-            if (!ledTestComplete || redirectStarted) {
-                return false;
-            }
-
-            const bluetooth = startup.bluetooth || {};
-            const match = startup.match || {};
-
-            if (
-                bluetooth.connected !== true ||
-                String(match.mode || "").toLowerCase() !==
-                    "playcricket"
-            ) {
-                return false;
-            }
-
-            const packetCount =
-                Number(bluetooth.packet_count || 0);
-
-            const scoreStarted =
-                cleanNumber(match.total) > 0 ||
-                cleanNumber(match.wickets) > 0 ||
-                String(match.CurrentOver || "").trim() !== "" &&
-                String(match.CurrentOver || "").trim() !== "-";
-
-            return (
-                baselinePacketCount !== null &&
-                packetCount > baselinePacketCount &&
-                scoreStarted
-            );
-        }
+        let redirectStarted = false;
 
         async function updateStartupStatus() {
             try {
                 const response = await fetch(
                     "/api/startup",
-                    { cache: "no-store" }
+                    {
+                        cache: "no-store"
+                    }
                 );
 
                 if (!response.ok) {
@@ -1156,61 +887,106 @@ function showReady(startup) {
                     );
                 }
 
-                const startup = await response.json();
+                const startup =
+                    await response.json();
 
-                if (baselinePacketCount === null) {
-                    baselinePacketCount =
+                const progress = Math.max(
+                    0,
+                    Math.min(
+                        100,
                         Number(
-                            startup.bluetooth?.packet_count || 0
-                        );
-                }
+                            startup.stage?.progress
+                        ) || 0
+                    )
+                );
 
-                apiBadge.textContent = "Status API online";
+                const currentStage =
+                    startup.stage || stages[0];
+
+                stageTitle.textContent =
+                    currentStage.title ||
+                    "Starting SCOREOS";
+
+                progressFill.style.width =
+                    `${progress}%`;
+
+                progressValue.textContent =
+                    `${progress}%`;
+
+                progressFill.parentElement.setAttribute(
+                    "aria-valuenow",
+                    String(progress)
+                );
+
+                apiBadge.textContent =
+                    "Status API online";
                 apiBadge.classList.remove(
                     "connection-error"
                 );
 
-                renderStatus(startup);
+                footerStatus.textContent =
+                    progress >= 100
+                        ? "Ground Control ready"
+                        : "Initialising match systems";
 
-                if (ledTestComplete) {
-                    showReady(startup);
+                const readyCard =
+                    document.getElementById("ready-card");
+                const readyLabel =
+                    document.getElementById("ready-label");
+                const readyTitle =
+                    document.getElementById("ready-title");
+                const readyMessage =
+                    document.getElementById("ready-message");
+                const readyIcon =
+                    document.getElementById("ready-icon");
+                const startupActions =
+                    document.getElementById("startup-actions");
+
+                if (progress >= 100) {
+                    readyCard.classList.add("ready");
+                    startupActions.classList.add("visible");
+
+                    readyLabel.textContent =
+                        "Match Day Ready";
+                    readyTitle.textContent =
+                        "Ready for first ball";
+                    readyMessage.textContent =
+                        "All SCOREOS startup checks have completed.";
+                    readyIcon.textContent = "✓";
+                } else {
+                    readyCard.classList.remove("ready");
+                    startupActions.classList.remove("visible");
+
+                    readyLabel.textContent =
+                        "Match Day Check";
+                    readyTitle.textContent =
+                        currentStage.title ||
+                        "Initialising match systems";
+                    readyMessage.textContent =
+                        `SCOREOS startup is ${progress}% complete.`;
+                    readyIcon.textContent = "…";
                 }
 
-                if (shouldOpenTv(startup)) {
-                    redirectStarted = true;
+                renderStatus(currentStage);
+                renderConsole(startup);
+                if (
+                 !redirectStarted &&
+                startup.bluetooth?.waiting_for_first_packet === false &&
+                startup.bluetooth?.connected === true &&
+                String(startup.match?.mode || "").toLowerCase() === "playcricket"
+             ) {
+                redirectStarted = true;
 
-                    setProgress(
-                        100,
-                        "First Ball — Opening TV Display"
-                    );
 
-                    readyTitle.textContent =
-                        "Match underway";
-                    readyMessage.textContent =
-                        "Loading the live TV scoreboard…";
-                    readyIcon.textContent = "🏏";
+                setTimeout(() => {
+                   window.location.replace("/tv");
+                 }, 3000);
 
-                    addConsoleMessage(
-                        "First scoring event received"
-                    );
-                    addConsoleMessage(
-                        "Opening live TV display",
-                        "active"
-                    );
-
-                    document.body.style.transition =
-                        "opacity 0.8s ease";
-
-                    setTimeout(() => {
-                        document.body.style.opacity = "0";
-                    }, 700);
-
-                    setTimeout(() => {
-                        window.location.replace("/tv");
-                    }, 1600);
+                   return;
                 }
             } catch (error) {
-                apiBadge.textContent = "Status API offline";
+                apiBadge.textContent =
+                    "Status API offline";
                 apiBadge.classList.add(
                     "connection-error"
                 );
@@ -1223,29 +999,12 @@ function showReady(startup) {
             }
         }
 
-        async function initialiseStartup() {
-            setProgress(10, "Starting SCOREOS");
-            addConsoleMessage("SCOREOS startup page loaded");
+        updateStartupStatus();
 
-            await fetchCameraStatus();
-            await updateStartupStatus();
-
-            setProgress(25, "Checking match systems");
-            addConsoleMessage("System status API connected");
-
-            await sleep(800);
-            await runLedSelfTest();
-
-            setProgress(90, "Completing startup checks");
-            await updateStartupStatus();
-
-            startupPoll = setInterval(
-                updateStartupStatus,
-                1000
-            );
-        }
-
-        initialiseStartup();
+        setInterval(
+            updateStartupStatus,
+            1000
+        );
     </script>
 </body>
 </html>
