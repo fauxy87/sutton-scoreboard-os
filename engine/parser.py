@@ -90,6 +90,14 @@ def parse_partnership(state, incoming):
     state.update("partnership", value)
 
 
+def parse_target(state, incoming):
+    state.update("target", pad(incoming, 3))
+
+
+def parse_runs_required(state, incoming):
+    state.update("runs_required", pad(incoming, 3))
+
+
 def ignore_packet(state, incoming):
     return
 
@@ -118,16 +126,18 @@ PACKET_HANDLERS = {
     "PSH": parse_partnership,
 
     "BTR": ignore_packet,
+    "BTT": parse_target,
     "BTW": ignore_packet,
+
     "F1N": parse_bowler1_name,
     "F1S": parse_bowler1_figures,
     "F2N": parse_bowler2_name,
     "F2S": parse_bowler2_figures,
-    "RRQ": ignore_packet,
+
+    "RRQ": parse_runs_required,
     "RRR": ignore_packet,
     "OVR": ignore_packet,
 }
-
 
 def parse_playcricket_packet(state, packet):
     packet = packet.strip()
