@@ -711,6 +711,43 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
             return
 
+        if path.startswith("/images/"):
+            image_name = Path(path).name
+            image_path = (
+                Path(__file__).with_name("images")
+                / image_name
+            )
+
+            if not image_path.exists():
+                self.send_error(404, "Image not found")
+                return
+
+            content_type = "image/jpeg"
+
+            if image_path.suffix.lower() == ".png":
+                content_type = "image/png"
+            elif image_path.suffix.lower() == ".webp":
+                content_type = "image/webp"
+
+            body = image_path.read_bytes()
+
+            self.send_response(200)
+            self.send_header(
+                "Content-Type",
+                content_type,
+            )
+            self.send_header(
+                "Cache-Control",
+                "public, max-age=3600",
+            )
+            self.send_header(
+                "Content-Length",
+                str(len(body)),
+            )
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if path in ("/", "/index.html"):
             self.send_html(SPECTATOR_HTML)
             return
