@@ -1,0 +1,15 @@
+[Unit]
+Description=SCOREOS Camera Recorder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/sutton-scoreboard-os
+ExecStart=/usr/bin/python3 -u /home/pi/sutton-scoreboard-os/scripts/camera_recorder.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
