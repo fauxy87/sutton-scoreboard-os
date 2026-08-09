@@ -20,7 +20,7 @@ DISPLAY_TEST_PATTERNS = [
         "name": "All segments",
         "total": 888,
         "wickets": 8,
-        "overs": 888,
+        "overs": 88,
         "target": 888,
         "bat_a_runs": 888,
         "bat_b_runs": 888,
@@ -29,7 +29,7 @@ DISPLAY_TEST_PATTERNS = [
         "name": "Maximum digits",
         "total": 999,
         "wickets": 9,
-        "overs": 999,
+        "overs": 99,
         "target": 999,
         "bat_a_runs": 999,
         "bat_b_runs": 999,
@@ -38,7 +38,7 @@ DISPLAY_TEST_PATTERNS = [
         "name": "Mixed segments",
         "total": 123,
         "wickets": 4,
-        "overs": 123,
+        "overs": 23,
         "target": 187,
         "bat_a_runs": 45,
         "bat_b_runs": 78,
@@ -47,7 +47,7 @@ DISPLAY_TEST_PATTERNS = [
         "name": "Typical innings",
         "total": 200,
         "wickets": 0,
-        "overs": 200,
+        "overs": 00,
         "target": 201,
         "bat_a_runs": 100,
         "bat_b_runs": 100,
@@ -56,7 +56,7 @@ DISPLAY_TEST_PATTERNS = [
         "name": "Match situation",
         "total": 175,
         "wickets": 7,
-        "overs": 395,
+        "overs": 35,
         "target": 176,
         "bat_a_runs": 75,
         "bat_b_runs": 25,
@@ -180,9 +180,10 @@ class ScoreboardEngine:
         os.replace(temporary_file, STATE_FILE)
         print("State written:", STATE_FILE)
 
-    def publish_locked(self):
+    def publish_locked(self, force=False):
         message = self.arduino_message()
-        self.arduino.send(message)
+        self.arduino.send(message, force=force)
+
         self.write_state_json()
    
         self.state.changed = False
@@ -263,7 +264,7 @@ class ScoreboardEngine:
         )
         self.state.update(
             "overs",
-            padded(pattern["overs"], 3),
+            padded(pattern["overs"], 2),
         )
         self.state.update(
             "target",
@@ -301,7 +302,7 @@ class ScoreboardEngine:
                 result = self.apply_test_pattern(
                     request.get("index", 0)
                 )
-                self.publish_locked()
+                self.publish_locked(force=True)
 
                 return {
                     "ok": True,
@@ -319,7 +320,7 @@ class ScoreboardEngine:
                 result = self.apply_test_pattern(
                     request.get("index", 0)
                 )
-                self.publish_locked()
+                self.publish_locked(force=True)
 
                 return {
                     "ok": True,
@@ -346,7 +347,7 @@ class ScoreboardEngine:
                 self.pre_test_mode = None
                 self.test_pattern_index = 0
 
-                self.publish_locked()
+                self.publish_locked(force=True)
 
                 return {
                     "ok": True,
