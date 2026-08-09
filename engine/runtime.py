@@ -9,6 +9,7 @@ import time
 
 from engine.matchstate import MatchState
 from engine.parser import parse_playcricket_packet
+from engine import event_engine
 
 
 STATE_FILE = "/run/scoreos/state.json"
@@ -98,6 +99,7 @@ class ScoreboardEngine:
         self.pre_test_mode = None
         self.pre_test_state = None
         self.test_pattern_index = 0
+        self.last_published_state = None
 
         self.start_control_server()
 
@@ -184,8 +186,21 @@ class ScoreboardEngine:
         message = self.arduino_message()
         self.arduino.send(message, force=force)
 
+        current_snapshot = self.state.snapshot()
+
+        if self.mode == "playcricket":
+            events = event_engine.detect_events(
+                self.last_published_state,
+                current_snapshot,
+            )
+            event_engine.write_events(events)
+
+            self.last_published_state = copy.deepcopy(
+                current_snapshot
+            )
+
         self.write_state_json()
-   
+
         self.state.changed = False
         self.timer = None
 
