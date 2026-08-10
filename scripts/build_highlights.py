@@ -233,6 +233,23 @@ def safe_text(value):
     return result.strip("-").lower() or "unknown"
 
 
+def display_value(value, default="0"):
+    text = str(value or "").replace("-", "").strip()
+    return text or default
+
+
+def drawtext_escape(value):
+    text = str(value or "")
+
+    return (
+        text
+        .replace("\\", "\\\\")
+        .replace(":", "\\:")
+        .replace("'", "\\'")
+        .replace("%", "\\%")
+    )
+
+
 def output_path(event):
     timestamp = datetime.fromtimestamp(
         event["timestamp"]
@@ -382,6 +399,85 @@ def create_clip(event, overwrite=False):
         str(temporary_path),
     ]
 
+    team = drawtext_escape(
+        str(
+            event.get("batting_team")
+            or "SCOREOS"
+        ).upper()
+    )
+
+    runs = display_value(
+        event.get("score")
+    )
+
+    wickets = display_value(
+        event.get("wickets")
+    )
+
+    overs = display_value(
+        event.get("overs")
+    )
+
+    batter = drawtext_escape(
+        event.get("batter")
+        or ""
+    )
+
+    batter_score = display_value(
+        event.get("batter_score"),
+        "",
+    )
+
+    event_label = drawtext_escape(
+        event.get("type")
+        or ""
+    )
+
+    batter_text = batter
+
+    if batter_score:
+        batter_text += " " + batter_score
+
+    video_filter = (
+        "scale=1920:-2,"
+        "drawbox="
+        "x=0:y=ih-118:w=iw:h=118:"
+        "color=black@0.78:t=fill,"
+        "drawbox="
+        "x=0:y=ih-118:w=iw:h=5:"
+        "color=yellow:t=fill,"
+        "drawtext="
+        "font='DejaVu Sans':"
+        f"text='{team}':"
+        "fontcolor=white:"
+        "fontsize=38:"
+        "x=35:y=h-93,"
+        "drawtext="
+        "font='DejaVu Sans':"
+        f"text='{runs}/{wickets}':"
+        "fontcolor=yellow:"
+        "fontsize=48:"
+        "x=430:y=h-101,"
+        "drawtext="
+        "font='DejaVu Sans':"
+        f"text='{overs} OVERS':"
+        "fontcolor=white:"
+        "fontsize=30:"
+        "x=610:y=h-86,"
+        "drawtext="
+        "font='DejaVu Sans':"
+        f"text='{batter_text}':"
+        "fontcolor=white:"
+        "fontsize=30:"
+        "x=850:y=h-86,"
+        "drawtext="
+        "font='DejaVu Sans':"
+        f"text='{event_label}':"
+        "fontcolor=yellow:"
+        "fontsize=42:"
+        "x=w-tw-40:y=h-96"
+    )
+
     encode_command = [
         "/usr/bin/ffmpeg",
         "-hide_banner",
@@ -392,7 +488,7 @@ def create_clip(event, overwrite=False):
         "-map",
         "0:v:0",
         "-vf",
-        "scale=1920:-2",
+        video_filter,
         "-c:v",
         "h264_v4l2m2m",
         "-b:v",

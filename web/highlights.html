@@ -124,6 +124,52 @@ main {
     font-weight: 800;
 }
 
+.match-feature {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.match-feature-header {
+    padding: 16px 18px;
+    background: var(--panel2);
+}
+
+.match-feature-title {
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--accent);
+}
+
+.match-feature-subtitle {
+    margin-top: 4px;
+    color: var(--muted);
+}
+
+.match-feature video {
+    width: 100%;
+    display: block;
+    background: #000;
+    max-height: 70vh;
+}
+
+.match-feature-actions {
+    display: flex;
+    gap: 10px;
+    padding: 15px;
+}
+
+.match-feature-actions a {
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    padding: 12px;
+    border-radius: 9px;
+    font-weight: 800;
+}
+
 .grid {
     display: grid;
     grid-template-columns:
@@ -309,12 +355,15 @@ video {
         </div>
     </div>
 
+    <div id="match-highlight"></div>
+
     <div id="content"></div>
 
 </main>
 
 <script>
 let highlights = [];
+let matchHighlights = null;
 let currentFilter = "ALL";
 
 function prettyName(item) {
@@ -359,6 +408,58 @@ function prettyTime(item) {
             timeStyle: "short",
         }
     );
+}
+
+function renderMatchHighlights() {
+    const container = document.getElementById(
+        "match-highlight"
+    );
+
+    if (!matchHighlights) {
+        container.innerHTML = "";
+        return;
+    }
+
+    container.innerHTML = `
+        <section class="match-feature">
+
+            <div class="match-feature-header">
+                <div class="match-feature-title">
+                    🎬 MATCH HIGHLIGHTS
+                </div>
+
+                <div class="match-feature-subtitle">
+                    All FOURs, SIXes and wickets in one video
+                </div>
+            </div>
+
+            <video
+                controls
+                preload="metadata"
+                src="${matchHighlights.video_url}"
+            ></video>
+
+            <div class="match-feature-actions">
+
+                <a
+                    class="play"
+                    href="${matchHighlights.video_url}"
+                    target="_blank"
+                >
+                    Play Full Highlights
+                </a>
+
+                <a
+                    class="download"
+                    href="${matchHighlights.download_url}"
+                >
+                    Download
+                </a>
+
+            </div>
+
+        </section>
+    `;
 }
 
 function render() {
@@ -467,6 +568,9 @@ async function loadHighlights() {
         }
 
         highlights = data.highlights || [];
+        matchHighlights = data.match_highlights || null;
+
+        renderMatchHighlights();
         render();
 
     } catch (error) {

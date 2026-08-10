@@ -753,6 +753,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             )
 
             highlights = []
+            match_highlights = None
 
             if highlight_root.exists():
                 for clip in highlight_root.rglob("*.mp4"):
@@ -765,31 +766,35 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         highlight_root
                     )
 
+                    item = {
+                        "filename": clip.name,
+                        "relative_path": str(relative),
+                        "size_bytes": stat.st_size,
+                        "modified": stat.st_mtime,
+                        "video_url": (
+                            "/highlights/video/"
+                            + clip.name
+                        ),
+                        "download_url": (
+                            "/highlights/download/"
+                            + clip.name
+                        ),
+                    }
+
+                    if clip.name == "match-highlights.mp4":
+                        item["event_type"] = "MATCH"
+                        match_highlights = item
+                        continue
+
                     parts = clip.stem.split("_")
 
-                    event_type = (
+                    item["event_type"] = (
                         parts[2].upper()
                         if len(parts) >= 3
                         else "HIGHLIGHT"
                     )
 
-                    highlights.append(
-                        {
-                            "filename": clip.name,
-                            "relative_path": str(relative),
-                            "event_type": event_type,
-                            "size_bytes": stat.st_size,
-                            "modified": stat.st_mtime,
-                            "video_url": (
-                                "/highlights/video/"
-                                + clip.name
-                            ),
-                            "download_url": (
-                                "/highlights/download/"
-                                + clip.name
-                            ),
-                        }
-                    )
+                    highlights.append(item)
 
             highlights.sort(
                 key=lambda item: item["modified"],
@@ -801,6 +806,56 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "count": len(highlights),
                     "highlights": highlights,
+                    "match_highlights": match_highlights,
+                }
+            )
+            return
+
+        if path == "/api/highlights/build-match":
+            script = Path(
+                "/home/pi/sutton-scoreboard-os/scripts/build_match_highlights.py"
+            )
+
+            try:
+                result = subprocess.run(
+                    [
+                        "/usr/bin/python3",
+                        str(script),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Match highlights build timed out.",
+                    },
+                    status=500,
+                )
+                return
+
+            if result.returncode != 0:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            result.stderr.strip()
+                            or result.stdout.strip()
+                            or "Unable to build match highlights."
+                        ),
+                    },
+                    status=500,
+                )
+                return
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "message": "Match highlights built successfully.",
+                    "output": result.stdout.strip(),
                 }
             )
             return
