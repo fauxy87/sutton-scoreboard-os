@@ -60,7 +60,7 @@ def main():
         "events": count_events(),
         "recordings": count_files(
             RECORDING_ROOT,
-            "*.mp4",
+            "*.ts",
         ),
         "highlights": count_files(
             HIGHLIGHT_ROOT,
@@ -72,7 +72,7 @@ def main():
         ),
         "latest_recording": latest_file(
             RECORDING_ROOT,
-            "*.mp4",
+            "*.ts",
         ),
         "latest_highlight": latest_file(
             HIGHLIGHT_ROOT,

@@ -96,7 +96,7 @@ def recording_pattern():
 
     return str(
         day_folder /
-        "%Y-%m-%d_%H-%M-%S.mp4"
+        "%Y-%m-%d_%H-%M-%S.ts"
     )
 
 
@@ -120,7 +120,9 @@ def run_recorder():
         "-f",
         "segment",
         "-segment_time",
-        "300",
+        "10",
+        "-segment_format",
+        "mpegts",
         "-reset_timestamps",
         "1",
         "-strftime",

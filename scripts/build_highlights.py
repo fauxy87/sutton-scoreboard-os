@@ -168,15 +168,24 @@ def find_recording_segments(
             continue
 
         candidates.extend(
-            day_folder.glob("*.mp4")
+            day_folder.glob("*.ts")
         )
 
     segments = []
+
+    search_start = clip_start - 30
+    search_end = clip_end + 30
 
     for path in sorted(candidates):
         start = segment_start_time(path)
 
         if start is None:
+            continue
+
+        # Recording segments are only around 10-12 seconds.
+        # Skip files nowhere near the required highlight
+        # before calling the relatively expensive ffprobe.
+        if start < search_start or start > search_end:
             continue
 
         duration = probe_duration(path)
