@@ -150,40 +150,92 @@ main {
 }
 
 .recording-panel {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns:
+        minmax(220px, 1fr)
+        minmax(420px, 1.6fr)
+        auto;
     align-items: center;
-    gap: 18px;
-    padding: 18px;
-    margin-bottom: 22px;
+    gap: 22px;
+    padding: 22px 26px;
+    margin-bottom: 28px;
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 16px;
+}
+
+.recording-info {
+    min-width: 0;
 }
 
 .recording-title {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 900;
 }
 
 .recording-status {
-    margin-top: 5px;
+    margin-top: 7px;
     color: var(--muted);
 }
 
 .recording-status.live {
     color: #f87171;
+    font-weight: 900;
+}
+
+.recording-match-name {
+    margin-top: 7px;
+    font-size: 18px;
     font-weight: 800;
+}
+
+.match-setup {
+    display: grid;
+    grid-template-columns:
+        minmax(160px, 1fr)
+        auto
+        minmax(160px, 1fr);
+    gap: 10px;
+    align-items: end;
+}
+
+.team-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.team-field label {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.team-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: #111;
+    font: inherit;
+}
+
+.match-v {
+    padding-bottom: 11px;
+    font-weight: 900;
 }
 
 .recording-button {
     border: 0;
     border-radius: 10px;
-    padding: 13px 18px;
+    padding: 14px 18px;
     font-size: 15px;
     font-weight: 900;
     cursor: pointer;
     min-width: 230px;
+    white-space: nowrap;
 }
 
 .recording-button.start {
@@ -201,14 +253,24 @@ main {
     cursor: wait;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 1050px) {
     .recording-panel {
-        flex-direction: column;
-        align-items: stretch;
+        grid-template-columns: 1fr;
     }
 
     .recording-button {
         width: 100%;
+    }
+}
+
+@media (max-width: 650px) {
+    .match-setup {
+        grid-template-columns: 1fr;
+    }
+
+    .match-v {
+        text-align: center;
+        padding: 0;
     }
 }
 
@@ -444,7 +506,7 @@ video {
     </div>
 
     <section class="recording-panel">
-    <div>
+    <div class="recording-info">
         <div class="recording-title">
             Full Match Recording
         </div>
@@ -454,6 +516,45 @@ video {
             class="recording-status"
         >
             Checking recording status…
+        </div>
+
+        <div
+            id="recording-match-name"
+            class="recording-match-name"
+        ></div>
+    </div>
+
+    <div
+        id="match-setup"
+        class="match-setup"
+    >
+        <div class="team-field">
+            <label for="home-team">
+                Home Team
+            </label>
+
+            <input
+                id="home-team"
+                type="text"
+                placeholder="Home team"
+                value="Sutton CC"
+            >
+        </div>
+
+        <div class="match-v">
+            v
+        </div>
+
+        <div class="team-field">
+            <label for="away-team">
+                Away Team
+            </label>
+
+            <input
+                id="away-team"
+                type="text"
+                placeholder="Away team"
+            >
         </div>
     </div>
 
@@ -686,27 +787,32 @@ function renderFeature(item, title, subtitle, playText) {
 
 
 function matchTitle(match) {
-    let title = match.session_id;
+    const fixture =
+        match.match_name
+        || match.session_id;
 
-    if (match.date) {
-        const date = new Date(
-            match.date + "T12:00:00"
-        );
-
-        if (!Number.isNaN(date.getTime())) {
-            title =
-                date.toLocaleDateString(
-                    undefined,
-                    {
-                        dateStyle: "medium",
-                    }
-                )
-                + " — "
-                + match.session_id;
-        }
+    if (!match.date) {
+        return fixture;
     }
 
-    return title;
+    const date = new Date(
+        match.date + "T12:00:00"
+    );
+
+    if (Number.isNaN(date.getTime())) {
+        return fixture;
+    }
+
+    return (
+        fixture
+        + " — "
+        + date.toLocaleDateString(
+            undefined,
+            {
+                dateStyle: "medium",
+            }
+        )
+    );
 }
 
 
@@ -928,6 +1034,23 @@ async function loadMatchRecordingStatus() {
 
             status.classList.add("live");
 
+            const setup = document.getElementById(
+                "match-setup"
+            );
+
+            const matchName = document.getElementById(
+                "recording-match-name"
+            );
+
+            if (setup) {
+                setup.style.display = "none";
+            }
+
+            if (matchName) {
+                matchName.textContent =
+                    data.session?.match_name || "";
+            }
+
             button.textContent =
                 "⏹ STOP MATCH RECORDING";
 
@@ -939,6 +1062,22 @@ async function loadMatchRecordingStatus() {
                 "Not currently recording";
 
             status.classList.remove("live");
+
+            const setup = document.getElementById(
+                "match-setup"
+            );
+
+            const matchName = document.getElementById(
+                "recording-match-name"
+            );
+
+            if (setup) {
+                setup.style.display = "";
+            }
+
+            if (matchName) {
+                matchName.textContent = "";
+            }
 
             button.textContent =
                 "🔴 START MATCH RECORDING";
@@ -967,6 +1106,33 @@ async function toggleMatchRecording() {
         ? "/api/match/stop"
         : "/api/match/start";
 
+    const homeTeam = document.getElementById(
+        "home-team"
+    ).value.trim();
+
+    const awayTeam = document.getElementById(
+        "away-team"
+    ).value.trim();
+
+    if (
+        !matchRecording
+        && (!homeTeam || !awayTeam)
+    ) {
+        alert(
+            "Please enter both teams before starting the match."
+        );
+
+        button.disabled = false;
+        return;
+    }
+
+    const requestBody = matchRecording
+        ? {}
+        : {
+            home_team: homeTeam,
+            away_team: awayTeam,
+        };
+
     try {
         const response = await fetch(
             endpoint,
@@ -976,7 +1142,9 @@ async function toggleMatchRecording() {
                     "Content-Type":
                         "application/json",
                 },
-                body: "{}",
+                body: JSON.stringify(
+                    requestBody
+                ),
                 cache: "no-store",
             }
         );

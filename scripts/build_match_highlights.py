@@ -43,12 +43,24 @@ def main():
         help="Match date YYYY-MM-DD",
     )
 
+    parser.add_argument(
+        "--session",
+        default=None,
+        help="Match session ID",
+    )
+
     args = parser.parse_args()
 
     day_folder = (
         HIGHLIGHT_ROOT /
         args.date
     )
+
+    if args.session:
+        day_folder = (
+            day_folder /
+            args.session
+        )
 
     if not day_folder.exists():
         log(

@@ -952,6 +952,60 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         ),
                     }
 
+            if recording_root.exists():
+                for metadata_path in recording_root.rglob(
+                    "match-*/match.json"
+                ):
+                    try:
+                        metadata = json.loads(
+                            metadata_path.read_text(
+                                encoding="utf-8"
+                            )
+                        )
+                    except (
+                        OSError,
+                        json.JSONDecodeError,
+                    ):
+                        continue
+
+                    session_id = metadata_path.parent.name
+
+                    if not session_id.startswith(
+                        "match-"
+                    ):
+                        continue
+
+                    match = get_match(
+                        session_id
+                    )
+
+                    match["home_team"] = metadata.get(
+                        "home_team"
+                    )
+
+                    match["away_team"] = metadata.get(
+                        "away_team"
+                    )
+
+                    match["match_name"] = metadata.get(
+                        "match_name"
+                    )
+
+                    if not match.get("date"):
+                        try:
+                            relative = (
+                                metadata_path.parent.relative_to(
+                                    recording_root
+                                )
+                            )
+
+                            if relative.parts:
+                                match["date"] = (
+                                    relative.parts[0]
+                                )
+                        except ValueError:
+                            pass
+
             for match in matches.values():
                 match["highlights"].sort(
                     key=lambda item: item["modified"],
@@ -1612,11 +1666,39 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 "match-%H-%M-%S"
             )
 
+            home_team = str(
+                request.get("home_team", "")
+            ).strip()
+
+            away_team = str(
+                request.get("away_team", "")
+            ).strip()
+
+            if not home_team or not away_team:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Home team and away team "
+                            "are required."
+                        ),
+                    },
+                    status=400,
+                )
+                return
+
             session = {
                 "session_id": session_id,
                 "started": now,
                 "started_iso": time.strftime(
                     "%Y-%m-%dT%H:%M:%S"
+                ),
+                "home_team": home_team,
+                "away_team": away_team,
+                "match_name": (
+                    home_team
+                    + " v "
+                    + away_team
                 ),
             }
 
@@ -1626,6 +1708,31 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             )
 
             match_file.write_text(
+                json.dumps(
+                    session,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+
+            match_date = time.strftime(
+                "%Y-%m-%d"
+            )
+
+            session_folder = (
+                Path("/var/lib/scoreos/recordings")
+                / match_date
+                / session_id
+            )
+
+            session_folder.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            (
+                session_folder / "match.json"
+            ).write_text(
                 json.dumps(
                     session,
                     indent=2,
@@ -1778,6 +1885,69 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                             "Full match build timed out."
                         )
 
+            match_highlights = None
+            highlights_error = None
+
+            if session:
+                session_id = str(
+                    session.get("session_id", "")
+                ).strip()
+
+                started_iso = str(
+                    session.get("started_iso", "")
+                )
+
+                match_date = (
+                    started_iso[:10]
+                    if len(started_iso) >= 10
+                    else time.strftime("%Y-%m-%d")
+                )
+
+                if session_id:
+                    highlights_script = Path(
+                        "/home/pi/sutton-scoreboard-os/scripts/build_match_highlights.py"
+                    )
+
+                    try:
+                        highlights_result = subprocess.run(
+                            [
+                                "/usr/bin/python3",
+                                str(highlights_script),
+                                "--date",
+                                match_date,
+                                "--session",
+                                session_id,
+                            ],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                            timeout=300,
+                        )
+
+                        if highlights_result.returncode == 0:
+                            highlights_path = (
+                                Path("/var/lib/scoreos/highlights")
+                                / match_date
+                                / session_id
+                                / "match-highlights.mp4"
+                            )
+
+                            if highlights_path.exists():
+                                match_highlights = str(
+                                    highlights_path
+                                )
+                        else:
+                            highlights_error = (
+                                highlights_result.stderr.strip()
+                                or highlights_result.stdout.strip()
+                                or "Unable to build match highlights."
+                            )
+
+                    except subprocess.TimeoutExpired:
+                        highlights_error = (
+                            "Match highlights build timed out."
+                        )
+
             match_file.unlink(
                 missing_ok=True
             )
@@ -1787,13 +1957,15 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "message": (
                         "Match recording stopped "
-                        "and full match built."
-                        if full_match
+                        "and match videos built."
+                        if full_match or match_highlights
                         else "Match recording stopped."
                     ),
                     "session": session,
                     "full_match": full_match,
+                    "match_highlights": match_highlights,
                     "build_error": build_error,
+                    "highlights_error": highlights_error,
                 }
             )
             return
