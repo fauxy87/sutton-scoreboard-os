@@ -139,6 +139,27 @@ main {
     margin-bottom: 18px;
 }
 
+.match-manage-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.delete-match-button {
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    padding: 9px 12px;
+    background: transparent;
+    color: #f87171;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.delete-match-button:hover {
+    background: #ef4444;
+    color: white;
+}
+
 .rename-match-button {
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -890,13 +911,23 @@ function render() {
                         </div>
                     </div>
 
-                    <button
-                        class="rename-match-button"
-                        type="button"
-                        onclick="renameMatch('${match.session_id}')"
-                    >
-                        ✏️ Rename Match
-                    </button>
+                    <div class="match-manage-actions">
+                        <button
+                            class="rename-match-button"
+                            type="button"
+                            onclick="renameMatch('${match.session_id}')"
+                        >
+                            ✏️ Rename Match
+                        </button>
+
+                        <button
+                            class="delete-match-button"
+                            type="button"
+                            onclick="deleteMatch('${match.session_id}')"
+                        >
+                            🗑 Delete Match
+                        </button>
+                    </div>
                 </div>
 
                 ${features}
@@ -1192,6 +1223,68 @@ async function toggleMatchRecording() {
 
     } finally {
         button.disabled = false;
+    }
+}
+
+
+async function deleteMatch(sessionId) {
+    const match = matches.find(
+        item => item.session_id === sessionId
+    );
+
+    if (!match) {
+        alert("Match not found.");
+        return;
+    }
+
+    const name =
+        match.match_name
+        || sessionId;
+
+    const confirmed = confirm(
+        "Delete this match?\n\n"
+        + name
+        + "\n\n"
+        + "This will permanently delete the "
+        + "full recording and all highlights."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            "/api/match/delete",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify(
+                    {
+                        session_id: sessionId,
+                    }
+                ),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                data.error || "Delete failed"
+            );
+        }
+
+        await loadHighlights();
+
+    } catch (error) {
+        alert(
+            "Unable to delete match: "
+            + error.message
+        );
     }
 }
 

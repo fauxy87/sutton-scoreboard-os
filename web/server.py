@@ -1779,6 +1779,92 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/match/delete":
+            session_id = str(
+                request.get("session_id", "")
+            ).strip()
+
+            if (
+                not session_id
+                or session_id != Path(session_id).name
+                or not session_id.startswith("match-")
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Invalid match session.",
+                    },
+                    status=400,
+                )
+                return
+
+            recording_root = Path(
+                "/var/lib/scoreos/recordings"
+            )
+
+            highlight_root = Path(
+                "/var/lib/scoreos/highlights"
+            )
+
+            recording_matches = [
+                folder
+                for folder in recording_root.rglob(
+                    session_id
+                )
+                if folder.is_dir()
+                and folder.name == session_id
+            ]
+
+            highlight_matches = [
+                folder
+                for folder in highlight_root.rglob(
+                    session_id
+                )
+                if folder.is_dir()
+                and folder.name == session_id
+            ]
+
+            if (
+                not recording_matches
+                and not highlight_matches
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Match not found.",
+                    },
+                    status=404,
+                )
+                return
+
+            import shutil
+
+            try:
+                for folder in recording_matches:
+                    shutil.rmtree(folder)
+
+                for folder in highlight_matches:
+                    shutil.rmtree(folder)
+
+            except OSError as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=500,
+                )
+                return
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "message": "Match deleted.",
+                    "session_id": session_id,
+                }
+            )
+            return
+
         if path == "/api/match/start":
             match_file = Path(
                 "/var/lib/scoreos/current-match.json"
