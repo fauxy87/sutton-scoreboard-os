@@ -67,7 +67,7 @@ def main():
             f"No highlights folder for "
             f"{args.date}"
         )
-        return 1
+        return 0
 
     clips = sorted(
         path
@@ -124,7 +124,7 @@ def main():
             f"No highlight clips found for "
             f"{args.date}"
         )
-        return 1
+        return 0
 
     destination = (
         day_folder /
