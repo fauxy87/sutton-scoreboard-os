@@ -748,6 +748,37 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
 
+        if path == "/api/events/latest":
+            event_file = Path(
+                "/var/lib/scoreos/events/events.jsonl"
+            )
+
+            latest_event = None
+
+            if event_file.exists():
+                with event_file.open(
+                    "r",
+                    encoding="utf-8",
+                ) as handle:
+                    for line in handle:
+                        line = line.strip()
+
+                        if not line:
+                            continue
+
+                        try:
+                            latest_event = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "event": latest_event,
+                }
+            )
+            return
+
         if path in ("/", "/index.html"):
             self.send_html(SPECTATOR_HTML)
             return

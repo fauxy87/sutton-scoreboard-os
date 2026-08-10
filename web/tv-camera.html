@@ -575,6 +575,67 @@ header,
 </style>
 </head>
 
+<script>
+let lastBroadcastEventTimestamp = null;
+
+async function pollBroadcastEvents() {
+    try {
+        const response = await fetch(
+            "/api/events/latest",
+            { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+        const event = data.event;
+
+        if (!event || !event.timestamp) {
+            return;
+        }
+
+        if (lastBroadcastEventTimestamp === null) {
+            lastBroadcastEventTimestamp = event.timestamp;
+            return;
+        }
+
+        if (
+            event.timestamp ===
+            lastBroadcastEventTimestamp
+        ) {
+            return;
+        }
+
+        lastBroadcastEventTimestamp =
+            event.timestamp;
+
+        if (
+            event.type === "FOUR" ||
+            event.type === "SIX" ||
+            event.type === "WICKET"
+        ) {
+            showBroadcastEvent(event.type);
+        }
+
+    } catch (error) {
+        console.error(
+            "Event polling failed:",
+            error
+        );
+    }
+}
+
+pollBroadcastEvents();
+
+setInterval(
+    pollBroadcastEvents,
+    1000
+);
+</script>
+
+
 <body>
 
 <header>
