@@ -10,6 +10,7 @@ from urllib.parse import quote
 CAMERA_CONFIG = Path("/etc/scoreos/camera.json")
 RECORDING_ROOT = Path("/var/lib/scoreos/recordings")
 LOG_FILE = Path("/var/log/scoreos-camera-recorder.log")
+MATCH_FILE = Path("/var/lib/scoreos/current-match.json")
 
 
 def log(message):
@@ -85,8 +86,30 @@ def load_camera():
 
 
 def recording_pattern():
-    day_folder = RECORDING_ROOT / datetime.now().strftime(
-        "%Y-%m-%d"
+    if not MATCH_FILE.exists():
+        raise RuntimeError(
+            "No active match session."
+        )
+
+    session = json.loads(
+        MATCH_FILE.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    session_id = str(
+        session.get("session_id", "")
+    ).strip()
+
+    if not session_id:
+        raise RuntimeError(
+            "Match session ID is missing."
+        )
+
+    day_folder = (
+        RECORDING_ROOT
+        / datetime.now().strftime("%Y-%m-%d")
+        / session_id
     )
 
     day_folder.mkdir(

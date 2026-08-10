@@ -124,6 +124,69 @@ main {
     font-weight: 800;
 }
 
+.recording-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    padding: 18px;
+    margin-bottom: 22px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+.recording-title {
+    font-size: 22px;
+    font-weight: 900;
+}
+
+.recording-status {
+    margin-top: 5px;
+    color: var(--muted);
+}
+
+.recording-status.live {
+    color: #f87171;
+    font-weight: 800;
+}
+
+.recording-button {
+    border: 0;
+    border-radius: 10px;
+    padding: 13px 18px;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+    min-width: 230px;
+}
+
+.recording-button.start {
+    background: #ef4444;
+    color: white;
+}
+
+.recording-button.stop {
+    background: #facc15;
+    color: #111;
+}
+
+.recording-button:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+@media (max-width: 700px) {
+    .recording-panel {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .recording-button {
+        width: 100%;
+    }
+}
+
 .match-feature {
     background: var(--panel);
     border: 2px solid var(--accent);
@@ -355,7 +418,31 @@ video {
         </div>
     </div>
 
-    <div id="match-highlight"></div>
+    <section class="recording-panel">
+    <div>
+        <div class="recording-title">
+            Full Match Recording
+        </div>
+
+        <div
+            id="recording-status"
+            class="recording-status"
+        >
+            Checking recording status…
+        </div>
+    </div>
+
+    <button
+        id="recording-button"
+        class="recording-button start"
+        type="button"
+        onclick="toggleMatchRecording()"
+    >
+        🔴 START MATCH RECORDING
+    </button>
+</section>
+
+<div id="match-highlight"></div>
 
     <div id="content"></div>
 
@@ -365,6 +452,7 @@ video {
 let highlights = [];
 let matchHighlights = null;
 let currentFilter = "ALL";
+let matchRecording = false;
 
 function prettyName(item) {
     const stem = item.filename
@@ -550,6 +638,144 @@ function render() {
     `;
 }
 
+function formatRecordingStart(session) {
+    if (!session || !session.started_iso) {
+        return "";
+    }
+
+    const date = new Date(session.started_iso);
+
+    if (Number.isNaN(date.getTime())) {
+        return session.started_iso;
+    }
+
+    return date.toLocaleTimeString(
+        undefined,
+        {
+            hour: "2-digit",
+            minute: "2-digit",
+        }
+    );
+}
+
+
+async function loadMatchRecordingStatus() {
+    const status = document.getElementById(
+        "recording-status"
+    );
+
+    const button = document.getElementById(
+        "recording-button"
+    );
+
+    try {
+        const response = await fetch(
+            "/api/match/status",
+            {
+                cache: "no-store",
+            }
+        );
+
+        const data = await response.json();
+
+        matchRecording = Boolean(
+            data.recording
+        );
+
+        if (matchRecording) {
+            const started =
+                formatRecordingStart(
+                    data.session
+                );
+
+            status.textContent =
+                "● RECORDING"
+                + (
+                    started
+                    ? " — started " + started
+                    : ""
+                );
+
+            status.classList.add("live");
+
+            button.textContent =
+                "⏹ STOP MATCH RECORDING";
+
+            button.classList.remove("start");
+            button.classList.add("stop");
+
+        } else {
+            status.textContent =
+                "Not currently recording";
+
+            status.classList.remove("live");
+
+            button.textContent =
+                "🔴 START MATCH RECORDING";
+
+            button.classList.remove("stop");
+            button.classList.add("start");
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        status.textContent =
+            "Recording status unavailable";
+    }
+}
+
+
+async function toggleMatchRecording() {
+    const button = document.getElementById(
+        "recording-button"
+    );
+
+    button.disabled = true;
+
+    const endpoint = matchRecording
+        ? "/api/match/stop"
+        : "/api/match/start";
+
+    try {
+        const response = await fetch(
+            endpoint,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: "{}",
+                cache: "no-store",
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                data.error
+                || "Recording action failed"
+            );
+        }
+
+        await loadMatchRecordingStatus();
+
+    } catch (error) {
+        console.error(error);
+
+        alert(
+            "Match recording failed: "
+            + error.message
+        );
+
+    } finally {
+        button.disabled = false;
+    }
+}
+
+
 async function loadHighlights() {
     try {
         const response = await fetch(
@@ -618,10 +844,16 @@ document
     });
 
 loadHighlights();
+loadMatchRecordingStatus();
 
 setInterval(
     loadHighlights,
     10000
+);
+
+setInterval(
+    loadMatchRecordingStatus,
+    5000
 );
 </script>
 

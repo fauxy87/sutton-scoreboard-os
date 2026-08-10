@@ -176,7 +176,7 @@ def find_recording_segments(
             continue
 
         candidates.extend(
-            day_folder.glob("*.ts")
+            day_folder.rglob("*.ts")
         )
 
     segments = []

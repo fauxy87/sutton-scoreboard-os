@@ -747,6 +747,50 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if path == "/api/match/status":
+            match_file = Path(
+                "/var/lib/scoreos/current-match.json"
+            )
+
+            session = None
+
+            if match_file.exists():
+                try:
+                    session = json.loads(
+                        match_file.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                ):
+                    session = None
+
+            result = subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "is-active",
+                    "scoreos-camera-recorder.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            recording = (
+                result.stdout.strip() == "active"
+            )
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "recording": recording,
+                    "session": session,
+                }
+            )
+            return
+
         if path == "/api/highlights":
             highlight_root = Path(
                 "/var/lib/scoreos/highlights"
@@ -1260,6 +1304,142 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "error": str(exc),
                 },
                 status=400,
+            )
+            return
+
+        if path == "/api/match/start":
+            match_file = Path(
+                "/var/lib/scoreos/current-match.json"
+            )
+
+            if match_file.exists():
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "A match recording is already active.",
+                    },
+                    status=400,
+                )
+                return
+
+            now = time.time()
+
+            session_id = time.strftime(
+                "match-%H-%M-%S"
+            )
+
+            session = {
+                "session_id": session_id,
+                "started": now,
+                "started_iso": time.strftime(
+                    "%Y-%m-%dT%H:%M:%S"
+                ),
+            }
+
+            match_file.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            match_file.write_text(
+                json.dumps(
+                    session,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "start",
+                    "scoreos-camera-recorder.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                match_file.unlink(
+                    missing_ok=True
+                )
+
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            result.stderr.strip()
+                            or "Unable to start match recording."
+                        ),
+                    },
+                    status=500,
+                )
+                return
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "message": "Match recording started.",
+                    "session": session,
+                }
+            )
+            return
+
+        if path == "/api/match/stop":
+            match_file = Path(
+                "/var/lib/scoreos/current-match.json"
+            )
+
+            session = None
+
+            if match_file.exists():
+                try:
+                    session = json.loads(
+                        match_file.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                ):
+                    session = None
+
+            result = subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "stop",
+                    "scoreos-camera-recorder.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            result.stderr.strip()
+                            or "Unable to stop match recording."
+                        ),
+                    },
+                    status=500,
+                )
+                return
+
+            match_file.unlink(
+                missing_ok=True
+            )
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "message": "Match recording stopped.",
+                    "session": session,
+                }
             )
             return
 
