@@ -747,6 +747,64 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if path == "/api/highlights":
+            highlight_root = Path(
+                "/var/lib/scoreos/highlights"
+            )
+
+            highlights = []
+
+            if highlight_root.exists():
+                for clip in highlight_root.rglob("*.mp4"):
+                    try:
+                        stat = clip.stat()
+                    except OSError:
+                        continue
+
+                    relative = clip.relative_to(
+                        highlight_root
+                    )
+
+                    parts = clip.stem.split("_")
+
+                    event_type = (
+                        parts[2].upper()
+                        if len(parts) >= 3
+                        else "HIGHLIGHT"
+                    )
+
+                    highlights.append(
+                        {
+                            "filename": clip.name,
+                            "relative_path": str(relative),
+                            "event_type": event_type,
+                            "size_bytes": stat.st_size,
+                            "modified": stat.st_mtime,
+                            "video_url": (
+                                "/highlights/video/"
+                                + clip.name
+                            ),
+                            "download_url": (
+                                "/highlights/download/"
+                                + clip.name
+                            ),
+                        }
+                    )
+
+            highlights.sort(
+                key=lambda item: item["modified"],
+                reverse=True,
+            )
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "count": len(highlights),
+                    "highlights": highlights,
+                }
+            )
+            return
+
         if path == "/api/events":
             event_file = Path(
                 "/var/lib/scoreos/events/events.jsonl"
@@ -815,6 +873,248 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "event": latest_event,
                 }
             )
+            return
+
+        if path in ("/highlights", "/highlights/"):
+            page = Path(__file__).with_name(
+                "highlights.html"
+            )
+
+            if not page.exists():
+                self.send_error(
+                    404,
+                    "Highlights page not found",
+                )
+                return
+
+            self.send_html(
+                page.read_text(
+                    encoding="utf-8"
+                )
+            )
+            return
+
+        if path.startswith("/highlights/video/") or path.startswith(
+            "/highlights/download/"
+        ):
+            highlight_root = Path(
+                "/var/lib/scoreos/highlights"
+            )
+
+            filename = path.rsplit("/", 1)[-1]
+
+            if (
+                not filename
+                or filename != Path(filename).name
+                or not filename.lower().endswith(".mp4")
+            ):
+                self.send_error(400, "Invalid highlight")
+                return
+
+            matches = list(
+                highlight_root.rglob(filename)
+            )
+
+            if not matches:
+                self.send_error(
+                    404,
+                    "Highlight not found",
+                )
+                return
+
+            clip = matches[0]
+
+            try:
+                file_size = clip.stat().st_size
+            except OSError:
+                self.send_error(
+                    500,
+                    "Unable to read highlight",
+                )
+                return
+
+            is_download = path.startswith(
+                "/highlights/download/"
+            )
+
+            if is_download:
+                self.send_response(200)
+                self.send_header(
+                    "Content-Type",
+                    "video/mp4",
+                )
+                self.send_header(
+                    "Content-Disposition",
+                    f'attachment; filename="{clip.name}"',
+                )
+                self.send_header(
+                    "Content-Length",
+                    str(file_size),
+                )
+                self.send_header(
+                    "Cache-Control",
+                    "no-store",
+                )
+                self.end_headers()
+
+                try:
+                    with clip.open("rb") as handle:
+                        while True:
+                            chunk = handle.read(
+                                1024 * 1024
+                            )
+
+                            if not chunk:
+                                break
+
+                            self.wfile.write(chunk)
+                except (
+                    OSError,
+                    BrokenPipeError,
+                    ConnectionResetError,
+                ):
+                    pass
+
+                return
+
+            range_header = self.headers.get(
+                "Range"
+            )
+
+            start_byte = 0
+            end_byte = file_size - 1
+            partial = False
+
+            if range_header:
+                try:
+                    units, requested = (
+                        range_header.split("=", 1)
+                    )
+
+                    if units.strip().lower() != "bytes":
+                        raise ValueError
+
+                    requested = requested.split(
+                        ",",
+                        1,
+                    )[0].strip()
+
+                    first, last = requested.split(
+                        "-",
+                        1,
+                    )
+
+                    if first:
+                        start_byte = int(first)
+
+                        if last:
+                            end_byte = int(last)
+                    else:
+                        suffix_length = int(last)
+
+                        if suffix_length <= 0:
+                            raise ValueError
+
+                        start_byte = max(
+                            0,
+                            file_size - suffix_length,
+                        )
+
+                    if (
+                        start_byte < 0
+                        or start_byte >= file_size
+                    ):
+                        raise ValueError
+
+                    end_byte = min(
+                        end_byte,
+                        file_size - 1,
+                    )
+
+                    if end_byte < start_byte:
+                        raise ValueError
+
+                    partial = True
+
+                except (
+                    ValueError,
+                    TypeError,
+                ):
+                    self.send_response(416)
+                    self.send_header(
+                        "Content-Range",
+                        f"bytes */{file_size}",
+                    )
+                    self.end_headers()
+                    return
+
+            content_length = (
+                end_byte - start_byte + 1
+            )
+
+            self.send_response(
+                206 if partial else 200
+            )
+            self.send_header(
+                "Content-Type",
+                "video/mp4",
+            )
+            self.send_header(
+                "Accept-Ranges",
+                "bytes",
+            )
+            self.send_header(
+                "Content-Length",
+                str(content_length),
+            )
+            self.send_header(
+                "Content-Disposition",
+                "inline",
+            )
+            self.send_header(
+                "Cache-Control",
+                "no-store",
+            )
+
+            if partial:
+                self.send_header(
+                    "Content-Range",
+                    (
+                        f"bytes "
+                        f"{start_byte}-{end_byte}"
+                        f"/{file_size}"
+                    ),
+                )
+
+            self.end_headers()
+
+            try:
+                with clip.open("rb") as handle:
+                    handle.seek(start_byte)
+
+                    remaining = content_length
+
+                    while remaining > 0:
+                        chunk = handle.read(
+                            min(
+                                1024 * 1024,
+                                remaining,
+                            )
+                        )
+
+                        if not chunk:
+                            break
+
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
+
+            except (
+                OSError,
+                BrokenPipeError,
+                ConnectionResetError,
+            ):
+                pass
+
             return
 
         if path in ("/", "/index.html"):

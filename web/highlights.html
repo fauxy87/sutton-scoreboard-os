@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>SCOREOS Highlights</title>
+
+<style>
+:root {
+    --bg: #0b1220;
+    --panel: #111827;
+    --panel2: #172033;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #facc15;
+    --green: #22c55e;
+    --border: #243244;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+header {
+    padding: 18px 22px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+    max-width: 1300px;
+    margin: auto;
+}
+
+.brand {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+.brand span {
+    color: var(--accent);
+}
+
+.subtitle {
+    margin-top: 4px;
+    color: var(--muted);
+}
+
+nav {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    margin-top: 16px;
+}
+
+nav a {
+    color: var(--text);
+    text-decoration: none;
+    background: var(--panel2);
+    padding: 10px 14px;
+    border-radius: 9px;
+    white-space: nowrap;
+}
+
+nav a.active {
+    background: var(--accent);
+    color: #111;
+    font-weight: 800;
+}
+
+main {
+    max-width: 1300px;
+    margin: auto;
+    padding: 22px;
+}
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.summary {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    padding: 9px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.filter.active {
+    background: var(--accent);
+    color: #111;
+    border-color: var(--accent);
+    font-weight: 800;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fill, minmax(310px, 1fr));
+    gap: 18px;
+}
+
+.card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.video-wrap {
+    background: #000;
+    aspect-ratio: 16 / 9;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.card-body {
+    padding: 15px;
+}
+
+.event-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.event {
+    font-size: 22px;
+    font-weight: 900;
+}
+
+.event.FOUR {
+    color: #38bdf8;
+}
+
+.event.SIX {
+    color: var(--accent);
+}
+
+.event.WICKET {
+    color: #f87171;
+}
+
+.time {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.description {
+    margin-top: 7px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.filename {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 12px;
+    word-break: break-all;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.actions a {
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    padding: 10px 12px;
+    border-radius: 9px;
+    font-weight: 800;
+}
+
+.play {
+    background: var(--green);
+    color: #07130a;
+}
+
+.download {
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.empty {
+    padding: 50px 20px;
+    text-align: center;
+    background: var(--panel);
+    border-radius: 14px;
+    color: var(--muted);
+}
+
+@media (max-width: 600px) {
+    main {
+        padding: 14px;
+    }
+
+    header {
+        padding: 16px;
+    }
+
+    .brand {
+        font-size: 24px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="header-inner">
+        <div class="brand">
+            SCOREOS <span>HIGHLIGHTS</span>
+        </div>
+
+        <div class="subtitle">
+            Automatic match clips from FOURs, SIXes and WICKETs
+        </div>
+
+        <nav>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/groundcontrol">Ground Control</a>
+            <a href="/control">Control</a>
+            <a href="/tv">TV Display</a>
+            <a class="active" href="/highlights">Highlights</a>
+        </nav>
+    </div>
+</header>
+
+<main>
+
+    <div class="toolbar">
+        <div
+            class="summary"
+            id="summary"
+        >
+            Loading highlights…
+        </div>
+
+        <div class="filters">
+            <button
+                class="filter active"
+                data-filter="ALL"
+            >
+                All
+            </button>
+
+            <button
+                class="filter"
+                data-filter="FOUR"
+            >
+                Fours
+            </button>
+
+            <button
+                class="filter"
+                data-filter="SIX"
+            >
+                Sixes
+            </button>
+
+            <button
+                class="filter"
+                data-filter="WICKET"
+            >
+                Wickets
+            </button>
+        </div>
+    </div>
+
+    <div id="content"></div>
+
+</main>
+
+<script>
+let highlights = [];
+let currentFilter = "ALL";
+
+function prettyName(item) {
+    const stem = item.filename
+        .replace(/\.mp4$/i, "");
+
+    const parts = stem.split("_");
+
+    if (parts.length < 5) {
+        return item.filename;
+    }
+
+    const person = parts
+        .slice(3, -1)
+        .join(" ")
+        .replaceAll("-", " ")
+        .replace(
+            /\b\w/g,
+            character => character.toUpperCase()
+        );
+
+    const score = parts[parts.length - 1];
+
+    if (item.event_type === "WICKET") {
+        return person === "Unknown Batter"
+            ? "Wicket"
+            : person + " — Wicket";
+    }
+
+    return person + " — " + score;
+}
+
+function prettyTime(item) {
+    const date = new Date(
+        item.modified * 1000
+    );
+
+    return date.toLocaleString(
+        undefined,
+        {
+            dateStyle: "medium",
+            timeStyle: "short",
+        }
+    );
+}
+
+function render() {
+    const content = document.getElementById(
+        "content"
+    );
+
+    const filtered = highlights.filter(
+        item =>
+            currentFilter === "ALL"
+            || item.event_type === currentFilter
+    );
+
+    document.getElementById(
+        "summary"
+    ).textContent =
+        filtered.length +
+        (filtered.length === 1
+            ? " highlight"
+            : " highlights");
+
+    if (!filtered.length) {
+        content.innerHTML = `
+            <div class="empty">
+                No highlights found.
+            </div>
+        `;
+        return;
+    }
+
+    content.innerHTML = `
+        <div class="grid">
+            ${filtered.map(item => `
+                <article class="card">
+
+                    <div class="video-wrap">
+                        <video
+                            controls
+                            preload="metadata"
+                            src="${item.video_url}"
+                        ></video>
+                    </div>
+
+                    <div class="card-body">
+
+                        <div class="event-row">
+                            <div
+                                class="event ${item.event_type}"
+                            >
+                                ${item.event_type}
+                            </div>
+
+                            <div class="time">
+                                ${prettyTime(item)}
+                            </div>
+                        </div>
+
+                        <div class="description">
+                            ${prettyName(item)}
+                        </div>
+
+                        <div class="filename">
+                            ${item.filename}
+                        </div>
+
+                        <div class="actions">
+                            <a
+                                class="play"
+                                href="${item.video_url}"
+                                target="_blank"
+                            >
+                                Play
+                            </a>
+
+                            <a
+                                class="download"
+                                href="${item.download_url}"
+                            >
+                                Download
+                            </a>
+                        </div>
+
+                    </div>
+
+                </article>
+            `).join("")}
+        </div>
+    `;
+}
+
+async function loadHighlights() {
+    try {
+        const response = await fetch(
+            "/api/highlights",
+            {
+                cache: "no-store",
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                "Highlights API returned an error"
+            );
+        }
+
+        highlights = data.highlights || [];
+        render();
+
+    } catch (error) {
+        console.error(error);
+
+        document.getElementById(
+            "summary"
+        ).textContent =
+            "Highlights unavailable";
+
+        document.getElementById(
+            "content"
+        ).innerHTML = `
+            <div class="empty">
+                Unable to load highlights.
+            </div>
+        `;
+    }
+}
+
+document
+    .querySelectorAll(".filter")
+    .forEach(button => {
+        button.addEventListener(
+            "click",
+            () => {
+                document
+                    .querySelectorAll(".filter")
+                    .forEach(item =>
+                        item.classList.remove(
+                            "active"
+                        )
+                    );
+
+                button.classList.add(
+                    "active"
+                );
+
+                currentFilter =
+                    button.dataset.filter;
+
+                render();
+            }
+        );
+    });
+
+loadHighlights();
+
+setInterval(
+    loadHighlights,
+    10000
+);
+</script>
+
+</body>
+</html>

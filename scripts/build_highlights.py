@@ -349,7 +349,15 @@ def create_clip(event, overwrite=False):
                 + "'\n"
             )
 
-    command = [
+    with tempfile.NamedTemporaryFile(
+        suffix=".mp4",
+        delete=False,
+    ) as temporary_video:
+        temporary_path = Path(
+            temporary_video.name
+        )
+
+    copy_command = [
         "/usr/bin/ffmpeg",
         "-hide_banner",
         "-loglevel",
@@ -371,6 +379,27 @@ def create_clip(event, overwrite=False):
         "-movflags",
         "+faststart",
         "-y",
+        str(temporary_path),
+    ]
+
+    encode_command = [
+        "/usr/bin/ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-i",
+        str(temporary_path),
+        "-map",
+        "0:v:0",
+        "-vf",
+        "scale=1920:-2",
+        "-c:v",
+        "h264_v4l2m2m",
+        "-b:v",
+        "6000k",
+        "-movflags",
+        "+faststart",
+        "-y",
         str(destination),
     ]
 
@@ -380,15 +409,54 @@ def create_clip(event, overwrite=False):
     )
 
     try:
-        result = subprocess.run(
-            command,
+        copy_result = subprocess.run(
+            copy_command,
             capture_output=True,
             text=True,
             check=False,
-            timeout=120,
+            timeout=60,
         )
+
+        if copy_result.returncode != 0:
+            error = (
+                copy_result.stderr.strip()
+                or "FFmpeg stream-copy failed"
+            )
+
+            log(
+                f"Unable to prepare clip: "
+                f"{error}"
+            )
+
+            destination.unlink(
+                missing_ok=True
+            )
+
+            return {
+                "ok": False,
+                "event": event,
+                "error": error,
+            }
+
+        log(
+            "Encoding browser-compatible "
+            "1080p H.264 highlight..."
+        )
+
+        result = subprocess.run(
+            encode_command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=180,
+        )
+
     finally:
         concat_path.unlink(
+            missing_ok=True
+        )
+
+        temporary_path.unlink(
             missing_ok=True
         )
 
@@ -399,7 +467,7 @@ def create_clip(event, overwrite=False):
 
         error = (
             result.stderr.strip()
-            or "FFmpeg failed"
+            or "H.264 encoding failed"
         )
 
         log(
