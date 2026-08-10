@@ -16,8 +16,8 @@ STATE_FILE = Path(
 )
 
 AFTER_DELAYS = {
-    "FOUR": 25,
-    "SIX": 27,
+    "FOUR": 18,
+    "SIX": 20,
     "WICKET": 33,
 }
 
