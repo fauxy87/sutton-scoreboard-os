@@ -19,6 +19,8 @@ AFTER_DELAYS = {
     "FOUR": 18,
     "SIX": 20,
     "WICKET": 33,
+    "FIFTY": 27,
+    "HUNDRED": 33,
 }
 
 

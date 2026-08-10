@@ -118,6 +118,30 @@ def detect_events(previous, current):
             }
         )
 
+    if batter["delta"] > 0:
+        previous_batter_runs = (
+            batter["runs"] - batter["delta"]
+        )
+
+        milestones = (
+            (50, "FIFTY"),
+            (100, "HUNDRED"),
+        )
+
+        for milestone, event_type in milestones:
+            if (
+                previous_batter_runs < milestone
+                <= batter["runs"]
+            ):
+                events.append(
+                    {
+                        **base_event,
+                        "type": event_type,
+                        "milestone": milestone,
+                        "batter_score": batter["runs"],
+                    }
+                )
+
     return events
 
 

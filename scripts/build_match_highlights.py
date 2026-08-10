@@ -63,6 +63,50 @@ def main():
         if path.name != "match-highlights.mp4"
     )
 
+    milestone_times = set()
+
+    for clip in clips:
+        name = clip.stem.lower()
+
+        if "_fifty_" in name or "_hundred_" in name:
+            parts = clip.stem.split("_")
+
+            if len(parts) >= 2:
+                milestone_times.add(
+                    "_".join(parts[:2])
+                )
+
+    filtered_clips = []
+
+    for clip in clips:
+        name = clip.stem.lower()
+        parts = clip.stem.split("_")
+
+        event_time = (
+            "_".join(parts[:2])
+            if len(parts) >= 2
+            else ""
+        )
+
+        is_boundary = (
+            "_four_" in name
+            or "_six_" in name
+        )
+
+        if (
+            is_boundary
+            and event_time in milestone_times
+        ):
+            log(
+                f"Skipping duplicate boundary clip: "
+                f"{clip.name}"
+            )
+            continue
+
+        filtered_clips.append(clip)
+
+    clips = filtered_clips
+
     if not clips:
         log(
             f"No highlight clips found for "

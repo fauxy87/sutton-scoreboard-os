@@ -35,6 +35,14 @@ CLIP_LENGTHS = {
         "before": 12,
         "after": 18,
     },
+    "FIFTY": {
+        "before": 10,
+        "after": 12,
+    },
+    "HUNDRED": {
+        "before": 12,
+        "after": 18,
+    },
 }
 
 
