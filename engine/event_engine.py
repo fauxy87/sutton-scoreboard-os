@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 EVENT_FILE = Path("/var/lib/scoreos/events/events.jsonl")
+MATCH_FILE = Path("/var/lib/scoreos/current-match.json")
 
 
 def number(value):
@@ -49,6 +50,29 @@ def batter_details(previous, current):
     }
 
 
+def active_session_id():
+    if not MATCH_FILE.exists():
+        return None
+
+    try:
+        session = json.loads(
+            MATCH_FILE.read_text(
+                encoding="utf-8"
+            )
+        )
+    except (
+        OSError,
+        json.JSONDecodeError,
+    ):
+        return None
+
+    session_id = str(
+        session.get("session_id", "")
+    ).strip()
+
+    return session_id or None
+
+
 def detect_events(previous, current):
     if not previous:
         return []
@@ -68,6 +92,7 @@ def detect_events(previous, current):
 
     base_event = {
         "timestamp": time.time(),
+        "session_id": active_session_id(),
         "score": current.get("total", "--0"),
         "wickets": current.get("wickets", "0"),
         "overs": current.get("overs", "-0"),
