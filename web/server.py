@@ -1645,6 +1645,140 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/match/rename":
+            session_id = str(
+                request.get("session_id", "")
+            ).strip()
+
+            home_team = str(
+                request.get("home_team", "")
+            ).strip()
+
+            away_team = str(
+                request.get("away_team", "")
+            ).strip()
+
+            if (
+                not session_id
+                or session_id != Path(session_id).name
+                or not session_id.startswith("match-")
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Invalid match session.",
+                    },
+                    status=400,
+                )
+                return
+
+            if not home_team or not away_team:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Home team and away team "
+                            "are required."
+                        ),
+                    },
+                    status=400,
+                )
+                return
+
+            recording_root = Path(
+                "/var/lib/scoreos/recordings"
+            )
+
+            matches = list(
+                recording_root.rglob(
+                    f"{session_id}/match.json"
+                )
+            )
+
+            if matches:
+                metadata_path = matches[0]
+
+                try:
+                    metadata = json.loads(
+                        metadata_path.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                ):
+                    metadata = {}
+
+            else:
+                session_folders = [
+                    folder
+                    for folder in recording_root.rglob(
+                        session_id
+                    )
+                    if folder.is_dir()
+                    and folder.name == session_id
+                ]
+
+                if not session_folders:
+                    self.send_json(
+                        {
+                            "ok": False,
+                            "error": "Match not found.",
+                        },
+                        status=404,
+                    )
+                    return
+
+                metadata_path = (
+                    session_folders[0]
+                    / "match.json"
+                )
+
+                metadata = {
+                    "session_id": session_id,
+                }
+
+            try:
+
+                metadata["home_team"] = home_team
+                metadata["away_team"] = away_team
+                metadata["match_name"] = (
+                    home_team
+                    + " v "
+                    + away_team
+                )
+
+                metadata_path.write_text(
+                    json.dumps(
+                        metadata,
+                        indent=2,
+                    ) + "\n",
+                    encoding="utf-8",
+                )
+
+            except (
+                OSError,
+                json.JSONDecodeError,
+            ) as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=500,
+                )
+                return
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "message": "Match renamed.",
+                    "session": metadata,
+                }
+            )
+            return
+
         if path == "/api/match/start":
             match_file = Path(
                 "/var/lib/scoreos/current-match.json"

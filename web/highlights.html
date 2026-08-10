@@ -139,6 +139,20 @@ main {
     margin-bottom: 18px;
 }
 
+.rename-match-button {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    background: var(--panel);
+    color: var(--text);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.rename-match-button:hover {
+    border-color: var(--accent);
+}
+
 .match-section-title {
     font-size: 26px;
     font-weight: 900;
@@ -875,6 +889,14 @@ function render() {
                             }
                         </div>
                     </div>
+
+                    <button
+                        class="rename-match-button"
+                        type="button"
+                        onclick="renameMatch('${match.session_id}')"
+                    >
+                        ✏️ Rename Match
+                    </button>
                 </div>
 
                 ${features}
@@ -1170,6 +1192,77 @@ async function toggleMatchRecording() {
 
     } finally {
         button.disabled = false;
+    }
+}
+
+
+async function renameMatch(sessionId) {
+    const match = matches.find(
+        item => item.session_id === sessionId
+    );
+
+    if (!match) {
+        alert("Match not found.");
+        return;
+    }
+
+    const homeTeam = prompt(
+        "Home team:",
+        match.home_team || ""
+    );
+
+    if (homeTeam === null) {
+        return;
+    }
+
+    const awayTeam = prompt(
+        "Away team:",
+        match.away_team || ""
+    );
+
+    if (awayTeam === null) {
+        return;
+    }
+
+    if (!homeTeam.trim() || !awayTeam.trim()) {
+        alert("Both team names are required.");
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            "/api/match/rename",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify(
+                    {
+                        session_id: sessionId,
+                        home_team: homeTeam.trim(),
+                        away_team: awayTeam.trim(),
+                    }
+                ),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                data.error || "Rename failed"
+            );
+        }
+
+        await loadHighlights();
+
+    } catch (error) {
+        alert(
+            "Unable to rename match: "
+            + error.message
+        );
     }
 }
 
