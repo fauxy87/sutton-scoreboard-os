@@ -31,7 +31,7 @@ def log(message):
         handle.write(line + "\n")
 
 
-def load_camera():
+def load_camera_paths():
     if not CAMERA_CONFIG.exists():
         raise RuntimeError(
             f"Camera config not found: {CAMERA_CONFIG}"
@@ -59,16 +59,6 @@ def load_camera():
 
     port = int(camera.get("port", 554))
 
-    path = str(
-        camera.get(
-            "rtsp_path",
-            "/h264Preview_01_main",
-        )
-    )
-
-    if not path.startswith("/"):
-        path = "/" + path
-
     if not host:
         raise RuntimeError("Camera host is missing")
 
@@ -80,12 +70,27 @@ def load_camera():
     if auth:
         auth += "@"
 
+    main_path = str(
+        camera.get(
+            "rtsp_path",
+            "/h264Preview_01_main",
+        )
+    )
+
+    if not main_path.startswith("/"):
+        main_path = "/" + main_path
+
+    sub_path = "/h264Preview_01_sub"
+
+    base = f"rtsp://{auth}{host}:{port}"
+
     return (
-        f"rtsp://{auth}{host}:{port}{path}"
+        base + main_path,
+        base + sub_path,
     )
 
 
-def recording_pattern():
+def recording_patterns():
     if not MATCH_FILE.exists():
         raise RuntimeError(
             "No active match session."
@@ -106,36 +111,58 @@ def recording_pattern():
             "Match session ID is missing."
         )
 
-    day_folder = (
+    session_folder = (
         RECORDING_ROOT
         / datetime.now().strftime("%Y-%m-%d")
         / session_id
     )
 
-    day_folder.mkdir(
+    main_folder = session_folder / "main"
+    full_folder = session_folder / "full"
+
+    main_folder.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    return str(
-        day_folder /
-        "%Y-%m-%d_%H-%M-%S.ts"
+    full_folder.mkdir(
+        parents=True,
+        exist_ok=True,
     )
+
+    main_pattern = str(
+        main_folder
+        / "%Y-%m-%d_%H-%M-%S.ts"
+    )
+
+    full_pattern = str(
+        full_folder
+        / "%Y-%m-%d_%H-%M-%S.ts"
+    )
+
+    return main_pattern, full_pattern
 
 
 def run_recorder():
-    rtsp_url = load_camera()
-    output_pattern = recording_pattern()
+    main_url, sub_url = load_camera_paths()
+    main_pattern, full_pattern = recording_patterns()
 
     command = [
         "/usr/bin/ffmpeg",
         "-hide_banner",
         "-loglevel",
         "warning",
+
         "-rtsp_transport",
         "tcp",
         "-i",
-        rtsp_url,
+        main_url,
+
+        "-rtsp_transport",
+        "tcp",
+        "-i",
+        sub_url,
+
         "-map",
         "0:v:0",
         "-c",
@@ -150,10 +177,29 @@ def run_recorder():
         "1",
         "-strftime",
         "1",
-        output_pattern,
+        main_pattern,
+
+        "-map",
+        "1:v:0",
+        "-c",
+        "copy",
+        "-f",
+        "segment",
+        "-segment_time",
+        "10",
+        "-segment_format",
+        "mpegts",
+        "-reset_timestamps",
+        "1",
+        "-strftime",
+        "1",
+        full_pattern,
     ]
 
-    log("Starting camera recorder")
+    log(
+        "Starting dual-stream camera recorder "
+        "(4K highlights + H.264 full match)"
+    )
 
     return subprocess.run(
         command,

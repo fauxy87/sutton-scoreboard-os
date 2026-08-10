@@ -154,6 +154,7 @@ def probe_duration(path):
 def find_recording_segments(
     clip_start,
     clip_end,
+    session_id=None,
 ):
     day_folders = {
         datetime.fromtimestamp(
@@ -166,6 +167,16 @@ def find_recording_segments(
 
     candidates = []
 
+    session_id = str(
+        session_id or ""
+    ).strip()
+
+    if (
+        session_id
+        and session_id != Path(session_id).name
+    ):
+        session_id = ""
+
     for day_folder_name in day_folders:
         day_folder = (
             RECORDING_ROOT /
@@ -175,9 +186,24 @@ def find_recording_segments(
         if not day_folder.exists():
             continue
 
-        candidates.extend(
-            day_folder.rglob("*.ts")
-        )
+        if session_id:
+            main_folder = (
+                day_folder /
+                session_id /
+                "main"
+            )
+
+            if main_folder.exists():
+                candidates.extend(
+                    main_folder.glob("*.ts")
+                )
+
+        else:
+            # Legacy recordings made before
+            # match-session folders were added.
+            candidates.extend(
+                day_folder.glob("*.ts")
+            )
 
     segments = []
 
@@ -287,6 +313,17 @@ def output_path(event):
         timestamp.strftime("%Y-%m-%d")
     )
 
+    session_id = str(
+        event.get("session_id")
+        or ""
+    ).strip()
+
+    if session_id:
+        day_folder = (
+            day_folder /
+            safe_text(session_id)
+        )
+
     day_folder.mkdir(
         parents=True,
         exist_ok=True,
@@ -321,6 +358,7 @@ def create_clip(event, overwrite=False):
     segments = find_recording_segments(
         clip_start,
         clip_end,
+        session_id=event.get("session_id"),
     )
 
     if not segments:

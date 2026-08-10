@@ -796,8 +796,25 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 "/var/lib/scoreos/highlights"
             )
 
-            highlights = []
-            match_highlights = None
+            recording_root = Path(
+                "/var/lib/scoreos/recordings"
+            )
+
+            matches = {}
+            unassigned = []
+
+            def get_match(session_id):
+                if session_id not in matches:
+                    matches[session_id] = {
+                        "session_id": session_id,
+                        "date": None,
+                        "modified": 0,
+                        "full_match": None,
+                        "match_highlights": None,
+                        "highlights": [],
+                    }
+
+                return matches[session_id]
 
             if highlight_root.exists():
                 for clip in highlight_root.rglob("*.mp4"):
@@ -810,11 +827,20 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         highlight_root
                     )
 
+                    parts = clip.stem.split("_")
+
+                    event_type = (
+                        parts[2].upper()
+                        if len(parts) >= 3
+                        else "HIGHLIGHT"
+                    )
+
                     item = {
                         "filename": clip.name,
                         "relative_path": str(relative),
                         "size_bytes": stat.st_size,
                         "modified": stat.st_mtime,
+                        "event_type": event_type,
                         "video_url": (
                             "/highlights/video/"
                             + clip.name
@@ -825,22 +851,120 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         ),
                     }
 
-                    if clip.name == "match-highlights.mp4":
-                        item["event_type"] = "MATCH"
-                        match_highlights = item
+                    session_id = None
+
+                    for parent in clip.parents:
+                        if parent == highlight_root:
+                            break
+
+                        if parent.name.startswith(
+                            "match-"
+                        ):
+                            session_id = parent.name
+                            break
+
+                    if session_id:
+                        match = get_match(
+                            session_id
+                        )
+
+                        match["modified"] = max(
+                            match["modified"],
+                            stat.st_mtime,
+                        )
+
+                        if relative.parts:
+                            match["date"] = (
+                                relative.parts[0]
+                            )
+
+                        if clip.name == "match-highlights.mp4":
+                            item["event_type"] = "MATCH"
+                            match["match_highlights"] = item
+                        else:
+                            match["highlights"].append(
+                                item
+                            )
+
+                    else:
+                        # Older clips created before
+                        # match-session tagging.
+                        unassigned.append(item)
+
+            if recording_root.exists():
+                for clip in recording_root.rglob(
+                    "*/full/full-match.mp4"
+                ):
+                    try:
+                        stat = clip.stat()
+                    except OSError:
                         continue
 
-                    parts = clip.stem.split("_")
-
-                    item["event_type"] = (
-                        parts[2].upper()
-                        if len(parts) >= 3
-                        else "HIGHLIGHT"
+                    session_folder = (
+                        clip.parent.parent
                     )
 
-                    highlights.append(item)
+                    session_id = (
+                        session_folder.name
+                    )
 
-            highlights.sort(
+                    if not session_id.startswith(
+                        "match-"
+                    ):
+                        continue
+
+                    match = get_match(
+                        session_id
+                    )
+
+                    try:
+                        relative = (
+                            session_folder.relative_to(
+                                recording_root
+                            )
+                        )
+
+                        if relative.parts:
+                            match["date"] = (
+                                relative.parts[0]
+                            )
+
+                    except ValueError:
+                        pass
+
+                    match["modified"] = max(
+                        match["modified"],
+                        stat.st_mtime,
+                    )
+
+                    match["full_match"] = {
+                        "filename": clip.name,
+                        "size_bytes": stat.st_size,
+                        "modified": stat.st_mtime,
+                        "session_id": session_id,
+                        "video_url": (
+                            "/recordings/video/"
+                            + session_id
+                        ),
+                        "download_url": (
+                            "/recordings/download/"
+                            + session_id
+                        ),
+                    }
+
+            for match in matches.values():
+                match["highlights"].sort(
+                    key=lambda item: item["modified"],
+                    reverse=True,
+                )
+
+            match_list = sorted(
+                matches.values(),
+                key=lambda item: item["modified"],
+                reverse=True,
+            )
+
+            unassigned.sort(
                 key=lambda item: item["modified"],
                 reverse=True,
             )
@@ -848,12 +972,14 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.send_json(
                 {
                     "ok": True,
-                    "count": len(highlights),
-                    "highlights": highlights,
-                    "match_highlights": match_highlights,
+                    "matches": match_list,
+                    "match_count": len(match_list),
+                    "unassigned": unassigned,
+                    "unassigned_count": len(unassigned),
                 }
             )
             return
+
 
         if path == "/api/highlights/build-match":
             script = Path(
@@ -991,6 +1117,164 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     encoding="utf-8"
                 )
             )
+            return
+
+        if path.startswith("/recordings/video/") or path.startswith(
+            "/recordings/download/"
+        ):
+            recording_root = Path(
+                "/var/lib/scoreos/recordings"
+            )
+
+            session_id = path.rsplit("/", 1)[-1]
+
+            if (
+                not session_id
+                or session_id != Path(session_id).name
+                or not session_id.startswith("match-")
+            ):
+                self.send_error(400, "Invalid recording")
+                return
+
+            matches = list(
+                recording_root.rglob(
+                    f"{session_id}/full/full-match.mp4"
+                )
+            )
+
+            if not matches:
+                self.send_error(
+                    404,
+                    "Full match not found",
+                )
+                return
+
+            clip = matches[0]
+            file_size = clip.stat().st_size
+
+            is_download = path.startswith(
+                "/recordings/download/"
+            )
+
+            range_header = self.headers.get("Range")
+            start_byte = 0
+            end_byte = file_size - 1
+            partial = False
+
+            if range_header and not is_download:
+                try:
+                    units, requested = range_header.split("=", 1)
+
+                    if units.lower() != "bytes":
+                        raise ValueError
+
+                    first, last = requested.split("-", 1)
+
+                    if first:
+                        start_byte = int(first)
+
+                        if last:
+                            end_byte = int(last)
+                    else:
+                        suffix = int(last)
+                        start_byte = max(
+                            0,
+                            file_size - suffix,
+                        )
+
+                    end_byte = min(
+                        end_byte,
+                        file_size - 1,
+                    )
+
+                    if (
+                        start_byte < 0
+                        or start_byte >= file_size
+                        or end_byte < start_byte
+                    ):
+                        raise ValueError
+
+                    partial = True
+
+                except Exception:
+                    self.send_response(416)
+                    self.send_header(
+                        "Content-Range",
+                        f"bytes */{file_size}",
+                    )
+                    self.end_headers()
+                    return
+
+            content_length = (
+                end_byte - start_byte + 1
+            )
+
+            self.send_response(
+                206 if partial else 200
+            )
+
+            self.send_header(
+                "Content-Type",
+                "video/mp4",
+            )
+
+            self.send_header(
+                "Accept-Ranges",
+                "bytes",
+            )
+
+            self.send_header(
+                "Content-Length",
+                str(content_length),
+            )
+
+            self.send_header(
+                "Content-Disposition",
+                (
+                    f'attachment; filename="{session_id}-full-match.mp4"'
+                    if is_download
+                    else "inline"
+                ),
+            )
+
+            if partial:
+                self.send_header(
+                    "Content-Range",
+                    (
+                        f"bytes {start_byte}-{end_byte}"
+                        f"/{file_size}"
+                    ),
+                )
+
+            self.end_headers()
+
+            try:
+                with clip.open("rb") as handle:
+                    handle.seek(start_byte)
+
+                    remaining = content_length
+
+                    while remaining > 0:
+                        chunk = handle.read(
+                            min(
+                                1024 * 1024,
+                                remaining,
+                            )
+                        )
+
+                        if not chunk:
+                            break
+
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
+
+            except (
+                BrokenPipeError,
+                ConnectionResetError,
+                OSError,
+            ):
+                pass
+
             return
 
         if path.startswith("/highlights/video/") or path.startswith(
@@ -1430,6 +1714,70 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
                 return
 
+            full_match = None
+            build_error = None
+
+            if session:
+                session_id = str(
+                    session.get("session_id", "")
+                ).strip()
+
+                started_iso = str(
+                    session.get("started_iso", "")
+                )
+
+                match_date = (
+                    started_iso[:10]
+                    if len(started_iso) >= 10
+                    else time.strftime("%Y-%m-%d")
+                )
+
+                if session_id:
+                    build_script = Path(
+                        "/home/pi/sutton-scoreboard-os/scripts/build_full_match.py"
+                    )
+
+                    try:
+                        build_result = subprocess.run(
+                            [
+                                "/usr/bin/python3",
+                                str(build_script),
+                                "--date",
+                                match_date,
+                                "--session",
+                                session_id,
+                            ],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                            timeout=300,
+                        )
+
+                        if build_result.returncode == 0:
+                            full_match_path = (
+                                Path("/var/lib/scoreos/recordings")
+                                / match_date
+                                / session_id
+                                / "full"
+                                / "full-match.mp4"
+                            )
+
+                            if full_match_path.exists():
+                                full_match = str(
+                                    full_match_path
+                                )
+                        else:
+                            build_error = (
+                                build_result.stderr.strip()
+                                or build_result.stdout.strip()
+                                or "Unable to build full match."
+                            )
+
+                    except subprocess.TimeoutExpired:
+                        build_error = (
+                            "Full match build timed out."
+                        )
+
             match_file.unlink(
                 missing_ok=True
             )
@@ -1437,8 +1785,15 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.send_json(
                 {
                     "ok": True,
-                    "message": "Match recording stopped.",
+                    "message": (
+                        "Match recording stopped "
+                        "and full match built."
+                        if full_match
+                        else "Match recording stopped."
+                    ),
                     "session": session,
+                    "full_match": full_match,
+                    "build_error": build_error,
                 }
             )
             return

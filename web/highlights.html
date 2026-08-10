@@ -124,6 +124,31 @@ main {
     font-weight: 800;
 }
 
+.match-section {
+    margin-bottom: 34px;
+    padding: 20px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.match-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.match-section-title {
+    font-size: 26px;
+    font-weight: 900;
+}
+
+.match-section-subtitle {
+    margin-top: 4px;
+    color: var(--muted);
+}
+
 .recording-panel {
     display: flex;
     justify-content: space-between;
@@ -442,6 +467,8 @@ video {
     </button>
 </section>
 
+<div id="full-match"></div>
+
 <div id="match-highlight"></div>
 
     <div id="content"></div>
@@ -449,8 +476,8 @@ video {
 </main>
 
 <script>
-let highlights = [];
-let matchHighlights = null;
+let matches = [];
+let unassigned = [];
 let currentFilter = "ALL";
 let matchRecording = false;
 
@@ -498,12 +525,12 @@ function prettyTime(item) {
     );
 }
 
-function renderMatchHighlights() {
+function renderFullMatch() {
     const container = document.getElementById(
-        "match-highlight"
+        "full-match"
     );
 
-    if (!matchHighlights) {
+    if (!fullMatch) {
         container.innerHTML = "";
         return;
     }
@@ -513,33 +540,140 @@ function renderMatchHighlights() {
 
             <div class="match-feature-header">
                 <div class="match-feature-title">
-                    🎬 MATCH HIGHLIGHTS
+                    🎥 FULL MATCH
                 </div>
 
                 <div class="match-feature-subtitle">
-                    All FOURs, SIXes and wickets in one video
+                    Complete match recording
+                    — ${fullMatch.session_id}
                 </div>
             </div>
 
             <video
                 controls
                 preload="metadata"
-                src="${matchHighlights.video_url}"
+                src="${fullMatch.video_url}"
             ></video>
 
             <div class="match-feature-actions">
 
                 <a
                     class="play"
-                    href="${matchHighlights.video_url}"
+                    href="${fullMatch.video_url}"
                     target="_blank"
                 >
-                    Play Full Highlights
+                    Play Full Match
                 </a>
 
                 <a
                     class="download"
-                    href="${matchHighlights.download_url}"
+                    href="${fullMatch.download_url}"
+                >
+                    Download Full Match
+                </a>
+
+            </div>
+
+        </section>
+    `;
+}
+
+
+function renderClipCard(item) {
+    return `
+        <article class="card">
+
+            <div class="video-wrap">
+                <video
+                    controls
+                    preload="metadata"
+                    src="${item.video_url}"
+                ></video>
+            </div>
+
+            <div class="card-body">
+
+                <div class="event-row">
+                    <div
+                        class="event ${item.event_type}"
+                    >
+                        ${item.event_type}
+                    </div>
+
+                    <div class="time">
+                        ${prettyTime(item)}
+                    </div>
+                </div>
+
+                <div class="description">
+                    ${prettyName(item)}
+                </div>
+
+                <div class="filename">
+                    ${item.filename}
+                </div>
+
+                <div class="actions">
+                    <a
+                        class="play"
+                        href="${item.video_url}"
+                        target="_blank"
+                    >
+                        Play
+                    </a>
+
+                    <a
+                        class="download"
+                        href="${item.download_url}"
+                    >
+                        Download
+                    </a>
+                </div>
+
+            </div>
+
+        </article>
+    `;
+}
+
+
+function renderFeature(item, title, subtitle, playText) {
+    if (!item) {
+        return "";
+    }
+
+    return `
+        <section class="match-feature">
+
+            <div class="match-feature-header">
+                <div class="match-feature-title">
+                    ${title}
+                </div>
+
+                <div class="match-feature-subtitle">
+                    ${subtitle}
+                </div>
+            </div>
+
+            <video
+                controls
+                preload="metadata"
+                src="${item.video_url}"
+            ></video>
+
+            <div class="match-feature-actions">
+
+                <a
+                    class="play"
+                    href="${item.video_url}"
+                    target="_blank"
+                >
+                    ${playText}
+                </a>
+
+                <a
+                    class="download"
+                    href="${item.download_url}"
                 >
                     Download
                 </a>
@@ -550,93 +684,189 @@ function renderMatchHighlights() {
     `;
 }
 
+
+function matchTitle(match) {
+    let title = match.session_id;
+
+    if (match.date) {
+        const date = new Date(
+            match.date + "T12:00:00"
+        );
+
+        if (!Number.isNaN(date.getTime())) {
+            title =
+                date.toLocaleDateString(
+                    undefined,
+                    {
+                        dateStyle: "medium",
+                    }
+                )
+                + " — "
+                + match.session_id;
+        }
+    }
+
+    return title;
+}
+
+
 function render() {
     const content = document.getElementById(
         "content"
     );
 
-    const filtered = highlights.filter(
-        item =>
+    const matchSections = matches.map(match => {
+        const filtered = (
+            match.highlights || []
+        ).filter(
+            item =>
+                currentFilter === "ALL"
+                || item.event_type === currentFilter
+        );
+
+        const features = (
             currentFilter === "ALL"
-            || item.event_type === currentFilter
-    );
+            ? (
+                renderFeature(
+                    match.full_match,
+                    "🎥 FULL MATCH",
+                    "Complete match recording",
+                    "Play Full Match"
+                )
+                +
+                renderFeature(
+                    match.match_highlights,
+                    "🎬 MATCH HIGHLIGHTS",
+                    "FOURs, SIXes, wickets, 50s and 100s",
+                    "Play Match Highlights"
+                )
+            )
+            : ""
+        );
+
+        if (
+            !features
+            && !filtered.length
+        ) {
+            return "";
+        }
+
+        return `
+            <section class="match-section">
+
+                <div class="match-section-header">
+                    <div>
+                        <div class="match-section-title">
+                            ${matchTitle(match)}
+                        </div>
+
+                        <div class="match-section-subtitle">
+                            ${filtered.length}
+                            ${
+                                filtered.length === 1
+                                ? " highlight"
+                                : " highlights"
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                ${features}
+
+                ${
+                    filtered.length
+                    ? `
+                        <div class="grid">
+                            ${filtered.map(
+                                renderClipCard
+                            ).join("")}
+                        </div>
+                    `
+                    : ""
+                }
+
+            </section>
+        `;
+    }).join("");
+
+    const filteredUnassigned =
+        unassigned.filter(
+            item =>
+                currentFilter === "ALL"
+                || item.event_type === currentFilter
+        );
+
+    const unassignedSection =
+        filteredUnassigned.length
+        ? `
+            <section class="match-section">
+
+                <div class="match-section-header">
+                    <div>
+                        <div class="match-section-title">
+                            Earlier / Unassigned Clips
+                        </div>
+
+                        <div class="match-section-subtitle">
+                            Clips created before match sessions
+                            were introduced
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid">
+                    ${filteredUnassigned.map(
+                        renderClipCard
+                    ).join("")}
+                </div>
+
+            </section>
+        `
+        : "";
+
+    const total =
+        matches.reduce(
+            (count, match) =>
+                count
+                + (match.highlights || []).filter(
+                    item =>
+                        currentFilter === "ALL"
+                        || item.event_type === currentFilter
+                ).length,
+            0
+        )
+        + filteredUnassigned.length;
 
     document.getElementById(
         "summary"
     ).textContent =
-        filtered.length +
-        (filtered.length === 1
+        matches.length
+        + (
+            matches.length === 1
+            ? " match"
+            : " matches"
+        )
+        + " • "
+        + total
+        + (
+            total === 1
             ? " highlight"
-            : " highlights");
+            : " highlights"
+        );
 
-    if (!filtered.length) {
+    content.innerHTML =
+        matchSections
+        + unassignedSection;
+
+    if (!content.innerHTML.trim()) {
         content.innerHTML = `
             <div class="empty">
                 No highlights found.
             </div>
         `;
-        return;
     }
-
-    content.innerHTML = `
-        <div class="grid">
-            ${filtered.map(item => `
-                <article class="card">
-
-                    <div class="video-wrap">
-                        <video
-                            controls
-                            preload="metadata"
-                            src="${item.video_url}"
-                        ></video>
-                    </div>
-
-                    <div class="card-body">
-
-                        <div class="event-row">
-                            <div
-                                class="event ${item.event_type}"
-                            >
-                                ${item.event_type}
-                            </div>
-
-                            <div class="time">
-                                ${prettyTime(item)}
-                            </div>
-                        </div>
-
-                        <div class="description">
-                            ${prettyName(item)}
-                        </div>
-
-                        <div class="filename">
-                            ${item.filename}
-                        </div>
-
-                        <div class="actions">
-                            <a
-                                class="play"
-                                href="${item.video_url}"
-                                target="_blank"
-                            >
-                                Play
-                            </a>
-
-                            <a
-                                class="download"
-                                href="${item.download_url}"
-                            >
-                                Download
-                            </a>
-                        </div>
-
-                    </div>
-
-                </article>
-            `).join("")}
-        </div>
-    `;
 }
+
 
 function formatRecordingStart(session) {
     if (!session || !session.started_iso) {
@@ -793,10 +1023,9 @@ async function loadHighlights() {
             );
         }
 
-        highlights = data.highlights || [];
-        matchHighlights = data.match_highlights || null;
+        matches = data.matches || [];
+        unassigned = data.unassigned || [];
 
-        renderMatchHighlights();
         render();
 
     } catch (error) {

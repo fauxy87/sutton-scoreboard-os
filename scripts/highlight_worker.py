@@ -134,14 +134,39 @@ def main():
 
         if result.get("ok"):
             state["processed"] = processed + 1
+            state["retry_count"] = 0
             save_state(state)
+
         else:
-            print(
-                "Highlight failed; retrying:",
-                result.get("error"),
-                flush=True,
-            )
-            time.sleep(5)
+            retry_count = int(
+                state.get("retry_count", 0)
+            ) + 1
+
+            state["retry_count"] = retry_count
+            save_state(state)
+
+            if retry_count >= 5:
+                print(
+                    "Highlight unavailable after "
+                    "5 attempts; skipping event:",
+                    event.get("type"),
+                    event.get("timestamp"),
+                    flush=True,
+                )
+
+                state["processed"] = processed + 1
+                state["retry_count"] = 0
+                save_state(state)
+
+            else:
+                print(
+                    f"Highlight failed; retry "
+                    f"{retry_count}/5:",
+                    result.get("error"),
+                    flush=True,
+                )
+
+                time.sleep(5)
 
 
 if __name__ == "__main__":
