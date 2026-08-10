@@ -577,46 +577,120 @@ header,
 
 <script>
 let lastBroadcastEventTimestamp = null;
+let broadcastEventQueue = [];
+let broadcastEventShowing = false;
+
+function queueBroadcastEvent(event) {
+    if (!event || !event.timestamp) {
+        return;
+    }
+
+    const alreadyQueued =
+        broadcastEventQueue.some(
+            item => item.timestamp === event.timestamp
+        );
+
+    if (alreadyQueued) {
+        return;
+    }
+
+    broadcastEventQueue.push(event);
+    playNextBroadcastEvent();
+}
+
+function playNextBroadcastEvent() {
+    if (
+        broadcastEventShowing ||
+        broadcastEventQueue.length === 0
+    ) {
+        return;
+    }
+
+    const event =
+        broadcastEventQueue.shift();
+
+    broadcastEventShowing = true;
+
+    showBroadcastEvent(event);
+
+    setTimeout(
+        () => {
+            broadcastEventShowing = false;
+            playNextBroadcastEvent();
+        },
+        3500
+    );
+}
 
 async function pollBroadcastEvents() {
     try {
         const response = await fetch(
-            "/api/events/latest",
-            { cache: "no-store" }
+            "/api/events",
+            {
+                cache: "no-store"
+            }
         );
 
         if (!response.ok) {
             return;
         }
 
-        const data = await response.json();
-        const event = data.event;
+        const data =
+            await response.json();
 
-        if (!event || !event.timestamp) {
+        const events =
+            Array.isArray(data.events)
+                ? data.events
+                : [];
+
+        if (events.length === 0) {
             return;
         }
 
-        if (lastBroadcastEventTimestamp === null) {
-            lastBroadcastEventTimestamp = event.timestamp;
-            return;
-        }
+        events.sort(
+            (a, b) =>
+                Number(a.timestamp || 0) -
+                Number(b.timestamp || 0)
+        );
 
         if (
-            event.timestamp ===
-            lastBroadcastEventTimestamp
+            lastBroadcastEventTimestamp === null
         ) {
+            lastBroadcastEventTimestamp =
+                Number(
+                    events[
+                        events.length - 1
+                    ].timestamp
+                );
+
             return;
         }
 
-        lastBroadcastEventTimestamp =
-            event.timestamp;
+        const unseenEvents =
+            events.filter(
+                event =>
+                    Number(event.timestamp) >
+                    Number(
+                        lastBroadcastEventTimestamp
+                    )
+            );
 
-        if (
-            event.type === "FOUR" ||
-            event.type === "SIX" ||
-            event.type === "WICKET"
-        ) {
-            showBroadcastEvent(event);
+        for (const event of unseenEvents) {
+            if (
+                event.type === "FOUR" ||
+                event.type === "SIX" ||
+                event.type === "WICKET"
+            ) {
+                queueBroadcastEvent(event);
+            }
+
+            lastBroadcastEventTimestamp =
+                Math.max(
+                    Number(
+                        lastBroadcastEventTimestamp
+                    ),
+                    Number(event.timestamp)
+                );
         }
 
     } catch (error) {
@@ -631,7 +705,7 @@ pollBroadcastEvents();
 
 setInterval(
     pollBroadcastEvents,
-    1000
+    750
 );
 </script>
 
