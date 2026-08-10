@@ -179,6 +179,16 @@ main {
     font-weight: 900;
 }
 
+.match-storage {
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.match-storage strong {
+    color: var(--text);
+}
+
 .match-section-subtitle {
     margin-top: 4px;
     color: var(--muted);
@@ -821,6 +831,31 @@ function renderFeature(item, title, subtitle, playText) {
 }
 
 
+function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+
+    if (value < 1024) {
+        return value + " B";
+    }
+
+    if (value < 1024 * 1024) {
+        return (
+            value / 1024
+        ).toFixed(1) + " KB";
+    }
+
+    if (value < 1024 * 1024 * 1024) {
+        return (
+            value / (1024 * 1024)
+        ).toFixed(1) + " MB";
+    }
+
+    return (
+        value / (1024 * 1024 * 1024)
+    ).toFixed(2) + " GB";
+}
+
+
 function matchTitle(match) {
     const fixture =
         match.match_name
@@ -909,6 +944,23 @@ function render() {
                                 : " highlights"
                             }
                         </div>
+
+                        <div class="match-storage">
+                            Full Match:
+                            ${formatBytes(
+                                match.storage?.full_match_bytes
+                            )}
+                            • Highlights:
+                            ${formatBytes(
+                                match.storage?.highlight_bytes
+                            )}
+                            • Total:
+                            <strong>
+                                ${formatBytes(
+                                    match.storage?.total_bytes
+                                )}
+                            </strong>
+                        </div>
                     </div>
 
                     <div class="match-manage-actions">
@@ -948,41 +1000,6 @@ function render() {
         `;
     }).join("");
 
-    const filteredUnassigned =
-        unassigned.filter(
-            item =>
-                currentFilter === "ALL"
-                || item.event_type === currentFilter
-        );
-
-    const unassignedSection =
-        filteredUnassigned.length
-        ? `
-            <section class="match-section">
-
-                <div class="match-section-header">
-                    <div>
-                        <div class="match-section-title">
-                            Earlier / Unassigned Clips
-                        </div>
-
-                        <div class="match-section-subtitle">
-                            Clips created before match sessions
-                            were introduced
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid">
-                    ${filteredUnassigned.map(
-                        renderClipCard
-                    ).join("")}
-                </div>
-
-            </section>
-        `
-        : "";
-
     const total =
         matches.reduce(
             (count, match) =>
@@ -994,7 +1011,7 @@ function render() {
                 ).length,
             0
         )
-        + filteredUnassigned.length;
+;
 
     document.getElementById(
         "summary"
@@ -1014,8 +1031,7 @@ function render() {
         );
 
     content.innerHTML =
-        matchSections
-        + unassignedSection;
+        matchSections;
 
     if (!content.innerHTML.trim()) {
         content.innerHTML = `

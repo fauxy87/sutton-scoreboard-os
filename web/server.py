@@ -1012,6 +1012,43 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     reverse=True,
                 )
 
+                full_match_bytes = 0
+
+                if match.get("full_match"):
+                    full_match_bytes = int(
+                        match["full_match"].get(
+                            "size_bytes",
+                            0,
+                        )
+                    )
+
+                highlight_bytes = sum(
+                    int(
+                        item.get(
+                            "size_bytes",
+                            0,
+                        )
+                    )
+                    for item in match["highlights"]
+                )
+
+                if match.get("match_highlights"):
+                    highlight_bytes += int(
+                        match["match_highlights"].get(
+                            "size_bytes",
+                            0,
+                        )
+                    )
+
+                match["storage"] = {
+                    "full_match_bytes": full_match_bytes,
+                    "highlight_bytes": highlight_bytes,
+                    "total_bytes": (
+                        full_match_bytes
+                        + highlight_bytes
+                    ),
+                }
+
             match_list = sorted(
                 matches.values(),
                 key=lambda item: item["modified"],
