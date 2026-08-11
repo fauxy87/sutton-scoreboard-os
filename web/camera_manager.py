@@ -3,6 +3,7 @@
 import json
 import socket
 import subprocess
+import time
 
 from pathlib import Path
 from urllib.parse import quote
@@ -84,6 +85,126 @@ def status():
         except OSError as exc:
             error = str(exc)
 
+    def service_active(name):
+        result = subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "is-active",
+                name,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        return (
+            result.stdout.strip() == "active"
+        )
+
+    recorder_service = service_active(
+        "scoreos-camera-recorder.service"
+    )
+
+    buffering = service_active(
+        "scoreos-camera-buffer.service"
+    )
+
+    recording = False
+
+    if recorder_service:
+        match_file = Path(
+            "/var/lib/scoreos/current-match.json"
+        )
+
+        if match_file.exists():
+            try:
+                session = json.loads(
+                    match_file.read_text(
+                        encoding="utf-8"
+                    )
+                )
+
+                session_id = str(
+                    session.get(
+                        "session_id",
+                        "",
+                    )
+                ).strip()
+
+                started_iso = str(
+                    session.get(
+                        "started_iso",
+                        "",
+                    )
+                )
+
+                match_date = (
+                    started_iso[:10]
+                    if len(started_iso) >= 10
+                    else None
+                )
+
+                if session_id and match_date:
+                    folder = (
+                        Path(
+                            "/var/lib/scoreos/recordings"
+                        )
+                        / match_date
+                        / session_id
+                    )
+
+                    newest = 0
+
+                    for stream_name in (
+                        "main",
+                        "full",
+                    ):
+                        stream_folder = (
+                            folder / stream_name
+                        )
+
+                        if not stream_folder.exists():
+                            continue
+
+                        for segment in (
+                            stream_folder.glob("*.ts")
+                        ):
+                            try:
+                                stat = segment.stat()
+
+                                if stat.st_size > 0:
+                                    newest = max(
+                                        newest,
+                                        stat.st_mtime,
+                                    )
+                            except OSError:
+                                continue
+
+                    if newest:
+                        recording = (
+                            time.time() - newest
+                            < 30
+                        )
+
+            except (
+                OSError,
+                json.JSONDecodeError,
+            ):
+                pass
+
+    if not configured:
+        state = "not_configured"
+    elif not reachable:
+        state = "offline"
+    elif recording:
+        state = "recording"
+    elif recorder_service:
+        state = "reconnecting"
+    elif buffering:
+        state = "ready"
+    else:
+        state = "online"
+
     return {
         "configured": configured,
         "connected": reachable,
@@ -94,7 +215,10 @@ def status():
         "host": camera.get("host"),
         "port": camera.get("port"),
         "rtsp_path": camera.get("rtsp_path"),
-        "recording": False,
+        "recording": recording,
+        "recorder_service": recorder_service,
+        "buffering": buffering,
+        "state": state,
         "error": error,
     }
 def test_stream():

@@ -194,6 +194,35 @@ main {
     color: var(--muted);
 }
 
+.camera-status-panel {
+    margin-bottom: 12px;
+    padding: 12px 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-weight: 800;
+}
+
+.camera-status-panel.ready {
+    border-color: #4ade80;
+    color: #4ade80;
+}
+
+.camera-status-panel.recording {
+    border-color: #f87171;
+    color: #f87171;
+}
+
+.camera-status-panel.offline {
+    border-color: #facc15;
+    color: #facc15;
+}
+
+.camera-status-panel.reconnecting {
+    border-color: #fb923c;
+    color: #fb923c;
+}
+
 .storage-panel {
     margin-bottom: 18px;
     padding: 14px 18px;
@@ -618,6 +647,13 @@ video {
     </div>
 
     <section
+    id="camera-status-panel"
+    class="camera-status-panel"
+>
+    Checking camera…
+</section>
+
+<section
     id="storage-panel"
     class="storage-panel"
 >
@@ -1661,6 +1697,84 @@ function renderStorage() {
 }
 
 
+async function loadCameraStatus() {
+    const panel = document.getElementById(
+        "camera-status-panel"
+    );
+
+    if (!panel) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            "/api/camera/status",
+            {
+                cache: "no-store",
+            }
+        );
+
+        const data = await response.json();
+
+        panel.classList.remove(
+            "ready",
+            "recording",
+            "offline",
+            "reconnecting"
+        );
+
+        if (data.state === "recording") {
+            panel.textContent =
+                "🔴 Camera: RECORDING";
+
+            panel.classList.add(
+                "recording"
+            );
+
+        } else if (data.state === "ready") {
+            panel.textContent =
+                "🟢 Camera: READY";
+
+            panel.classList.add(
+                "ready"
+            );
+
+        } else if (data.state === "reconnecting") {
+            panel.textContent =
+                "🟠 Camera: RECONNECTING";
+
+            panel.classList.add(
+                "reconnecting"
+            );
+
+        } else if (data.state === "offline") {
+            panel.textContent =
+                "🟡 Camera: OFFLINE";
+
+            panel.classList.add(
+                "offline"
+            );
+
+        } else {
+            panel.textContent =
+                "Camera: " + (
+                    data.state || "unknown"
+                );
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        panel.textContent =
+            "Camera status unavailable";
+
+        panel.classList.add(
+            "offline"
+        );
+    }
+}
+
+
 async function loadHighlights() {
     try {
         const response = await fetch(
@@ -1731,6 +1845,7 @@ document
 
 loadHighlights();
 loadMatchRecordingStatus();
+loadCameraStatus();
 
 setInterval(
     loadHighlights,
@@ -1739,6 +1854,11 @@ setInterval(
 
 setInterval(
     loadMatchRecordingStatus,
+    5000
+);
+
+setInterval(
+    loadCameraStatus,
     5000
 );
 </script>

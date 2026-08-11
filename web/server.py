@@ -1060,7 +1060,6 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 reverse=True,
             )
 
-            import shutil
 
             disk = shutil.disk_usage(
                 "/var/lib/scoreos"
@@ -2040,7 +2039,6 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
                 return
 
-            import shutil
 
             try:
                 for folder in recording_matches:
@@ -2174,6 +2172,12 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 exist_ok=True,
             )
 
+            shutil.chown(
+                session_folder,
+                user="pi",
+                group="pi",
+            )
+
             (
                 session_folder / "match.json"
             ).write_text(
@@ -2183,6 +2187,63 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 ) + "\n",
                 encoding="utf-8",
             )
+
+            # Stop the rolling pre-roll buffer and
+            # preserve its most recent footage.
+            subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "stop",
+                    "scoreos-camera-buffer.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            buffer_root = Path(
+                "/var/lib/scoreos/camera-buffer"
+            )
+
+            full_folder = (
+                session_folder / "full"
+            )
+
+            full_folder.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            shutil.chown(
+                full_folder,
+                user="pi",
+                group="pi",
+            )
+
+            cutoff = time.time() - 50
+
+            if buffer_root.exists():
+                for source in sorted(
+                    buffer_root.glob("*.ts")
+                ):
+                    try:
+                        stat = source.stat()
+                    except OSError:
+                        continue
+
+                    if (
+                        stat.st_size <= 0
+                        or stat.st_mtime < cutoff
+                    ):
+                        continue
+
+                    try:
+                        shutil.copy2(
+                            source,
+                            full_folder / source.name,
+                        )
+                    except OSError:
+                        continue
 
             result = subprocess.run(
                 [
