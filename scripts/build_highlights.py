@@ -593,6 +593,49 @@ def create_clip(event, overwrite=False):
             timeout=180,
         )
 
+        if result.returncode != 0:
+            log(
+                "Hardware H.264 encode failed; "
+                "retrying with libx264..."
+            )
+
+            destination.unlink(
+                missing_ok=True
+            )
+
+            software_encode_command = [
+                "/usr/bin/ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "warning",
+                "-i",
+                str(temporary_path),
+                "-map",
+                "0:v:0",
+                "-vf",
+                video_filter,
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "23",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                "-y",
+                str(destination),
+            ]
+
+            result = subprocess.run(
+                software_encode_command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=180,
+            )
+
     finally:
         concat_path.unlink(
             missing_ok=True
