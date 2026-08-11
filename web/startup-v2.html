@@ -657,11 +657,11 @@
 
                 <a
                     class="startup-action"
-                    href="/tv"
+                    href="/tv-camera"
                     target="_blank"
                     rel="noopener"
                 >
-                    📺 TV Display
+                    📺 TV Camera
                 </a>
 
                 <a
@@ -1181,20 +1181,20 @@ function showReady(startup) {
 
                     setProgress(
                         100,
-                        "First Ball — Opening TV Display"
+                        "First Ball — Opening TV Camera"
                     );
 
                     readyTitle.textContent =
                         "Match underway";
                     readyMessage.textContent =
-                        "Loading the live TV scoreboard…";
+                        "Loading the live TV camera…";
                     readyIcon.textContent = "🏏";
 
                     addConsoleMessage(
                         "First scoring event received"
                     );
                     addConsoleMessage(
-                        "Opening live TV display",
+                        "Opening live TV camera",
                         "active"
                     );
 
@@ -1206,7 +1206,7 @@ function showReady(startup) {
                     }, 700);
 
                     setTimeout(() => {
-                        window.location.replace("/tv");
+                        window.location.replace("/tv-camera");
                     }, 1600);
                 }
             } catch (error) {
