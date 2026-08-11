@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -72,6 +73,81 @@ def active_session_id():
     ).strip()
 
     return session_id or None
+
+
+def preserve_preroll(full_folder):
+    buffer_root = Path(
+        "/var/lib/scoreos/camera-buffer"
+    )
+
+    subprocess.run(
+        [
+            "/usr/bin/systemctl",
+            "stop",
+            "scoreos-camera-buffer.service",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    full_folder.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    try:
+        os.chown(
+            full_folder,
+            1000,
+            1000,
+        )
+    except OSError:
+        pass
+
+    copied = 0
+    cutoff = time.time() - 50
+
+    if buffer_root.exists():
+        for source in sorted(
+            buffer_root.glob("*.ts")
+        ):
+            try:
+                stat = source.stat()
+            except OSError:
+                continue
+
+            if (
+                stat.st_size <= 0
+                or stat.st_mtime < cutoff
+            ):
+                continue
+
+            destination = (
+                full_folder / source.name
+            )
+
+            try:
+                shutil.copy2(
+                    source,
+                    destination,
+                )
+                copied += 1
+            except OSError as exc:
+                print(
+                    "SCOREOS PRE-ROLL COPY ERROR:",
+                    exc,
+                    flush=True,
+                )
+
+    print(
+        "SCOREOS PRE-ROLL:",
+        copied,
+        "segments preserved",
+        flush=True,
+    )
+
+    return copied
 
 
 def auto_start_match(previous, current):
@@ -202,6 +278,10 @@ def auto_start_match(previous, current):
         encoding="utf-8",
     )
 
+    preserve_preroll(
+        session_folder / "full"
+    )
+
     result = subprocess.run(
         [
             "/usr/bin/systemctl",
@@ -216,6 +296,17 @@ def auto_start_match(previous, current):
     if result.returncode != 0:
         MATCH_FILE.unlink(
             missing_ok=True
+        )
+
+        subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "start",
+                "scoreos-camera-buffer.service",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
         print(

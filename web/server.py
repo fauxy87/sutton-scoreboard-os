@@ -2209,6 +2209,17 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 missing_ok=True
             )
 
+            subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "start",
+                    "scoreos-camera-buffer.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
             self.send_json(
                 {
                     "ok": True,
