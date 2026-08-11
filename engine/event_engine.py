@@ -461,6 +461,22 @@ def auto_start_match(previous, current):
     if MATCH_FILE.exists():
         return active_session_id()
 
+    disk = shutil.disk_usage(
+        "/var/lib/scoreos"
+    )
+
+    critical_bytes = (
+        2 * 1024 * 1024 * 1024
+    )
+
+    if disk.free < critical_bytes:
+        print(
+            "SCOREOS AUTO MATCH BLOCKED: "
+            "less than 2 GB free storage",
+            flush=True,
+        )
+        return None
+
     if not previous:
         return None
 

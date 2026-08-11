@@ -1060,6 +1060,81 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 reverse=True,
             )
 
+            import shutil
+
+            disk = shutil.disk_usage(
+                "/var/lib/scoreos"
+            )
+
+            def folder_size(path):
+                total = 0
+
+                if not path.exists():
+                    return 0
+
+                for item in path.rglob("*"):
+                    if not item.is_file():
+                        continue
+
+                    try:
+                        total += item.stat().st_size
+                    except OSError:
+                        continue
+
+                return total
+
+            buffer_root = Path(
+                "/var/lib/scoreos/camera-buffer"
+            )
+
+            storage = {
+                "disk_total_bytes": disk.total,
+                "disk_used_bytes": disk.used,
+                "disk_free_bytes": disk.free,
+                "disk_used_percent": round(
+                    (
+                        disk.used
+                        / disk.total
+                        * 100
+                    )
+                    if disk.total
+                    else 0,
+                    1,
+                ),
+                "recordings_bytes": folder_size(
+                    recording_root
+                ),
+                "highlights_bytes": folder_size(
+                    highlight_root
+                ),
+                "buffer_bytes": folder_size(
+                    buffer_root
+                ),
+            }
+
+            warning_bytes = (
+                5 * 1024 * 1024 * 1024
+            )
+
+            critical_bytes = (
+                2 * 1024 * 1024 * 1024
+            )
+
+            storage["low_space"] = (
+                disk.free < warning_bytes
+            )
+
+            storage["critical_space"] = (
+                disk.free < critical_bytes
+            )
+
+            if storage["critical_space"]:
+                storage["level"] = "critical"
+            elif storage["low_space"]:
+                storage["level"] = "warning"
+            else:
+                storage["level"] = "normal"
+
             self.send_json(
                 {
                     "ok": True,
@@ -1067,6 +1142,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "match_count": len(match_list),
                     "unassigned": unassigned,
                     "unassigned_count": len(unassigned),
+                    "storage": storage,
                 }
             )
             return
@@ -1903,6 +1979,27 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/match/start":
+            disk = shutil.disk_usage(
+                "/var/lib/scoreos"
+            )
+
+            critical_bytes = (
+                2 * 1024 * 1024 * 1024
+            )
+
+            if disk.free < critical_bytes:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Not enough free storage "
+                            "to start a match recording."
+                        ),
+                    },
+                    status=507,
+                )
+                return
+
             match_file = Path(
                 "/var/lib/scoreos/current-match.json"
             )

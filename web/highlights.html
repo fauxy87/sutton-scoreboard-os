@@ -194,6 +194,33 @@ main {
     color: var(--muted);
 }
 
+.storage-panel {
+    margin-bottom: 18px;
+    padding: 14px 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-weight: 700;
+}
+
+.storage-panel.warning {
+    border-color: #facc15;
+    color: #facc15;
+}
+
+.storage-panel.critical {
+    border-color: #f87171;
+    color: #f87171;
+}
+
+.storage-panel .storage-detail {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+}
+
 .recording-panel {
     display: grid;
     grid-template-columns:
@@ -561,7 +588,14 @@ video {
         </div>
     </div>
 
-    <section class="recording-panel">
+    <section
+    id="storage-panel"
+    class="storage-panel"
+>
+    Loading storage information…
+</section>
+
+<section class="recording-panel">
     <div class="recording-info">
         <div class="recording-title">
             Full Match Recording
@@ -635,6 +669,7 @@ video {
 <script>
 let matches = [];
 let unassigned = [];
+let storage = null;
 let currentFilter = "ALL";
 let matchRecording = false;
 
@@ -1425,6 +1460,76 @@ async function renameMatch(sessionId) {
 }
 
 
+function renderStorage() {
+    const panel = document.getElementById(
+        "storage-panel"
+    );
+
+    if (!panel) {
+        return;
+    }
+
+    if (!storage) {
+        panel.textContent =
+            "Storage information unavailable";
+        return;
+    }
+
+    const free = formatBytes(
+        storage.disk_free_bytes
+    );
+
+    const total = formatBytes(
+        storage.disk_total_bytes
+    );
+
+    const recordings = formatBytes(
+        storage.recordings_bytes
+    );
+
+    const highlightsSize = formatBytes(
+        storage.highlights_bytes
+    );
+
+    const buffer = formatBytes(
+        storage.buffer_bytes
+    );
+
+    panel.classList.remove(
+        "warning",
+        "critical"
+    );
+
+    if (storage.level === "warning") {
+        panel.classList.add("warning");
+    }
+
+    if (storage.level === "critical") {
+        panel.classList.add("critical");
+    }
+
+    panel.innerHTML = `
+        <div>
+            ${
+                storage.level === "critical"
+                ? "🔴 CRITICAL STORAGE"
+                : storage.level === "warning"
+                ? "⚠️ LOW STORAGE"
+                : "💾 Storage"
+            }
+            — ${free} free of ${total}
+            (${storage.disk_used_percent}% used)
+        </div>
+
+        <div class="storage-detail">
+            Recordings: ${recordings}
+            • Highlights: ${highlightsSize}
+            • Buffer: ${buffer}
+        </div>
+    `;
+}
+
+
 async function loadHighlights() {
     try {
         const response = await fetch(
@@ -1444,7 +1549,9 @@ async function loadHighlights() {
 
         matches = data.matches || [];
         unassigned = data.unassigned || [];
+        storage = data.storage || null;
 
+        renderStorage();
         render();
 
     } catch (error) {
