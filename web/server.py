@@ -2639,6 +2639,36 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 check=False,
             )
 
+            complete_status = {
+                "completed_at": time.time(),
+                "session_id": (
+                    session.get("session_id")
+                    if session
+                    else None
+                ),
+                "match_name": (
+                    session.get("match_name")
+                    if session
+                    else None
+                ),
+                "full_match_ready": bool(full_match),
+                "match_highlights_ready": bool(match_highlights),
+                "build_error": build_error,
+                "highlights_error": highlights_error,
+            }
+
+            complete_file.write_text(
+                json.dumps(
+                    complete_status,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+
+            processing_file.unlink(
+                missing_ok=True
+            )
+
             self.send_json(
                 {
                     "ok": True,
