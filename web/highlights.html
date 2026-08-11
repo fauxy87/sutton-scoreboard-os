@@ -357,6 +357,20 @@ main {
     }
 }
 
+.match-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.match-quick-actions a {
+    text-decoration: none;
+    padding: 10px 14px;
+    border-radius: 9px;
+    font-weight: 800;
+}
+
 .match-feature {
     background: var(--panel);
     border: 2px solid var(--accent);
@@ -946,28 +960,13 @@ function render() {
                 || item.event_type === currentFilter
         );
 
-        const features = (
-            currentFilter === "ALL"
-            ? (
-                renderFeature(
-                    match.full_match,
-                    "🎥 FULL MATCH",
-                    "Complete match recording",
-                    "Play Full Match"
-                )
-                +
-                renderFeature(
-                    match.match_highlights,
-                    "🎬 MATCH HIGHLIGHTS",
-                    "FOURs, SIXes, wickets, 50s and 100s",
-                    "Play Match Highlights"
-                )
-            )
-            : ""
+        const hasMatchVideo = Boolean(
+            match.full_match
+            || match.match_highlights
         );
 
         if (
-            !features
+            !hasMatchVideo
             && !filtered.length
         ) {
             return "";
@@ -1028,7 +1027,49 @@ function render() {
                     </div>
                 </div>
 
-                ${features}
+                <div class="match-quick-actions">
+                    ${
+                        match.full_match
+                        ? `
+                            <a
+                                class="play"
+                                href="${match.full_match.video_url}"
+                                target="_blank"
+                            >
+                                ▶ Play Full Match
+                            </a>
+
+                            <a
+                                class="download"
+                                href="${match.full_match.download_url}"
+                            >
+                                ⬇ Download Full Match
+                            </a>
+                        `
+                        : ""
+                    }
+
+                    ${
+                        match.match_highlights
+                        ? `
+                            <a
+                                class="play"
+                                href="${match.match_highlights.video_url}"
+                                target="_blank"
+                            >
+                                ▶ Play Highlights
+                            </a>
+
+                            <a
+                                class="download"
+                                href="${match.match_highlights.download_url}"
+                            >
+                                ⬇ Download Highlights
+                            </a>
+                        `
+                        : ""
+                    }
+                </div>
 
                 ${
                     filtered.length
