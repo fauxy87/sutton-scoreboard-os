@@ -1749,15 +1749,64 @@
             const recording =
                 cameraData?.recording === true;
 
+            const session =
+                matchData?.session || null;
+
+            const inningsBreak = Boolean(
+                session?.innings_break
+            );
+
+            const matchFinished = Boolean(
+                session?.match_finished
+            );
+
             banner.classList.remove(
                 "warning",
                 "error"
             );
 
             /*
-             * A live match takes priority over the
+             * Match lifecycle takes priority over the
              * normal pre-match readiness percentage.
              */
+            if (matchFinished) {
+                banner.classList.add("warning");
+
+                icon.textContent = "🏁";
+                title.textContent =
+                    "MATCH FINISHED";
+
+                detail.textContent =
+                    session?.match_name
+                    ? session.match_name
+                        + " · Stop recording to build the full match"
+                    : "Stop recording to build the full match";
+
+                score.textContent =
+                    "FINISHED";
+
+                return;
+            }
+
+            if (inningsBreak) {
+                banner.classList.add("warning");
+
+                icon.textContent = "🟠";
+                title.textContent =
+                    "INNINGS BREAK";
+
+                detail.textContent =
+                    session?.match_name
+                    ? session.match_name
+                        + " · Recording paused"
+                    : "Recording paused";
+
+                score.textContent =
+                    "BREAK";
+
+                return;
+            }
+
             if (recording) {
                 score.textContent = "LIVE";
 
@@ -2293,6 +2342,66 @@
 
             const summary = $("match-day-summary");
             const heading = $("match-day-heading");
+
+            const session =
+                matchData?.session || null;
+
+            const inningsBreak = Boolean(
+                session?.innings_break
+            );
+
+            const matchFinished = Boolean(
+                session?.match_finished
+            );
+
+            if (matchFinished) {
+                heading.textContent =
+                    "MATCH FINISHED";
+
+                summary.textContent =
+                    session?.match_name
+                    ? "🏁 "
+                        + session.match_name
+                        + " — STOP & BUILD FULL MATCH"
+                    : "🏁 MATCH FINISHED — STOP & BUILD FULL MATCH";
+
+                summary.className =
+                    "match-day-summary warning";
+
+                setMatchDayItem(
+                    "md-recording",
+                    recording
+                        ? "warning"
+                        : "neutral",
+                    recording
+                        ? "Awaiting Stop"
+                        : "Stopped"
+                );
+
+                return;
+            }
+
+            if (inningsBreak) {
+                heading.textContent =
+                    "INNINGS BREAK";
+
+                summary.textContent =
+                    session?.match_name
+                    ? "🟠 INNINGS BREAK — "
+                        + session.match_name
+                    : "🟠 INNINGS BREAK";
+
+                summary.className =
+                    "match-day-summary warning";
+
+                setMatchDayItem(
+                    "md-recording",
+                    "neutral",
+                    "Paused"
+                );
+
+                return;
+            }
 
             if (recording) {
                 heading.textContent =
