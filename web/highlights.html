@@ -1007,9 +1007,15 @@ function render() {
 
                         <div class="match-storage">
                             Full Match:
-                            ${formatBytes(
-                                match.storage?.full_match_bytes
-                            )}
+                            ${
+                                Number(
+                                    match.storage?.full_match_bytes || 0
+                                ) > 0
+                                ? formatBytes(
+                                    match.storage?.full_match_bytes
+                                )
+                                : "Deleted"
+                            }
                             • Highlights:
                             ${formatBytes(
                                 match.storage?.highlight_bytes
