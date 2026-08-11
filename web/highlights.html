@@ -228,6 +228,17 @@ main {
     font-weight: 900;
 }
 
+.recording-status.finished {
+    color: #facc15;
+    font-weight: 900;
+    font-size: 18px;
+}
+
+.recording-button.finished {
+    background: #facc15;
+    color: #111;
+}
+
 .recording-match-name {
     margin-top: 7px;
     font-size: 18px;
@@ -1093,15 +1104,51 @@ async function loadMatchRecordingStatus() {
                     data.session
                 );
 
-            status.textContent =
-                "● RECORDING"
-                + (
-                    started
-                    ? " — started " + started
-                    : ""
+            const matchFinished = Boolean(
+                data.session?.match_finished
+            );
+
+            status.classList.remove(
+                "live",
+                "finished"
+            );
+
+            button.classList.remove(
+                "finished"
+            );
+
+            if (matchFinished) {
+                status.textContent =
+                    "🏁 MATCH FINISHED"
+                    + (
+                        started
+                        ? " — recording since " + started
+                        : ""
+                    )
+                    + " — recording is still running";
+
+                status.classList.add(
+                    "finished"
                 );
 
-            status.classList.add("live");
+                button.textContent =
+                    "⏹ STOP & BUILD FULL MATCH";
+
+                button.classList.add(
+                    "finished"
+                );
+
+            } else {
+                status.textContent =
+                    "● RECORDING"
+                    + (
+                        started
+                        ? " — started " + started
+                        : ""
+                    );
+
+                status.classList.add("live");
+            }
 
             const setup = document.getElementById(
                 "match-setup"
@@ -1120,8 +1167,10 @@ async function loadMatchRecordingStatus() {
                     data.session?.match_name || "";
             }
 
-            button.textContent =
-                "⏹ STOP MATCH RECORDING";
+            if (!data.session?.match_finished) {
+                button.textContent =
+                    "⏹ STOP MATCH RECORDING";
+            }
 
             button.classList.remove("start");
             button.classList.add("stop");

@@ -194,6 +194,11 @@ class ScoreboardEngine:
                 current_snapshot,
             )
 
+            event_engine.detect_match_finished(
+                self.last_published_state,
+                current_snapshot,
+            )
+
             event_engine.auto_start_match(
                 self.last_published_state,
                 current_snapshot,

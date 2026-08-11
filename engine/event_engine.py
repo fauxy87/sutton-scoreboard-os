@@ -389,6 +389,74 @@ def handle_innings_break(previous, current):
     return False
 
 
+def detect_match_finished(previous, current):
+    session = load_active_session()
+
+    if not session:
+        return False
+
+    if session.get("match_finished"):
+        return True
+
+    innings = int(
+        session.get("innings", 1)
+    )
+
+    if innings < 2:
+        return False
+
+    if session.get("innings_break"):
+        return False
+
+    target_text = str(
+        current.get("target", "") or ""
+    ).strip()
+
+    runs_required_text = str(
+        current.get("RunsRequired", "") or ""
+    ).strip()
+
+    # Do not treat blank/default "---" values as zero.
+    if (
+        not target_text
+        or target_text in ("-", "---")
+        or not runs_required_text
+        or runs_required_text in ("-", "---")
+    ):
+        return False
+
+    target = number(target_text)
+    runs_required = number(
+        runs_required_text
+    )
+
+    if target <= 0:
+        return False
+
+    if runs_required > 0:
+        return False
+
+    session["match_finished"] = True
+    session["match_finished_at"] = time.time()
+    session["match_finished_iso"] = time.strftime(
+        "%Y-%m-%dT%H:%M:%S"
+    )
+    session["match_finished_reason"] = (
+        "target_reached"
+    )
+
+    save_active_session(session)
+
+    print(
+        "SCOREOS MATCH FINISHED:",
+        session.get("match_name", ""),
+        "target reached",
+        flush=True,
+    )
+
+    return True
+
+
 def auto_start_match(previous, current):
     if MATCH_FILE.exists():
         return active_session_id()
