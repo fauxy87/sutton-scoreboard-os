@@ -1892,6 +1892,96 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/match/delete-full":
+            session_id = str(
+                request.get("session_id", "")
+            ).strip()
+
+            if (
+                not session_id
+                or session_id != Path(session_id).name
+                or not session_id.startswith("match-")
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Invalid match session.",
+                    },
+                    status=400,
+                )
+                return
+
+            recording_root = Path(
+                "/var/lib/scoreos/recordings"
+            )
+
+            matches = [
+                folder
+                for folder in recording_root.rglob(
+                    session_id
+                )
+                if folder.is_dir()
+                and folder.name == session_id
+            ]
+
+            if not matches:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Match not found.",
+                    },
+                    status=404,
+                )
+                return
+
+            deleted = False
+
+            for folder in matches:
+                full_match = (
+                    folder
+                    / "full"
+                    / "full-match.mp4"
+                )
+
+                if full_match.exists():
+                    try:
+                        full_match.unlink()
+                        deleted = True
+                    except OSError as exc:
+                        self.send_json(
+                            {
+                                "ok": False,
+                                "error": str(exc),
+                            },
+                            status=500,
+                        )
+                        return
+
+            if not deleted:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Full match recording "
+                            "not found."
+                        ),
+                    },
+                    status=404,
+                )
+                return
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "message": (
+                        "Full match recording deleted. "
+                        "Highlights kept."
+                    ),
+                    "session_id": session_id,
+                }
+            )
+            return
+
         if path == "/api/match/delete":
             session_id = str(
                 request.get("session_id", "")

@@ -364,6 +364,21 @@ main {
     margin-bottom: 18px;
 }
 
+.delete-full-button {
+    border: 1px solid #f87171;
+    background: transparent;
+    color: #f87171;
+    padding: 10px 14px;
+    border-radius: 9px;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.delete-full-button:hover {
+    background: rgba(248, 113, 113, 0.1);
+}
+
 .match-quick-actions a {
     text-decoration: none;
     padding: 10px 14px;
@@ -1045,6 +1060,14 @@ function render() {
                             >
                                 ⬇ Download Full Match
                             </a>
+
+                            <button
+                                class="delete-full-button"
+                                type="button"
+                                onclick="deleteFullMatch('${match.session_id}')"
+                            >
+                                🗑 Delete Full Match
+                            </button>
                         `
                         : ""
                     }
@@ -1364,6 +1387,67 @@ async function toggleMatchRecording() {
 
     } finally {
         button.disabled = false;
+    }
+}
+
+
+async function deleteFullMatch(sessionId) {
+    const match = matches.find(
+        item => item.session_id === sessionId
+    );
+
+    if (!match) {
+        alert("Match not found.");
+        return;
+    }
+
+    const name =
+        match.match_name
+        || sessionId;
+
+    const confirmed = confirm(
+        "Delete the full match recording?\n\n"
+        + name
+        + "\n\n"
+        + "All highlights will be kept."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            "/api/match/delete-full",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify(
+                    {
+                        session_id: sessionId,
+                    }
+                ),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                data.error || "Delete failed"
+            );
+        }
+
+        await loadHighlights();
+
+    } catch (error) {
+        alert(
+            "Unable to delete full match: "
+            + error.message
+        );
     }
 }
 
