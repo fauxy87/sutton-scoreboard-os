@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -71,6 +72,169 @@ def active_session_id():
     ).strip()
 
     return session_id or None
+
+
+def auto_start_match(previous, current):
+    if MATCH_FILE.exists():
+        return active_session_id()
+
+    if not previous:
+        return None
+
+    previous_over = str(
+        previous.get("CurrentOver", "-") or "-"
+    ).strip()
+
+    current_over = str(
+        current.get("CurrentOver", "-") or "-"
+    ).strip()
+
+    previous_overs = str(
+        previous.get("overs", "-") or "-"
+    ).strip()
+
+    current_overs = str(
+        current.get("overs", "-") or "-"
+    ).strip()
+
+    delivery_changed = (
+        current_over != previous_over
+        or current_overs != previous_overs
+    )
+
+    if not delivery_changed:
+        return None
+
+    batting_team = str(
+        current.get("BatTeamName", "")
+    ).strip()
+
+    fielding_team = str(
+        current.get("FieldTeamName", "")
+    ).strip()
+
+    if (
+        not batting_team
+        or batting_team == "-"
+        or not fielding_team
+        or fielding_team == "-"
+    ):
+        print(
+            "SCOREOS AUTO MATCH: "
+            "waiting for team names",
+            flush=True,
+        )
+        return None
+
+    now = time.time()
+
+    session_id = time.strftime(
+        "match-%H-%M-%S"
+    )
+
+    session = {
+        "session_id": session_id,
+        "started": now,
+        "started_iso": time.strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        ),
+        "home_team": batting_team,
+        "away_team": fielding_team,
+        "batting_team": batting_team,
+        "fielding_team": fielding_team,
+        "match_name": (
+            batting_team
+            + " v "
+            + fielding_team
+        ),
+        "auto_started": True,
+    }
+
+    MATCH_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    MATCH_FILE.write_text(
+        json.dumps(
+            session,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    match_date = time.strftime(
+        "%Y-%m-%d"
+    )
+
+    session_folder = (
+        Path("/var/lib/scoreos/recordings")
+        / match_date
+        / session_id
+    )
+
+    session_folder.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    try:
+        os.chown(
+            session_folder.parent,
+            1000,
+            1000,
+        )
+        os.chown(
+            session_folder,
+            1000,
+            1000,
+        )
+    except OSError:
+        pass
+
+    (
+        session_folder / "match.json"
+    ).write_text(
+        json.dumps(
+            session,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "/usr/bin/systemctl",
+            "start",
+            "scoreos-camera-recorder.service",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        MATCH_FILE.unlink(
+            missing_ok=True
+        )
+
+        print(
+            "SCOREOS AUTO MATCH: "
+            "camera recorder failed to start:",
+            result.stderr.strip(),
+            flush=True,
+        )
+
+        return None
+
+    print(
+        "SCOREOS AUTO MATCH STARTED:",
+        session["match_name"],
+        session_id,
+        flush=True,
+    )
+
+    return session_id
 
 
 def detect_events(previous, current):

@@ -201,10 +201,75 @@ def run_recorder():
         "(4K highlights + H.264 full match)"
     )
 
-    return subprocess.run(
+    process = subprocess.Popen(
         command,
-        check=False,
-    ).returncode
+    )
+
+    main_folder = Path(main_pattern).parent
+    full_folder = Path(full_pattern).parent
+
+    startup_time = time.time()
+    last_activity = startup_time
+
+    def newest_segment_mtime(folder):
+        newest = 0
+
+        try:
+            for segment in folder.glob("*.ts"):
+                try:
+                    newest = max(
+                        newest,
+                        segment.stat().st_mtime,
+                    )
+                except OSError:
+                    continue
+        except OSError:
+            pass
+
+        return newest
+
+    while True:
+        return_code = process.poll()
+
+        if return_code is not None:
+            return return_code
+
+        newest = max(
+            newest_segment_mtime(main_folder),
+            newest_segment_mtime(full_folder),
+        )
+
+        if newest > last_activity:
+            last_activity = newest
+
+        now = time.time()
+
+        # Allow plenty of time for the initial RTSP
+        # connection and first keyframe.
+        grace_period = (
+            60
+            if now - startup_time < 60
+            else 40
+        )
+
+        if now - last_activity > grace_period:
+            log(
+                "Recording stream stalled for "
+                f"{int(now - last_activity)} seconds; "
+                "restarting FFmpeg"
+            )
+
+            process.terminate()
+
+            try:
+                process.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+
+            return 99
+
+        time.sleep(5)
 
 
 def main():
