@@ -782,11 +782,68 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 result.stdout.strip() == "active"
             )
 
+            processing_file = Path(
+                "/var/lib/scoreos/match-processing.json"
+            )
+
+            complete_file = Path(
+                "/var/lib/scoreos/last-match-complete.json"
+            )
+
+            processing = None
+            complete = None
+
+            if processing_file.exists():
+                try:
+                    processing = json.loads(
+                        processing_file.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                ):
+                    processing = None
+
+            if complete_file.exists():
+                try:
+                    complete = json.loads(
+                        complete_file.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+
+                    completed_at = float(
+                        complete.get(
+                            "completed_at",
+                            0,
+                        )
+                    )
+
+                    # Keep MATCH COMPLETE visible
+                    # for five minutes.
+                    if (
+                        not completed_at
+                        or time.time() - completed_at > 300
+                    ):
+                        complete = None
+
+                except (
+                    OSError,
+                    ValueError,
+                    TypeError,
+                    json.JSONDecodeError,
+                ):
+                    complete = None
+
             self.send_json(
                 {
                     "ok": True,
                     "recording": recording,
                     "session": session,
+                    "processing": processing,
+                    "complete": complete,
                 }
             )
             return
@@ -1969,6 +2026,40 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
                 return
 
+            complete_status = {
+                "completed_at": time.time(),
+                "session_id": (
+                    session.get("session_id")
+                    if session
+                    else None
+                ),
+                "match_name": (
+                    session.get("match_name")
+                    if session
+                    else None
+                ),
+                "full_match_ready": bool(
+                    full_match
+                ),
+                "match_highlights_ready": bool(
+                    match_highlights
+                ),
+                "build_error": build_error,
+                "highlights_error": highlights_error,
+            }
+
+            complete_file.write_text(
+                json.dumps(
+                    complete_status,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+
+            processing_file.unlink(
+                missing_ok=True
+            )
+
             self.send_json(
                 {
                     "ok": True,
@@ -2346,6 +2437,41 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     json.JSONDecodeError,
                 ):
                     session = None
+
+            processing_file = Path(
+                "/var/lib/scoreos/match-processing.json"
+            )
+
+            complete_file = Path(
+                "/var/lib/scoreos/last-match-complete.json"
+            )
+
+            complete_file.unlink(
+                missing_ok=True
+            )
+
+            processing_status = {
+                "started_at": time.time(),
+                "stage": "building",
+                "session_id": (
+                    session.get("session_id")
+                    if session
+                    else None
+                ),
+                "match_name": (
+                    session.get("match_name")
+                    if session
+                    else None
+                ),
+            }
+
+            processing_file.write_text(
+                json.dumps(
+                    processing_status,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
 
             result = subprocess.run(
                 [

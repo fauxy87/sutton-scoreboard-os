@@ -1752,6 +1752,12 @@
             const session =
                 matchData?.session || null;
 
+            const processing =
+                matchData?.processing || null;
+
+            const complete =
+                matchData?.complete || null;
+
             const inningsBreak = Boolean(
                 session?.innings_break
             );
@@ -1769,6 +1775,62 @@
              * Match lifecycle takes priority over the
              * normal pre-match readiness percentage.
              */
+            if (processing) {
+                banner.classList.add("warning");
+
+                icon.textContent = "🎬";
+                title.textContent =
+                    "PROCESSING MATCH";
+
+                detail.textContent =
+                    processing?.match_name
+                    ? processing.match_name
+                        + " · Building full match and highlights"
+                    : "Building full match and highlights";
+
+                score.textContent =
+                    "BUILDING";
+
+                return;
+            }
+
+            if (complete) {
+                icon.textContent = "✅";
+                title.textContent =
+                    "MATCH COMPLETE";
+
+                const readyParts = [];
+
+                if (complete.full_match_ready) {
+                    readyParts.push(
+                        "Full Match Ready"
+                    );
+                }
+
+                if (complete.match_highlights_ready) {
+                    readyParts.push(
+                        "Highlights Ready"
+                    );
+                }
+
+                detail.textContent =
+                    (
+                        complete.match_name
+                        || "Match"
+                    )
+                    + (
+                        readyParts.length
+                        ? " · "
+                            + readyParts.join(" · ")
+                        : " · Processing complete"
+                    );
+
+                score.textContent =
+                    "DONE";
+
+                return;
+            }
+
             if (matchFinished) {
                 banner.classList.add("warning");
 
@@ -2346,6 +2408,12 @@
             const session =
                 matchData?.session || null;
 
+            const processing =
+                matchData?.processing || null;
+
+            const complete =
+                matchData?.complete || null;
+
             const inningsBreak = Boolean(
                 session?.innings_break
             );
@@ -2353,6 +2421,71 @@
             const matchFinished = Boolean(
                 session?.match_finished
             );
+
+            if (processing) {
+                heading.textContent =
+                    "PROCESSING MATCH";
+
+                summary.textContent =
+                    processing?.match_name
+                    ? "🎬 Building videos — "
+                        + processing.match_name
+                    : "🎬 Building match videos";
+
+                summary.className =
+                    "match-day-summary warning";
+
+                setMatchDayItem(
+                    "md-recording",
+                    "warning",
+                    "Processing"
+                );
+
+                return;
+            }
+
+            if (complete) {
+                heading.textContent =
+                    "MATCH COMPLETE";
+
+                let readyParts = [];
+
+                if (complete.full_match_ready) {
+                    readyParts.push(
+                        "Full Match Ready"
+                    );
+                }
+
+                if (complete.match_highlights_ready) {
+                    readyParts.push(
+                        "Highlights Ready"
+                    );
+                }
+
+                summary.textContent =
+                    "✅ "
+                    + (
+                        complete.match_name
+                        || "Match"
+                    )
+                    + (
+                        readyParts.length
+                        ? " — "
+                            + readyParts.join(" • ")
+                        : " — Processing finished"
+                    );
+
+                summary.className =
+                    "match-day-summary ready";
+
+                setMatchDayItem(
+                    "md-recording",
+                    "neutral",
+                    "Complete"
+                );
+
+                return;
+            }
 
             if (matchFinished) {
                 heading.textContent =
