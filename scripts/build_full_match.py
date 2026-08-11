@@ -148,10 +148,68 @@ def main():
 
         return 2
 
+    if (
+
+        not destination.exists()
+
+        or destination.stat().st_size <= 0
+
+    ):
+
+        log(
+
+            "Full match output validation failed"
+
+        )
+
+        return 3
+
+
+    deleted = 0
+
+    deleted_bytes = 0
+
+
+    for segment in segments:
+
+        try:
+
+            size = segment.stat().st_size
+
+            segment.unlink()
+
+            deleted += 1
+
+            deleted_bytes += size
+
+        except OSError as exc:
+
+            log(
+
+                f"Unable to remove raw segment "
+
+                f"{segment}: {exc}"
+
+            )
+
+
     log(
+
         f"Full match ready: "
+
         f"{destination}"
+
     )
+
+
+    log(
+
+        f"Cleaned {deleted} raw segments "
+
+        f"({deleted_bytes / 1024 / 1024:.1f} MB)"
+
+    )
+
 
     return 0
 
