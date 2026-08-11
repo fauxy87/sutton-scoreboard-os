@@ -150,6 +150,245 @@ def preserve_preroll(full_folder):
     return copied
 
 
+def save_active_session(session):
+    MATCH_FILE.write_text(
+        json.dumps(
+            session,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    session_id = str(
+        session.get("session_id", "")
+    ).strip()
+
+    started_iso = str(
+        session.get("started_iso", "")
+    )
+
+    match_date = (
+        started_iso[:10]
+        if len(started_iso) >= 10
+        else time.strftime("%Y-%m-%d")
+    )
+
+    if session_id:
+        metadata_path = (
+            Path("/var/lib/scoreos/recordings")
+            / match_date
+            / session_id
+            / "match.json"
+        )
+
+        try:
+            metadata_path.write_text(
+                json.dumps(
+                    session,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
+
+def load_active_session():
+    if not MATCH_FILE.exists():
+        return None
+
+    try:
+        return json.loads(
+            MATCH_FILE.read_text(
+                encoding="utf-8"
+            )
+        )
+    except (
+        OSError,
+        json.JSONDecodeError,
+    ):
+        return None
+
+
+def teams_swapped(previous, current):
+    if not previous:
+        return False
+
+    previous_batting = str(
+        previous.get("BatTeamName", "")
+    ).strip()
+
+    previous_fielding = str(
+        previous.get("FieldTeamName", "")
+    ).strip()
+
+    current_batting = str(
+        current.get("BatTeamName", "")
+    ).strip()
+
+    current_fielding = str(
+        current.get("FieldTeamName", "")
+    ).strip()
+
+    invalid = ("", "-")
+
+    if (
+        previous_batting in invalid
+        or previous_fielding in invalid
+        or current_batting in invalid
+        or current_fielding in invalid
+    ):
+        return False
+
+    return (
+        previous_batting != current_batting
+        and previous_batting == current_fielding
+        and previous_fielding == current_batting
+    )
+
+
+def delivery_changed(previous, current):
+    if not previous:
+        return False
+
+    previous_over = str(
+        previous.get("CurrentOver", "-") or "-"
+    ).strip()
+
+    current_over = str(
+        current.get("CurrentOver", "-") or "-"
+    ).strip()
+
+    previous_overs = str(
+        previous.get("overs", "-") or "-"
+    ).strip()
+
+    current_overs = str(
+        current.get("overs", "-") or "-"
+    ).strip()
+
+    return (
+        current_over != previous_over
+        or current_overs != previous_overs
+    )
+
+
+def handle_innings_break(previous, current):
+    session = load_active_session()
+
+    if not session:
+        return False
+
+    if teams_swapped(previous, current):
+        innings = int(
+            session.get("innings", 1)
+        ) + 1
+
+        subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "stop",
+                "scoreos-camera-recorder.service",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "start",
+                "scoreos-camera-buffer.service",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        session["innings"] = innings
+        session["innings_break"] = True
+        session["batting_team"] = str(
+            current.get("BatTeamName", "")
+        ).strip()
+        session["fielding_team"] = str(
+            current.get("FieldTeamName", "")
+        ).strip()
+        session["innings_break_started"] = time.time()
+
+        save_active_session(session)
+
+        print(
+            "SCOREOS INNINGS BREAK:",
+            f"innings {innings} waiting to start",
+            flush=True,
+        )
+
+        return True
+
+    if (
+        session.get("innings_break")
+        and delivery_changed(previous, current)
+    ):
+        session_id = str(
+            session.get("session_id", "")
+        ).strip()
+
+        started_iso = str(
+            session.get("started_iso", "")
+        )
+
+        match_date = (
+            started_iso[:10]
+            if len(started_iso) >= 10
+            else time.strftime("%Y-%m-%d")
+        )
+
+        full_folder = (
+            Path("/var/lib/scoreos/recordings")
+            / match_date
+            / session_id
+            / "full"
+        )
+
+        preserve_preroll(full_folder)
+
+        result = subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "start",
+                "scoreos-camera-recorder.service",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode == 0:
+            session["innings_break"] = False
+            session["innings_resumed"] = time.time()
+
+            save_active_session(session)
+
+            print(
+                "SCOREOS INNINGS RESUMED:",
+                f"innings {session.get('innings', 2)}",
+                session_id,
+                flush=True,
+            )
+
+        else:
+            print(
+                "SCOREOS INNINGS RESUME FAILED:",
+                result.stderr.strip(),
+                flush=True,
+            )
+
+        return True
+
+    return False
+
+
 def auto_start_match(previous, current):
     if MATCH_FILE.exists():
         return active_session_id()
@@ -224,6 +463,8 @@ def auto_start_match(previous, current):
             + fielding_team
         ),
         "auto_started": True,
+        "innings": 1,
+        "innings_break": False,
     }
 
     MATCH_FILE.parent.mkdir(

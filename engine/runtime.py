@@ -189,6 +189,11 @@ class ScoreboardEngine:
         current_snapshot = self.state.snapshot()
 
         if self.mode == "playcricket":
+            event_engine.handle_innings_break(
+                self.last_published_state,
+                current_snapshot,
+            )
+
             event_engine.auto_start_match(
                 self.last_published_state,
                 current_snapshot,
