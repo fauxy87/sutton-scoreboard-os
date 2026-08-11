@@ -948,9 +948,9 @@
                 <div class="card-header">
                     <h2>Live Scoreboard</h2>
 
-                    <div class="live-badge">
+                    <div id="live-badge" class="live-badge">
                         <span class="live-dot"></span>
-                        Live
+                        <span id="live-badge-text">Checking</span>
                     </div>
                 </div>
 
@@ -1693,7 +1693,11 @@
         }
 
 
-        function updateReadiness(payload) {
+        function updateReadiness(
+            payload,
+            cameraData = null,
+            matchData = null
+        ) {
             const banner = $("readiness-banner");
             const icon = $("readiness-icon");
             const title = $("readiness-title");
@@ -1705,65 +1709,215 @@
             const arduino = payload.arduino || {};
             const match = payload.match || {};
 
-            const engineReady = services.scoreboard === "active";
-            const webReady = services.web === "active";
-            const advertisingReady =
-                services.advertisement === "active" &&
-                bluetooth.powered === true &&
-                bluetooth.advertising === true;
+            const engineReady =
+                services.scoreboard === "active";
 
-            const bluetoothConnected = bluetooth.connected === true;
-            const arduinoConnected = arduino.connected === true;
-            const waitingForFirstPacket =
-            bluetooth.waiting_for_first_packet === true;
- 
-           const playCricketConnected =
-            String(match.mode || "").toLowerCase() === "playcricket" &&
-            bluetoothConnected &&
-            !waitingForFirstPacket;
+            const webReady =
+                services.web === "active";
+
+            const advertisingReady =
+                services.advertisement === "active"
+                && bluetooth.powered === true
+                && bluetooth.advertising === true;
+
+            const bluetoothConnected =
+                bluetooth.connected === true;
+
+            const arduinoConnected =
+                arduino.connected === true;
+
+            const mode = String(
+                match.mode || ""
+            ).toLowerCase();
+
+            const lastUpdateAge =
+                payload.last_update_age !== null
+                && payload.last_update_age !== undefined
+                    ? Number(payload.last_update_age)
+                    : null;
+
+            const scoreFeedLive = Boolean(
+                mode === "playcricket"
+                && bluetoothConnected
+                && lastUpdateAge !== null
+                && lastUpdateAge < 15
+            );
+
+            const cameraConnected =
+                cameraData?.connected === true;
+
+            const recording =
+                cameraData?.recording === true;
+
+            banner.classList.remove(
+                "warning",
+                "error"
+            );
+
+            /*
+             * A live match takes priority over the
+             * normal pre-match readiness percentage.
+             */
+            if (recording) {
+                score.textContent = "LIVE";
+
+                if (!cameraConnected) {
+                    banner.classList.add("error");
+                    icon.textContent = "📷";
+                    title.textContent =
+                        "CAMERA OFFLINE";
+
+                    detail.textContent =
+                        "Match recording is active but "
+                        + "the camera connection has been lost";
+
+                    return;
+                }
+
+                if (
+                    mode === "playcricket"
+                    && !scoreFeedLive
+                ) {
+                    banner.classList.add("warning");
+                    icon.textContent = "⚠️";
+                    title.textContent =
+                        "SCORE FEED LOST";
+
+                    detail.textContent =
+                        lastUpdateAge !== null
+                        ? "Play-Cricket has not updated for "
+                            + formatElapsed(lastUpdateAge)
+                        : "Waiting for Play-Cricket score data";
+
+                    return;
+                }
+
+                icon.textContent = "🔴";
+                title.textContent =
+                    "MATCH LIVE";
+
+                detail.textContent =
+                    matchData?.session?.match_name
+                    ? matchData.session.match_name
+                        + " · Recording and highlights active"
+                    : "Recording and highlights active";
+
+                return;
+            }
+
+            /*
+             * Normal pre-match readiness.
+             */
+            const playCricketReady = (
+                mode === "manual"
+                || scoreFeedLive
+            );
 
             const checks = [
                 ["Scoreboard service", engineReady],
                 ["Web service", webReady],
                 ["Bluetooth advertising", advertisingReady],
                 ["Arduino", arduinoConnected],
-                ["Play-Cricket", playCricketConnected]
+                ["Score feed", playCricketReady]
             ];
 
-            const passed = checks.filter(([, ready]) => ready).length;
-            const percentage = Math.round((passed / checks.length) * 100);
+            const passed =
+                checks.filter(
+                    ([, ready]) => ready
+                ).length;
+
+            const percentage = Math.round(
+                (passed / checks.length) * 100
+            );
+
             const missing = checks
                 .filter(([, ready]) => !ready)
                 .map(([name]) => name);
 
-            banner.classList.remove("warning", "error");
-            score.textContent = `${percentage}%`;
+            score.textContent =
+                `${percentage}%`;
 
             if (passed === checks.length) {
                 icon.textContent = "✅";
-                title.textContent = "MATCH READY";
+                title.textContent =
+                    "MATCH READY";
+
                 detail.textContent =
-                    "Everything is connected and ready for scoring";
+                    mode === "manual"
+                    ? "Manual scoring ready · camera systems checked below"
+                    : "Everything is connected and ready for scoring";
+
                 return;
             }
 
-            if (!engineReady || !webReady || !advertisingReady) {
+            if (
+                !engineReady
+                || !webReady
+                || !advertisingReady
+            ) {
                 banner.classList.add("error");
                 icon.textContent = "🔴";
-                title.textContent = "NOT READY";
-                detail.textContent = missing.join(" · ");
+                title.textContent =
+                    "NOT READY";
+
+                detail.textContent =
+                    missing.join(" · ");
+
                 return;
             }
 
             banner.classList.add("warning");
             icon.textContent = "⚠️";
-            title.textContent = "ATTENTION";
-            detail.textContent = missing.join(" · ");
+            title.textContent =
+                "ATTENTION";
+
+            detail.textContent =
+                missing.join(" · ");
         }
+
+        function updateLiveBadge(
+            playCricketMode,
+            bluetoothConnected,
+            lastUpdateAge
+        ) {
+            const badge = $("live-badge");
+            const text = $("live-badge-text");
+
+            if (!badge || !text) {
+                return;
+            }
+
+            badge.style.color = "";
+
+            if (!playCricketMode) {
+                text.textContent = "MANUAL";
+                badge.style.color = "var(--muted)";
+                return;
+            }
+
+            if (
+                bluetoothConnected
+                && lastUpdateAge !== null
+                && lastUpdateAge < 15
+            ) {
+                text.textContent = "LIVE";
+                badge.style.color = "var(--success)";
+                return;
+            }
+
+            if (bluetoothConnected) {
+                text.textContent = "STALE";
+                badge.style.color = "var(--warning)";
+                return;
+            }
+
+            text.textContent = "DISCONNECTED";
+            badge.style.color = "var(--danger)";
+        }
+
 
         function updateSystem(payload) {
             recordSystemEvents(payload);
-            updateReadiness(payload);
             const arduinoConnected =
                 payload.arduino &&
                 payload.arduino.connected === true;
@@ -1791,44 +1945,70 @@
                 payload.bluetooth &&
                 payload.bluetooth.connected === true;
 
+            const scoreFeedLive = Boolean(
+                bluetoothConnected
+                && lastUpdateAge !== null
+                && lastUpdateAge < 15
+            );
+
             setStatus(
                 "bluetooth",
-                bluetoothConnected,
+                scoreFeedLive,
                 "Connected",
-                bluetoothReady ? "Waiting for device" : "Not ready"
+                bluetoothConnected
+                    ? "Connected — No Data"
+                    : bluetoothReady
+                    ? "Waiting for device"
+                    : "Not ready"
             );
 
             updateBluetoothDetails(payload.bluetooth);
 
-            const playCricketConnected =
+            const playCricketMode =
                 payload.match &&
-                String(payload.match.mode || "").toLowerCase() === "playcricket" &&
-                bluetoothConnected;
+                String(
+                    payload.match.mode || ""
+                ).toLowerCase() === "playcricket";
+
+            updateLiveBadge(
+                playCricketMode,
+                bluetoothConnected,
+                lastUpdateAge
+            );
 
             let playCricketText = "Disconnected";
 
-             const waitingForFirstPacket =
-             payload.bluetooth &&
-             payload.bluetooth.waiting_for_first_packet === true;
+            const waitingForFirstPacket =
+                payload.bluetooth &&
+                payload.bluetooth.waiting_for_first_packet === true;
 
-             if (waitingForFirstPacket) {
-                  playCricketText = "Reconnect Play-Cricket Scorer";
-            } else if (playCricketConnected) {
-              if (lastUpdateAge !== null && lastUpdateAge < 5) {
-              playCricketText = "Live";
-            } else if (lastUpdateAge !== null) {
-              playCricketText =
-                  `Connected · last update ${formatElapsed(lastUpdateAge)}`;
-              } else {
-               playCricketText = "Connected · waiting for next score";
+            if (waitingForFirstPacket) {
+                playCricketText =
+                    "Reconnect Play-Cricket Scorer";
+
+            } else if (
+                playCricketMode
+                && scoreFeedLive
+            ) {
+                playCricketText = "Live";
+
+            } else if (
+                playCricketMode
+                && bluetoothConnected
+            ) {
+                playCricketText =
+                    "No Live Data";
+
+            } else if (playCricketMode) {
+                playCricketText =
+                    "Disconnected";
             }
-          }
 
             setStatus(
                 "playcricket",
-                playCricketConnected,
+                playCricketMode && scoreFeedLive,
                 playCricketText,
-                "Disconnected"
+                playCricketText
             );
 
             $("cpu-temp").textContent = formatTemperature(
@@ -2004,6 +2184,15 @@
                 systemData?.bluetooth?.connected
             );
 
+            const lastPacketAge = Number(
+                systemData?.last_update_age ?? 999999
+            );
+
+            const scoreFeedLive = Boolean(
+                bluetoothConnected
+                && lastPacketAge < 15
+            );
+
             const freeGb = Number(
                 systemData?.disk?.free_gb || 0
             );
@@ -2048,11 +2237,15 @@
 
             setMatchDayItem(
                 "md-bluetooth",
-                bluetoothConnected
+                scoreFeedLive
                     ? "ready"
+                    : bluetoothConnected
+                    ? "warning"
                     : "warning",
-                bluetoothConnected
+                scoreFeedLive
                     ? "Connected"
+                    : bluetoothConnected
+                    ? "Connected — No Data"
                     : "Waiting"
             );
 
@@ -2060,15 +2253,17 @@
                 "md-score",
                 mode === "playcricket"
                     ? (
-                        bluetoothConnected
+                        scoreFeedLive
                         ? "ready"
                         : "warning"
                     )
                     : "neutral",
                 mode === "playcricket"
                     ? (
-                        bluetoothConnected
+                        scoreFeedLive
                         ? "Play-Cricket Live"
+                        : bluetoothConnected
+                        ? "No Score Feed"
                         : "Play-Cricket Waiting"
                     )
                     : "Manual"
@@ -2125,7 +2320,7 @@
                 mode === "manual"
                 || (
                     mode === "playcricket"
-                    && bluetoothConnected
+                    && scoreFeedLive
                 )
             );
 
@@ -2137,14 +2332,42 @@
                 && scoreReady
                 && storageReady
             ) {
+                if (
+                    mode === "playcricket"
+                    && scoreFeedLive
+                ) {
+                    heading.textContent =
+                        "PLAY-CRICKET CONNECTED";
+
+                    summary.textContent =
+                        "🔵 PLAY-CRICKET CONNECTED — READY TO SCORE";
+
+                    summary.className =
+                        "match-day-summary ready";
+                } else {
+                    heading.textContent =
+                        "READY";
+
+                    summary.textContent =
+                        "🟢 MATCH DAY READY";
+
+                    summary.className =
+                        "match-day-summary ready";
+                }
+            } else if (
+                cameraReady
+                && storageReady
+                && mode === "playcricket"
+                && !bluetoothConnected
+            ) {
                 heading.textContent =
-                    "READY";
+                    "WAITING FOR PLAY-CRICKET";
 
                 summary.textContent =
-                    "🟢 MATCH DAY READY";
+                    "🟠 CONNECT PLAY-CRICKET SCORER";
 
                 summary.className =
-                    "match-day-summary ready";
+                    "match-day-summary warning";
             } else {
                 heading.textContent =
                     "CHECK REQUIRED";
@@ -2184,6 +2407,12 @@
                 && results[3].status === "fulfilled"
             ) {
                 updateMatchDayStatus(
+                    results[1].value,
+                    results[2].value,
+                    results[3].value
+                );
+
+                updateReadiness(
                     results[1].value,
                     results[2].value,
                     results[3].value
