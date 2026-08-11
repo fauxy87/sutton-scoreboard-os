@@ -161,6 +161,130 @@
             padding: 22px 0 40px;
         }
 
+        .match-day-card {
+            margin-bottom: 18px;
+        }
+
+        .match-day-heading {
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--muted);
+        }
+
+        .match-day-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            padding: 18px 20px;
+        }
+
+        .match-day-item {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            grid-template-areas:
+                "icon label"
+                "icon status";
+            column-gap: 10px;
+            align-items: center;
+            min-height: 82px;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: #f7faf8;
+        }
+
+        .match-day-icon {
+            grid-area: icon;
+            font-size: 25px;
+        }
+
+        .match-day-label {
+            grid-area: label;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .match-day-item strong {
+            grid-area: status;
+            margin-top: 3px;
+            font-size: 15px;
+        }
+
+        .match-day-item.ready {
+            border-color: rgba(32, 150, 83, 0.45);
+            background: rgba(32, 150, 83, 0.08);
+        }
+
+        .match-day-item.ready strong {
+            color: var(--success);
+        }
+
+        .match-day-item.warning {
+            border-color: rgba(217, 139, 22, 0.5);
+            background: rgba(217, 139, 22, 0.08);
+        }
+
+        .match-day-item.warning strong {
+            color: var(--warning);
+        }
+
+        .match-day-item.danger {
+            border-color: rgba(196, 60, 60, 0.5);
+            background: rgba(196, 60, 60, 0.08);
+        }
+
+        .match-day-item.danger strong {
+            color: var(--danger);
+        }
+
+        .match-day-item.neutral strong,
+        .match-day-item.checking strong {
+            color: var(--muted);
+        }
+
+        .match-day-summary {
+            margin: 0 20px 20px;
+            padding: 13px 16px;
+            border-radius: 12px;
+            background: #f3f6f4;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 900;
+            text-align: center;
+        }
+
+        .match-day-summary.ready {
+            background: rgba(32, 150, 83, 0.10);
+            color: var(--success);
+        }
+
+        .match-day-summary.warning {
+            background: rgba(217, 139, 22, 0.10);
+            color: var(--warning);
+        }
+
+        .match-day-summary.danger {
+            background: rgba(196, 60, 60, 0.10);
+            color: var(--danger);
+        }
+
+        @media (max-width: 850px) {
+            .match-day-grid {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 520px) {
+            .match-day-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .grid {
             display: grid;
             grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
@@ -733,7 +857,7 @@
                 <a class="active" href="/dashboard">Dashboard</a>
                 <a href="/groundcontrol">Ground Control</a>
                 <a href="/control">Control</a>
-                <a href="/display-test">Display Test</a>
+                <a href="/tv-camera">TV Camera</a>
                 <a href="/highlights">Highlights</a>
                 <a href="/diagnostics">Diagnostics</a>
             </nav>
@@ -758,6 +882,65 @@
             </div>
 
             <div id="readiness-score" class="readiness-score">—</div>
+        </section>
+
+        <section class="card match-day-card">
+            <div class="card-header">
+                <h2>🏏 Match Day Status</h2>
+                <span id="match-day-heading" class="match-day-heading">
+                    Checking…
+                </span>
+            </div>
+
+            <div class="match-day-grid">
+
+                <div id="md-camera" class="match-day-item checking">
+                    <span class="match-day-icon">📷</span>
+                    <span class="match-day-label">Camera</span>
+                    <strong id="md-camera-status">Checking</strong>
+                </div>
+
+                <div id="md-buffer" class="match-day-item checking">
+                    <span class="match-day-icon">⏪</span>
+                    <span class="match-day-label">Pre-Roll</span>
+                    <strong id="md-buffer-status">Checking</strong>
+                </div>
+
+                <div id="md-worker" class="match-day-item checking">
+                    <span class="match-day-icon">🎬</span>
+                    <span class="match-day-label">Highlights</span>
+                    <strong id="md-worker-status">Checking</strong>
+                </div>
+
+                <div id="md-bluetooth" class="match-day-item checking">
+                    <span class="match-day-icon">📶</span>
+                    <span class="match-day-label">Bluetooth</span>
+                    <strong id="md-bluetooth-status">Checking</strong>
+                </div>
+
+                <div id="md-score" class="match-day-item checking">
+                    <span class="match-day-icon">🏏</span>
+                    <span class="match-day-label">Score Feed</span>
+                    <strong id="md-score-status">Checking</strong>
+                </div>
+
+                <div id="md-storage" class="match-day-item checking">
+                    <span class="match-day-icon">💾</span>
+                    <span class="match-day-label">Storage</span>
+                    <strong id="md-storage-status">Checking</strong>
+                </div>
+
+                <div id="md-recording" class="match-day-item checking">
+                    <span class="match-day-icon">⏺</span>
+                    <span class="match-day-label">Recording</span>
+                    <strong id="md-recording-status">Checking</strong>
+                </div>
+
+            </div>
+
+            <div id="match-day-summary" class="match-day-summary">
+                Checking match-day systems…
+            </div>
         </section>
 
         <section class="grid">
@@ -889,10 +1072,10 @@
                     <span class="action-subtitle">Update the score</span>
                 </a>
 
-                <a class="action" href="/display-test">
+                <a class="action" href="/tv-camera">
                     <span class="action-icon">📺</span>
-                    <span class="action-title">Display Test</span>
-                    <span class="action-subtitle">Test every panel</span>
+                    <span class="action-title">TV Camera</span>
+                    <span class="action-subtitle">Live camera & scoreboard</span>
                 </a>
 
                 <a class="action" href="/diagnostics">
@@ -1784,10 +1967,203 @@
         );
 
 
+        function setMatchDayItem(
+            id,
+            state,
+            text
+        ) {
+            const item = $(id);
+            const status = $(id + "-status");
+
+            if (!item || !status) {
+                return;
+            }
+
+            item.classList.remove(
+                "ready",
+                "warning",
+                "danger",
+                "neutral",
+                "checking"
+            );
+
+            item.classList.add(state);
+            status.textContent = text;
+        }
+
+        function updateMatchDayStatus(
+            systemData,
+            cameraData,
+            matchData
+        ) {
+            const mode = String(
+                systemData?.match?.mode || ""
+            ).toLowerCase();
+
+            const bluetoothConnected = Boolean(
+                systemData?.bluetooth?.connected
+            );
+
+            const freeGb = Number(
+                systemData?.disk?.free_gb || 0
+            );
+
+            const recording = Boolean(
+                cameraData?.recording
+            );
+
+            setMatchDayItem(
+                "md-camera",
+                cameraData?.connected
+                    ? "ready"
+                    : "danger",
+                cameraData?.connected
+                    ? "Connected"
+                    : "Offline"
+            );
+
+            setMatchDayItem(
+                "md-buffer",
+                recording
+                    ? "neutral"
+                    : cameraData?.buffering
+                    ? "ready"
+                    : "danger",
+                recording
+                    ? "Paused"
+                    : cameraData?.buffering
+                    ? "Ready"
+                    : "Not Ready"
+            );
+
+            setMatchDayItem(
+                "md-worker",
+                cameraData?.highlight_worker
+                    ? "ready"
+                    : "danger",
+                cameraData?.highlight_worker
+                    ? "Running"
+                    : "Stopped"
+            );
+
+            setMatchDayItem(
+                "md-bluetooth",
+                bluetoothConnected
+                    ? "ready"
+                    : "warning",
+                bluetoothConnected
+                    ? "Connected"
+                    : "Waiting"
+            );
+
+            setMatchDayItem(
+                "md-score",
+                mode === "playcricket"
+                    ? (
+                        bluetoothConnected
+                        ? "ready"
+                        : "warning"
+                    )
+                    : "neutral",
+                mode === "playcricket"
+                    ? (
+                        bluetoothConnected
+                        ? "Play-Cricket Live"
+                        : "Play-Cricket Waiting"
+                    )
+                    : "Manual"
+            );
+
+            setMatchDayItem(
+                "md-storage",
+                freeGb >= 5
+                    ? "ready"
+                    : freeGb >= 2
+                    ? "warning"
+                    : "danger",
+                freeGb
+                    ? freeGb.toFixed(1) + " GB Free"
+                    : "Unknown"
+            );
+
+            setMatchDayItem(
+                "md-recording",
+                recording
+                    ? "danger"
+                    : "neutral",
+                recording
+                    ? "RECORDING"
+                    : "Not Recording"
+            );
+
+            const summary = $("match-day-summary");
+            const heading = $("match-day-heading");
+
+            if (recording) {
+                heading.textContent =
+                    "MATCH RECORDING";
+
+                summary.textContent =
+                    matchData?.session?.match_name
+                    ? "🔴 Recording — "
+                        + matchData.session.match_name
+                    : "🔴 Match Recording";
+
+                summary.className =
+                    "match-day-summary danger";
+
+                return;
+            }
+
+            const cameraReady = Boolean(
+                cameraData?.connected
+                && cameraData?.buffering
+                && cameraData?.highlight_worker
+            );
+
+            const scoreReady = (
+                mode === "manual"
+                || (
+                    mode === "playcricket"
+                    && bluetoothConnected
+                )
+            );
+
+            const storageReady =
+                freeGb >= 2;
+
+            if (
+                cameraReady
+                && scoreReady
+                && storageReady
+            ) {
+                heading.textContent =
+                    "READY";
+
+                summary.textContent =
+                    "🟢 MATCH DAY READY";
+
+                summary.className =
+                    "match-day-summary ready";
+            } else {
+                heading.textContent =
+                    "CHECK REQUIRED";
+
+                summary.textContent =
+                    "⚠️ MATCH DAY NOT READY";
+
+                summary.className =
+                    "match-day-summary warning";
+            }
+        }
+
+
         async function refreshDashboard() {
             const results = await Promise.allSettled([
                 getJson("/api/state"),
-                getJson("/api/system")
+                getJson("/api/system"),
+                getJson("/api/camera/status"),
+                getJson("/api/match/status")
             ]);
 
             let successful = false;
@@ -1800,6 +2176,18 @@
             if (results[1].status === "fulfilled") {
                 updateSystem(results[1].value);
                 successful = true;
+            }
+
+            if (
+                results[1].status === "fulfilled"
+                && results[2].status === "fulfilled"
+                && results[3].status === "fulfilled"
+            ) {
+                updateMatchDayStatus(
+                    results[1].value,
+                    results[2].value,
+                    results[3].value
+                );
             }
 
             if (successful) {

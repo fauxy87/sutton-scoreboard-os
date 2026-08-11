@@ -66,10 +66,42 @@ def camera_url():
 def cleanup():
     cutoff = time.time() - KEEP_SECONDS
 
+    files = []
+
     for path in BUFFER_ROOT.glob("*.ts"):
         try:
-            if path.stat().st_mtime < cutoff:
-                path.unlink()
+            stat = path.stat()
+        except OSError:
+            continue
+
+        files.append(
+            (
+                stat.st_mtime,
+                path,
+            )
+        )
+
+    files.sort(
+        key=lambda item: item[0],
+        reverse=True,
+    )
+
+    # Never delete the newest few files.
+    # One of these may still be open by FFmpeg.
+    protected = {
+        path
+        for _, path in files[:3]
+    }
+
+    for modified, path in files:
+        if path in protected:
+            continue
+
+        if modified >= cutoff:
+            continue
+
+        try:
+            path.unlink()
         except OSError:
             continue
 
