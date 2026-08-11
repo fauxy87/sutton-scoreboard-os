@@ -737,6 +737,7 @@ let unassigned = [];
 let storage = null;
 let currentFilter = "ALL";
 let matchRecording = false;
+let matchDayReady = false;
 
 function prettyName(item) {
     const stem = item.filename
@@ -1338,8 +1339,15 @@ async function loadMatchRecordingStatus() {
                 matchName.textContent = "";
             }
 
-            button.textContent =
-                "🔴 START MATCH RECORDING";
+            if (matchDayReady) {
+                button.textContent =
+                    "🔴 START MATCH RECORDING";
+                button.disabled = false;
+            } else {
+                button.textContent =
+                    "🔒 MATCH DAY NOT READY";
+                button.disabled = true;
+            }
 
             button.classList.remove("stop");
             button.classList.add("start");
@@ -1716,6 +1724,14 @@ async function loadCameraStatus() {
 
         const data = await response.json();
 
+        matchDayReady = Boolean(
+            data.connected
+            && data.buffering
+            && data.highlight_worker
+            && !data.recording
+            && !data.recorder_service
+        );
+
         panel.classList.remove(
             "ready",
             "recording",
@@ -1723,57 +1739,99 @@ async function loadCameraStatus() {
             "reconnecting"
         );
 
-        if (data.state === "recording") {
-            panel.textContent =
-                "🔴 Camera: RECORDING";
+        const camera =
+            data.connected
+            ? "🟢 Camera Connected"
+            : "🔴 Camera Offline";
 
-            panel.classList.add(
-                "recording"
+        const buffer =
+            data.buffering
+            ? "🟢 Pre-Roll Buffer Ready"
+            : (
+                data.recording
+                ? "⚪ Pre-Roll Paused During Recording"
+                : data.buffer_service
+                ? "🔴 Pre-Roll Buffer Not Ready"
+                : "🔴 Pre-Roll Buffer Service Stopped"
             );
+
+        const worker =
+            data.highlight_worker
+            ? "🟢 Highlight Worker Running"
+            : "🔴 Highlight Worker Stopped";
+
+        const recorder =
+            data.recording
+            ? "🔴 Match Recording"
+            : (
+                data.recorder_service
+                ? "🟠 Recorder Reconnecting"
+                : "⚪ Not Recording"
+            );
+
+        let heading = "MATCH DAY STATUS";
+
+        if (data.state === "recording") {
+            heading = "🔴 MATCH RECORDING";
+            panel.classList.add("recording");
 
         } else if (data.state === "ready") {
-            panel.textContent =
-                "🟢 Camera: READY";
-
-            panel.classList.add(
-                "ready"
-            );
+            heading = "🟢 MATCH DAY READY";
+            panel.classList.add("ready");
 
         } else if (data.state === "reconnecting") {
-            panel.textContent =
-                "🟠 Camera: RECONNECTING";
-
-            panel.classList.add(
-                "reconnecting"
-            );
+            heading = "🟠 CAMERA RECONNECTING";
+            panel.classList.add("reconnecting");
 
         } else if (data.state === "offline") {
-            panel.textContent =
-                "🟡 Camera: OFFLINE";
+            heading = "🔴 CAMERA OFFLINE";
+            panel.classList.add("offline");
 
-            panel.classList.add(
-                "offline"
-            );
+        } else if (data.state === "not_configured") {
+            heading = "🔴 CAMERA NOT CONFIGURED";
+            panel.classList.add("offline");
 
         } else {
-            panel.textContent =
-                "Camera: " + (
-                    data.state || "unknown"
-                );
+            heading = "🟡 CAMERA ONLINE — BUFFER NOT READY";
+            panel.classList.add("offline");
         }
+
+        panel.innerHTML = `
+            <div style="
+                font-size: 18px;
+                margin-bottom: 8px;
+            ">
+                ${heading}
+            </div>
+
+            <div style="
+                color: var(--text);
+                font-size: 14px;
+                line-height: 1.8;
+            ">
+                ${camera}<br>
+                ${buffer}<br>
+                ${worker}<br>
+                ${recorder}
+            </div>
+        `;
+
+        await loadMatchRecordingStatus();
 
     } catch (error) {
         console.error(error);
 
-        panel.textContent =
-            "Camera status unavailable";
+        matchDayReady = false;
 
-        panel.classList.add(
-            "offline"
-        );
+        panel.innerHTML = `
+            <div style="font-size:18px;">
+                🔴 MATCH DAY STATUS UNAVAILABLE
+            </div>
+        `;
+
+        panel.classList.add("offline");
     }
 }
-
 
 async function loadHighlights() {
     try {

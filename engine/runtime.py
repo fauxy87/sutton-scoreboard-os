@@ -204,15 +204,17 @@ class ScoreboardEngine:
                 current_snapshot,
             )
 
-            events = event_engine.detect_events(
-                self.last_published_state,
-                current_snapshot,
-            )
-            event_engine.write_events(events)
+        # FOUR/SIX/WICKET/milestone events are useful
+        # in both Play-Cricket and Manual scoring modes.
+        events = event_engine.detect_events(
+            self.last_published_state,
+            current_snapshot,
+        )
+        event_engine.write_events(events)
 
-            self.last_published_state = copy.deepcopy(
-                current_snapshot
-            )
+        self.last_published_state = copy.deepcopy(
+            current_snapshot
+        )
 
         self.write_state_json()
 

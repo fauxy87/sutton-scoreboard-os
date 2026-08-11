@@ -105,9 +105,41 @@ def status():
         "scoreos-camera-recorder.service"
     )
 
-    buffering = service_active(
+    buffer_service = service_active(
         "scoreos-camera-buffer.service"
     )
+
+    highlight_worker = service_active(
+        "scoreos-highlight-worker.service"
+    )
+
+    buffering = False
+
+    if buffer_service:
+        buffer_root = Path(
+            "/var/lib/scoreos/camera-buffer"
+        )
+
+        newest_buffer = 0
+
+        if buffer_root.exists():
+            for segment in buffer_root.glob("*.ts"):
+                try:
+                    stat = segment.stat()
+
+                    if stat.st_size > 0:
+                        newest_buffer = max(
+                            newest_buffer,
+                            stat.st_mtime,
+                        )
+                except OSError:
+                    continue
+
+        if newest_buffer:
+            buffering = (
+                time.time() - newest_buffer
+                < 20
+            )
 
     recording = False
 
@@ -217,7 +249,9 @@ def status():
         "rtsp_path": camera.get("rtsp_path"),
         "recording": recording,
         "recorder_service": recorder_service,
+        "buffer_service": buffer_service,
         "buffering": buffering,
+        "highlight_worker": highlight_worker,
         "state": state,
         "error": error,
     }

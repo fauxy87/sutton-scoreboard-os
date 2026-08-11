@@ -2067,6 +2067,51 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/match/start":
+            camera_health = camera_manager.status()
+
+            if not camera_health.get("connected"):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Camera is offline. "
+                            "Connect the camera before "
+                            "starting the match."
+                        ),
+                    },
+                    status=503,
+                )
+                return
+
+            if not camera_health.get("buffering"):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Camera pre-roll is not ready. "
+                            "Wait for MATCH DAY READY "
+                            "before starting the match."
+                        ),
+                    },
+                    status=503,
+                )
+                return
+
+            if not camera_health.get(
+                "highlight_worker"
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Highlight worker is not running. "
+                            "Match recording has not started."
+                        ),
+                    },
+                    status=503,
+                )
+                return
+
             disk = shutil.disk_usage(
                 "/var/lib/scoreos"
             )
