@@ -193,7 +193,25 @@ def main():
     print("Using Bluetooth adapter:", adapter_path)
 
     if adapter_path is None:
-        raise RuntimeError("No BLE adapter found")
+        print(
+            "No BLE adapter found - "
+            "manual scoring remains available"
+        )
+
+        from web.startup import startup_manager
+
+        startup_manager.set_stage(
+            "bluetooth",
+            "Bluetooth adapter not connected",
+        )
+
+        startup_manager.add_log(
+            "Manual scoring available without Bluetooth"
+        )
+
+        while True:
+            GLib.usleep(1000000)
+
 
     adapter = bus.get_object(BLUEZ_SERVICE, adapter_path)
 
