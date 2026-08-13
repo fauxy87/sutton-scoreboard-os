@@ -1,0 +1,4 @@
+[Desktop Entry]
+Type=Application
+Name=SCOREOS
+Exec=sh -c "sleep 5; wlr-randr --output HDMI-A-1 --mode 1920x1080@60.000000 --scale 1 || true; sleep 5; exec chromium --ozone-platform=wayland --kiosk --incognito --noerrdialogs --disable-session-crashed-bubble --disable-infobars http://127.0.0.1:8080/startup-v2"
