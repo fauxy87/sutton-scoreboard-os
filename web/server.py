@@ -1766,6 +1766,18 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             return
 
         if path in (
+            "/control-classic",
+            "/control-classic/",
+        ):
+            classic_path = Path(__file__).with_name(
+                "control-classic.html"
+            )
+            self.send_html(
+                classic_path.read_text(encoding="utf-8")
+            )
+            return
+
+        if path in (
             "/admin",
             "/admin/",
             "/dashboard",
