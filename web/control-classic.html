@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+
+<title>Sutton CC Classic Control</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #eeeeee;
+    color: #202020;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ---------------------------------------------------------
+   TOP BAR
+--------------------------------------------------------- */
+
+.topbar {
+    min-height: 58px;
+    background: #222;
+    color: #bbb;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 28px;
+    box-shadow: 0 2px 5px rgba(0,0,0,.25);
+}
+
+.brand {
+    font-size: 21px;
+    white-space: nowrap;
+}
+
+.navlinks {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.navlinks a {
+    color: #bbb;
+    text-decoration: none;
+    font-size: 15px;
+}
+
+.navlinks a:hover {
+    color: white;
+}
+
+/* ---------------------------------------------------------
+   INPUT SOURCE
+--------------------------------------------------------- */
+
+.input-source {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.input-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    color: #aaa;
+    font-weight: bold;
+}
+
+.mode-button {
+    border: 1px solid #555;
+    background: #333;
+    color: #bbb;
+    padding: 7px 11px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.mode-button.active {
+    background: #1677c8;
+    border-color: #1677c8;
+    color: white;
+}
+
+.mode-button.manual.active {
+    background: #16864b;
+    border-color: #16864b;
+}
+
+.mode-button:disabled {
+    opacity: .6;
+    cursor: default;
+}
+
+/* ---------------------------------------------------------
+   STATUS STRIP
+--------------------------------------------------------- */
+
+.status-strip {
+    max-width: 1460px;
+    margin: 18px auto 0;
+    padding: 0 28px;
+}
+
+.status-box {
+    padding: 10px 16px;
+    border-radius: 6px;
+    background: #e3e3e3;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+.status-box.manual {
+    background: #e7f5ed;
+    border-color: #9dceb1;
+    color: #146b3c;
+}
+
+.status-box.playcricket {
+    background: #eaf2fa;
+    border-color: #9cbede;
+    color: #165d98;
+}
+
+/* ---------------------------------------------------------
+   MAIN GRID
+--------------------------------------------------------- */
+
+main {
+    max-width: 1460px;
+    margin: 0 auto;
+    padding: 24px 28px 50px;
+}
+
+.grid-three {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 36px;
+    margin-bottom: 46px;
+}
+
+.grid-four {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 36px;
+}
+
+.panel {
+    text-align: center;
+}
+
+.panel h2 {
+    min-height: 38px;
+    margin: 0 0 14px;
+    font-size: 28px;
+    font-weight: 400;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+
+.batter-number {
+    font-family: "Courier New", monospace;
+    font-weight: bold;
+}
+
+.display {
+    height: 146px;
+    border: 1px solid #c8c8c8;
+    border-radius: 30px;
+    background: #f5f5f5;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-family: "Courier New", monospace;
+    font-size: 84px;
+    line-height: 1;
+    letter-spacing: 4px;
+
+    margin-bottom: 12px;
+}
+
+.grid-four .display {
+    height: 142px;
+    font-size: 70px;
+}
+
+/* ---------------------------------------------------------
+   BUTTONS
+--------------------------------------------------------- */
+
+.button-row {
+    display: flex;
+    justify-content: center;
+}
+
+.score-button {
+    height: 50px;
+    min-width: 50px;
+    padding: 0 13px;
+
+    border: 1px solid #c4c4c4;
+    border-right: 0;
+    background: #f7f7f7;
+
+    color: #1268ad;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.score-button:first-child {
+    border-radius: 5px 0 0 5px;
+}
+
+.score-button:last-child {
+    border-right: 1px solid #c4c4c4;
+    border-radius: 0 5px 5px 0;
+}
+
+.score-button:hover:not(:disabled) {
+    background: #e5e5e5;
+}
+
+.score-button:disabled {
+    color: #aaa;
+    background: #e8e8e8;
+    cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   TARGET
+--------------------------------------------------------- */
+
+.target-form {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.target-form input {
+    height: 40px;
+    width: 235px;
+    padding: 8px 14px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    background: white;
+}
+
+.target-form button {
+    height: 40px;
+    padding: 0 15px;
+    border: 1px solid #bbb;
+    border-radius: 5px;
+    background: #fafafa;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+.target-form button:disabled,
+.target-form input:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   SMALL BATTER NUMBER CONTROLS
+--------------------------------------------------------- */
+
+.number-buttons {
+    display: inline-flex;
+}
+
+.number-buttons button {
+    height: 38px;
+    min-width: 46px;
+    border: 1px solid #ccc;
+    border-right: 0;
+    background: #f7f7f7;
+    color: #1268ad;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.number-buttons button:first-child {
+    border-radius: 5px 0 0 5px;
+}
+
+.number-buttons button:last-child {
+    border-right: 1px solid #ccc;
+    border-radius: 0 5px 5px 0;
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE
+--------------------------------------------------------- */
+
+@media (max-width: 1000px) {
+    .topbar {
+        flex-wrap: wrap;
+    }
+
+    .navlinks {
+        width: 100%;
+        margin-left: 0;
+        flex-wrap: wrap;
+    }
+
+    .grid-three,
+    .grid-four {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header class="topbar">
+
+    <div class="brand">
+        Sutton CC Scoreboard
+    </div>
+
+    <div class="input-source">
+        <span class="input-label">Input Source</span>
+
+        <button
+            id="modePlayCricket"
+            class="mode-button"
+            onclick="setInputMode('playcricket')">
+            Play-Cricket
+        </button>
+
+        <button
+            id="modeManual"
+            class="mode-button manual"
+            onclick="setInputMode('manual')">
+            Manual
+        </button>
+    </div>
+
+    <nav class="navlinks">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/groundcontrol">Ground Control</a>
+        <a href="/control">Modern Control</a>
+    </nav>
+
+</header>
+
+<div class="status-strip">
+    <div id="modeStatus" class="status-box">
+        Checking SCOREOS…
+    </div>
+</div>
+
+<main>
+
+    <!-- TOP ROW -->
+    <section class="grid-three">
+
+        <div class="panel">
+            <h2>
+                BATSMAN
+                <span id="batANumber" class="batter-number">01</span>
+
+                <span class="number-buttons">
+                    <button class="manual-control"
+                        onclick="changeBatNumber('a',1)">+1</button>
+                    <button class="manual-control"
+                        onclick="changeBatNumber('a',-1)">-1</button>
+                </span>
+            </h2>
+
+            <div id="batA" class="display">000</div>
+
+            <div class="button-row">
+                <button class="score-button manual-control"
+                    onclick="control('bat_a',1)">+1</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_a',4)">+4</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_a',6)">+6</button>
+                <button class="score-button manual-control"
+                    onclick="batterOut('a')">Zero</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_a',-1)">-1</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_a',-4)">-4</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_a',-6)">-6</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>TOTAL SCORE</h2>
+
+            <div id="total" class="display">000</div>
+
+            <div class="button-row">
+                <button class="score-button manual-control"
+                    onclick="control('score',1)">+1</button>
+                <button class="score-button manual-control"
+                    onclick="zeroField('total','score')">Zero</button>
+                <button class="score-button manual-control"
+                    onclick="control('score',-1)">-1</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>
+                BATSMAN
+                <span id="batBNumber" class="batter-number">02</span>
+
+                <span class="number-buttons">
+                    <button class="manual-control"
+                        onclick="changeBatNumber('b',1)">+1</button>
+                    <button class="manual-control"
+                        onclick="changeBatNumber('b',-1)">-1</button>
+                </span>
+            </h2>
+
+            <div id="batB" class="display">000</div>
+
+            <div class="button-row">
+                <button class="score-button manual-control"
+                    onclick="control('bat_b',1)">+1</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_b',4)">+4</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_b',6)">+6</button>
+                <button class="score-button manual-control"
+                    onclick="batterOut('b')">Zero</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_b',-1)">-1</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_b',-4)">-4</button>
+                <button class="score-button manual-control"
+                    onclick="control('bat_b',-6)">-6</button>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- SECOND ROW -->
+    <section class="grid-three">
+
+        <div class="panel">
+            <h2>OVERS</h2>
+            <div id="overs" class="display">00</div>
+
+            <div class="button-row">
+                <button class="score-button manual-control"
+                    onclick="control('overs',1)">+1</button>
+                <button class="score-button manual-control"
+                    onclick="zeroField('overs','overs')">Zero</button>
+                <button class="score-button manual-control"
+                    onclick="control('overs',-1)">-1</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>WICKETS</h2>
+            <div id="wickets" class="display">0</div>
+
+            <div class="button-row">
+                <button class="score-button manual-control"
+                    onclick="control('wickets',1)">+1</button>
+                <button class="score-button manual-control"
+                    onclick="zeroField('wickets','wickets')">Zero</button>
+                <button class="score-button manual-control"
+                    onclick="control('wickets',-1)">-1</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>TARGET</h2>
+            <div id="target" class="display">---</div>
+
+            <form class="target-form"
+                onsubmit="setTarget(event)">
+                <input
+                    id="targetInput"
+                    class="manual-control"
+                    type="number"
+                    min="0"
+                    max="999"
+                    placeholder="New Target">
+
+                <button
+                    class="manual-control"
+                    type="submit">
+                    Set Target
+                </button>
+            </form>
+        </div>
+
+    </section>
+
+    <!-- LOWER ROW -->
+    <section class="grid-four">
+
+        <div class="panel">
+            <h2>PARTNERSHIP</h2>
+            <div id="partnership" class="display">000</div>
+        </div>
+
+        <div class="panel">
+            <h2>Last Wkt</h2>
+            <div id="lastWicket" class="display">000</div>
+        </div>
+
+        <div class="panel">
+            <h2>Last Man</h2>
+            <div id="lastMan" class="display">000</div>
+        </div>
+
+        <div class="panel">
+            <h2>RUNS REQUIRED</h2>
+            <div id="required" class="display">---</div>
+        </div>
+
+    </section>
+
+</main>
+
+<script>
+const API_STATE = "/api/state";
+const API_CONTROL = "/api/control";
+
+let liveState = {};
+let commandQueue = Promise.resolve();
+let modeSwitchRunning = false;
+
+let batterNumbers = {
+    a: 1,
+    b: 2
+};
+
+function numberValue(value) {
+    const cleaned =
+        String(value ?? "")
+            .replace(/-/g, "")
+            .trim();
+
+    const parsed = Number(cleaned);
+
+    return Number.isFinite(parsed)
+        ? parsed
+        : 0;
+}
+
+function pad(value, length) {
+    return String(
+        Math.max(0, numberValue(value))
+    ).padStart(length, "0");
+}
+
+function displayValue(value, length = 3) {
+    const cleaned =
+        String(value ?? "")
+            .replace(/-/g, "")
+            .trim();
+
+    return cleaned
+        ? pad(cleaned, length)
+        : "---";
+}
+
+function render(state) {
+    liveState = state || {};
+
+    document.getElementById("total").textContent =
+        pad(liveState.total, 3);
+
+    document.getElementById("wickets").textContent =
+        String(numberValue(liveState.wickets));
+
+    document.getElementById("overs").textContent =
+        pad(liveState.overs, 2);
+
+    document.getElementById("batA").textContent =
+        pad(liveState.BatAscore, 3);
+
+    document.getElementById("batB").textContent =
+        pad(liveState.BatBscore, 3);
+
+    document.getElementById("target").textContent =
+        displayValue(liveState.target);
+
+    document.getElementById("partnership").textContent =
+        pad(liveState.PshipTOT, 3);
+
+    document.getElementById("lastWicket").textContent =
+        displayValue(liveState.LastWicket);
+
+    document.getElementById("lastMan").textContent =
+        displayValue(liveState.LastMan);
+
+    document.getElementById("required").textContent =
+        displayValue(liveState.RunsRequired);
+
+    updateInputMode(
+        liveState.mode || "playcricket"
+    );
+}
+
+function updateInputMode(mode) {
+    const manual =
+        String(mode).toLowerCase() === "manual";
+
+    document
+        .getElementById("modeManual")
+        .classList.toggle("active", manual);
+
+    document
+        .getElementById("modePlayCricket")
+        .classList.toggle("active", !manual);
+
+    const status =
+        document.getElementById("modeStatus");
+
+    status.className =
+        "status-box " +
+        (manual ? "manual" : "playcricket");
+
+    if (manual) {
+        status.textContent =
+            "Manual scoring active — Classic controls enabled";
+    } else {
+        status.textContent =
+            "Play-Cricket active — Classic scoring controls locked";
+    }
+
+    document
+        .querySelectorAll(".manual-control")
+        .forEach(element => {
+            element.disabled =
+                !manual || modeSwitchRunning;
+        });
+
+    document.getElementById(
+        "modeManual"
+    ).disabled = modeSwitchRunning;
+
+    document.getElementById(
+        "modePlayCricket"
+    ).disabled = modeSwitchRunning;
+}
+
+async function fetchState() {
+    const response = await fetch(
+        API_STATE,
+        { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            "State request failed: " +
+            response.status
+        );
+    }
+
+    render(await response.json());
+}
+
+async function sendControl(action, value = 0) {
+    const response = await fetch(
+        API_CONTROL,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
+            body: JSON.stringify({
+                action,
+                value
+            })
+        }
+    );
+
+    const result =
+        await response.json();
+
+    if (!response.ok || !result.ok) {
+        throw new Error(
+            result.error ||
+            "Control request failed"
+        );
+    }
+
+    if (result.state) {
+        render(result.state);
+    } else {
+        await fetchState();
+    }
+
+    return result;
+}
+
+function control(action, value = 0) {
+    commandQueue = commandQueue
+        .then(() =>
+            sendControl(action, value)
+        )
+        .catch(error => {
+            alert(
+                "Scoreboard command failed:\n\n" +
+                error.message
+            );
+        });
+
+    return commandQueue;
+}
+
+async function setInputMode(mode) {
+    if (modeSwitchRunning) return;
+
+    const current =
+        String(
+            liveState.mode || "playcricket"
+        ).toLowerCase();
+
+    if (mode === current) return;
+
+    const description =
+        mode === "manual"
+            ? "Manual scoring"
+            : "Play-Cricket Bluetooth";
+
+    if (!confirm(
+        "Switch input source to " +
+        description +
+        "?"
+    )) {
+        return;
+    }
+
+    modeSwitchRunning = true;
+    updateInputMode(current);
+
+    try {
+        await sendControl(
+            "set_mode",
+            mode
+        );
+
+        await fetchState();
+
+    } catch (error) {
+        alert(
+            "Could not change input source:\n\n" +
+            error.message
+        );
+
+    } finally {
+        modeSwitchRunning = false;
+        await fetchState().catch(() => {});
+    }
+}
+
+function zeroField(field, action) {
+    const current =
+        numberValue(liveState[field]);
+
+    if (current === 0) return;
+
+    if (!confirm(
+        "Set " + field + " to zero?"
+    )) {
+        return;
+    }
+
+    control(action, -current);
+}
+
+function batterOut(which) {
+    const label =
+        which === "a"
+            ? "Batsman A"
+            : "Batsman B";
+
+    if (!confirm(
+        "Record " + label + " as out?"
+    )) {
+        return;
+    }
+
+    control(
+        "batter_wicket",
+        which
+    );
+}
+
+function setTarget(event) {
+    event.preventDefault();
+
+    const input =
+        document.getElementById(
+            "targetInput"
+        );
+
+    const value =
+        Number(input.value);
+
+    if (
+        !Number.isInteger(value) ||
+        value < 0 ||
+        value > 999
+    ) {
+        alert(
+            "Enter a target between 0 and 999."
+        );
+        return;
+    }
+
+    control(
+        "set_target",
+        value
+    );
+
+    input.value = "";
+}
+
+/*
+ * Batter numbers are visual on the Classic
+ * controller for now. They don't alter SCOREOS
+ * scoring state.
+ */
+function changeBatNumber(which, amount) {
+    batterNumbers[which] =
+        Math.max(
+            1,
+            Math.min(
+                19,
+                batterNumbers[which] + amount
+            )
+        );
+
+    document.getElementById(
+        which === "a"
+            ? "batANumber"
+            : "batBNumber"
+    ).textContent =
+        pad(
+            batterNumbers[which],
+            2
+        );
+}
+
+setInterval(() => {
+    fetchState().catch(() => {});
+}, 1000);
+
+fetchState().catch(error => {
+    document.getElementById(
+        "modeStatus"
+    ).textContent =
+        "Unable to connect to SCOREOS";
+});
+</script>
+
+</body>
+</html>
