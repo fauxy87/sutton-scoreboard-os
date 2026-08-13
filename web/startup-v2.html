@@ -1119,13 +1119,19 @@ function showReady(startup) {
             const bluetooth = startup.bluetooth || {};
             const match = startup.match || {};
 
-            if (
-                bluetooth.connected !== true ||
-                String(match.mode || "").toLowerCase() !==
-                    "playcricket"
-            ) {
-                return false;
-            }
+        const mode =
+            String(match.mode || "").toLowerCase();
+
+        if (mode === "manual") {
+            return true;
+        }
+
+        if (
+            bluetooth.connected !== true ||
+            mode !== "playcricket"
+        ) {
+            return false;
+        }
 
             const packetCount =
                 Number(bluetooth.packet_count || 0);
