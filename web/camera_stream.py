@@ -20,15 +20,12 @@ def build_rtsp_url(use_substream=True):
     )
     port = int(camera.get("port", 554))
 
-    if use_substream:
-        path = "/h264Preview_01_sub"
-    else:
-        path = str(
-            camera.get(
-                "rtsp_path",
-                "/h264Preview_01_main",
-            )
+    path = str(
+        camera.get(
+            "rtsp_path",
+            "/h264Preview_01_main",
         )
+    )
 
     if not path.startswith("/"):
         path = "/" + path
