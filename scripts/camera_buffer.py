@@ -57,9 +57,17 @@ def camera_url():
     if auth:
         auth += "@"
 
+    rtsp_path = str(
+        camera.get("rtsp_path")
+        or "/h264Preview_01_main"
+    ).strip()
+
+    if not rtsp_path.startswith("/"):
+        rtsp_path = "/" + rtsp_path
+
     return (
         f"rtsp://{auth}{host}:{port}"
-        "/h264Preview_01_sub"
+        f"{rtsp_path}"
     )
 
 

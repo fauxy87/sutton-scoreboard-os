@@ -2404,9 +2404,44 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 check=False,
             )
 
-            if result.returncode != 0:
+            # systemctl start can return success even if
+            # the recorder exits immediately afterwards.
+            time.sleep(2)
+
+            recorder_active = (
+                subprocess.run(
+                    [
+                        "/usr/bin/systemctl",
+                        "is-active",
+                        "--quiet",
+                        "scoreos-camera-recorder.service",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                ).returncode == 0
+            )
+
+            if (
+                result.returncode != 0
+                or not recorder_active
+            ):
                 match_file.unlink(
                     missing_ok=True
+                )
+
+                # Starting a match deliberately stops the
+                # rolling pre-roll buffer. If the recorder
+                # fails, restore the buffer automatically.
+                subprocess.run(
+                    [
+                        "/usr/bin/systemctl",
+                        "start",
+                        "scoreos-camera-buffer.service",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
 
                 self.send_json(
@@ -2414,7 +2449,8 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         "ok": False,
                         "error": (
                             result.stderr.strip()
-                            or "Unable to start match recording."
+                            or
+                            "Camera recorder did not stay running."
                         ),
                     },
                     status=500,
