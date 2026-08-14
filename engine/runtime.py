@@ -415,6 +415,8 @@ class ScoreboardEngine:
                 "overs",
                 "target",
                 "set_target",
+                "set_bat_a_name",
+                "set_bat_b_name",
                 "reset",
             }
 
@@ -454,7 +456,19 @@ class ScoreboardEngine:
                     "state": self.state.snapshot(),
                 }
 
-            if action == "score":
+            if action == "set_bat_a_name":
+                self.state.update(
+                    "bat_a_name",
+                    str(value).strip() or "-"
+                )
+
+            elif action == "set_bat_b_name":
+                self.state.update(
+                    "bat_b_name",
+                    str(value).strip() or "-"
+                )
+
+            elif action == "score":
                 self.adjust_score(int(value))
 
             elif action == "bat_a":

@@ -109,6 +109,27 @@ button:active{transform:translateY(1px);filter:brightness(.92)}
   padding:8px;
 }
 .compact-controls button{font-size:23px}
+
+.batter-name-controls{
+  display:grid;
+  grid-template-columns:1fr 64px;
+  gap:5px;
+  padding:4px 5px;
+}
+.batter-name-controls input{
+  min-width:0;
+  width:100%;
+  height:32px;
+  padding:3px 7px;
+  border:1px solid #999;
+  border-radius:5px;
+  font-size:15px;
+  font-weight:700;
+}
+.batter-name-controls button{
+  min-height:32px;
+  font-size:13px;
+}
 .target-controls{
   padding:6px 8px 7px;
   display:grid;
@@ -329,6 +350,24 @@ main input:disabled{
     padding:2px;
   }
 
+  .batter-name-controls{
+    padding:2px 3px;
+    gap:3px;
+    grid-template-columns:1fr 50px;
+  }
+
+  .batter-name-controls input{
+    height:25px;
+    font-size:12px;
+    padding:1px 5px;
+  }
+
+  .batter-name-controls button{
+    min-height:25px;
+    font-size:10px;
+    padding:1px 3px;
+  }
+
   .display{
     font-size:38px;
     line-height:.95;
@@ -464,6 +503,16 @@ main input:disabled{
   <section class="grid3">
     <div class="panel">
       <div class="panel-title">BATSMAN A</div>
+      <div class="batter-name-controls">
+        <input
+          id="batAName"
+          type="text"
+          maxlength="40"
+          placeholder="Batsman A name"
+          onkeydown="if(event.key==='Enter'){setBatterName('a')}"
+        >
+        <button class="blue" onclick="setBatterName('a')">SET</button>
+      </div>
       <div class="display" id="batA">000</div>
       <div class="pad two-col">
         <button class="green" onclick="changeBat('a',1)">+1</button>
@@ -492,6 +541,16 @@ main input:disabled{
 
     <div class="panel">
       <div class="panel-title">BATSMAN B</div>
+      <div class="batter-name-controls">
+        <input
+          id="batBName"
+          type="text"
+          maxlength="40"
+          placeholder="Batsman B name"
+          onkeydown="if(event.key==='Enter'){setBatterName('b')}"
+        >
+        <button class="blue" onclick="setBatterName('b')">SET</button>
+      </div>
       <div class="display" id="batB">000</div>
       <div class="pad two-col">
         <button class="green" onclick="changeBat('b',1)">+1</button>
@@ -616,6 +675,26 @@ function render(state) {
 
   document.getElementById("batB").textContent =
     pad(liveState.BatBscore, 3);
+
+  const batANameInput =
+    document.getElementById("batAName");
+
+  const batBNameInput =
+    document.getElementById("batBName");
+
+  if (document.activeElement !== batANameInput) {
+    batANameInput.value =
+      liveState.Bat1Name === "-"
+        ? ""
+        : (liveState.Bat1Name || "");
+  }
+
+  if (document.activeElement !== batBNameInput) {
+    batBNameInput.value =
+      liveState.Bat2Name === "-"
+        ? ""
+        : (liveState.Bat2Name || "");
+  }
 
   document.getElementById("total").textContent =
     pad(liveState.total, 3);
@@ -902,14 +981,56 @@ function changeBat(which, amount) {
   control(which === "a" ? "bat_a" : "bat_b", amount);
 }
 
-function zeroBat(which) {
-  const batterName = which === "a" ? "Batsman A" : "Batsman B";
+function setBatterName(which) {
+  const input = document.getElementById(
+    which === "a" ? "batAName" : "batBName"
+  );
 
-  if (!confirm("Record " + batterName + " as out?")) {
+  const name = input.value.trim();
+
+  control(
+    which === "a"
+      ? "set_bat_a_name"
+      : "set_bat_b_name",
+    name
+  );
+
+  input.blur();
+}
+
+async function zeroBat(which) {
+  const currentName =
+    which === "a"
+      ? (liveState.Bat1Name || "Batsman A")
+      : (liveState.Bat2Name || "Batsman B");
+
+  if (!confirm("Record " + currentName + " as out?")) {
     return;
   }
 
-  control("batter_wicket", which);
+  await control("batter_wicket", which);
+
+  const newName = prompt(
+    "Enter the new batter name:",
+    ""
+  );
+
+  if (newName === null) {
+    return;
+  }
+
+  const cleanName = newName.trim();
+
+  if (!cleanName) {
+    return;
+  }
+
+  await control(
+    which === "a"
+      ? "set_bat_a_name"
+      : "set_bat_b_name",
+    cleanName
+  );
 }
 
 function zero(field) {
