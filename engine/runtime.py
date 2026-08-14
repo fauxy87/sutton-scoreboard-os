@@ -100,6 +100,7 @@ class ScoreboardEngine:
         self.pre_test_state = None
         self.test_pattern_index = 0
         self.last_published_state = None
+        self.undo_state = None
 
         self.start_control_server()
 
@@ -404,6 +405,54 @@ class ScoreboardEngine:
                 raise ValueError(
                     "Web controls are locked. Select Web Control mode first."
                 )
+
+            undoable_actions = {
+                "score",
+                "bat_a",
+                "bat_b",
+                "batter_wicket",
+                "wickets",
+                "overs",
+                "target",
+                "set_target",
+                "reset",
+            }
+
+            if action in undoable_actions:
+                self.undo_state = copy.deepcopy(
+                    self.state
+                )
+
+            if action == "undo":
+                if self.undo_state is None:
+                    raise ValueError(
+                        "There is nothing to undo"
+                    )
+
+                self.state = self.undo_state
+                self.undo_state = None
+
+                # Prevent restoring an old score from
+                # generating a new FOUR/SIX/WICKET event.
+                restored_snapshot = (
+                    self.state.snapshot()
+                )
+
+                self.last_published_state = (
+                    copy.deepcopy(
+                        restored_snapshot
+                    )
+                )
+
+                self.publish_locked(
+                    force=True
+                )
+
+                return {
+                    "ok": True,
+                    "mode": self.mode,
+                    "state": self.state.snapshot(),
+                }
 
             if action == "score":
                 self.adjust_score(int(value))

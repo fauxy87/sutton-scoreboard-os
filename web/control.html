@@ -138,7 +138,7 @@ button:active{transform:translateY(1px);filter:brightness(.92)}
 .action-row button,.bottom-row button{font-size:17px}
 .bottom-row{
   display:grid;
-  grid-template-columns:1.05fr 1fr 1fr 1.05fr;
+  grid-template-columns:1.05fr 1fr 1fr 1fr 1.05fr;
   gap:9px;
 }
 footer{
@@ -252,6 +252,173 @@ main input:disabled{
   .input-mode-heading,
   .input-mode-status{
     text-align:center;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   Landscape tablet layout
+--------------------------------------------------------- */
+
+@media (orientation: landscape) and (max-height: 850px) {
+
+  body{
+    overflow:hidden;
+  }
+
+  header{
+    height:38px;
+    min-height:38px;
+  }
+
+  .crest{
+    font-size:10px;
+    line-height:1.1;
+  }
+
+  .title{
+    font-size:20px;
+  }
+
+  .clock{
+    font-size:13px;
+  }
+
+  .input-mode-bar{
+    padding:3px 8px;
+    grid-template-columns:105px 300px 1fr;
+    gap:8px;
+    min-height:38px;
+  }
+
+  .input-mode-heading{
+    font-size:12px;
+  }
+
+  .input-mode-button{
+    min-height:30px;
+    font-size:12px;
+    padding:2px 5px;
+  }
+
+  .input-mode-status{
+    font-size:11px;
+    line-height:1.05;
+  }
+
+  .input-mode-status strong{
+    font-size:12px;
+  }
+
+  main{
+    padding:4px 6px;
+    gap:4px;
+    overflow:hidden;
+  }
+
+  .grid3{
+    gap:5px;
+  }
+
+  .panel{
+    min-height:0;
+  }
+
+  .panel-title{
+    font-size:13px;
+    padding:2px;
+  }
+
+  .display{
+    font-size:38px;
+    line-height:.95;
+    padding:2px;
+    min-height:42px;
+  }
+
+  .display.small{
+    font-size:31px;
+    min-height:34px;
+  }
+
+  .pad{
+    padding:3px;
+    gap:3px;
+  }
+
+  .two-col{
+    grid-template-columns:1fr 1fr;
+  }
+
+  button{
+    min-height:29px;
+    padding:2px 5px;
+    font-size:15px;
+  }
+
+  .compact-controls{
+    padding:3px;
+    gap:3px;
+  }
+
+  .compact-controls button{
+    font-size:14px;
+  }
+
+  .target-controls{
+    padding:3px;
+    gap:3px;
+    grid-template-columns:1fr 92px;
+    grid-template-rows:30px 25px;
+  }
+
+  .target-controls input{
+    font-size:16px;
+    padding:2px 6px;
+  }
+
+  .target-controls button{
+    font-size:11px;
+  }
+
+  .info-row{
+    min-height:40px;
+  }
+
+  .info-title{
+    font-size:12px;
+    padding:2px 2px 0;
+  }
+
+  .info-value{
+    font-size:24px;
+    padding:0 2px 2px;
+  }
+
+  .action-row{
+    gap:4px;
+  }
+
+  .bottom-row{
+    gap:4px;
+  }
+
+  .action-row button,
+  .bottom-row button{
+    min-height:32px;
+    font-size:12px;
+    padding:2px 4px;
+  }
+
+  footer{
+    height:25px;
+    font-size:9px;
+    padding:0 6px;
+  }
+
+  .dot{
+    width:8px;
+    height:8px;
   }
 }
 
@@ -388,6 +555,7 @@ main input:disabled{
     <button class="blue" onclick="resend()">↻ RESEND SCOREBOARD</button>
     <button class="blue" onclick="testBoard()">▣ TEST BOARD</button>
     <button class="blue" onclick="newOver()">● NEW OVER</button>
+    <button class="blue" onclick="window.location.href='/control-classic'">CLASSIC CONTROL</button>
     <button class="red" onclick="resetMatch()">▱ RESET MATCH</button>
   </section>
 </main>
@@ -813,10 +981,7 @@ function resetMatch() {
 }
 
 function undo() {
-  alert(
-    "Undo is temporarily unavailable.\n\n" +
-    "A reliable engine-side undo will be added next."
-  );
+  control("undo", 0);
 }
 
 function resend() {
@@ -861,7 +1026,7 @@ document.getElementById("targetInput").addEventListener(
 
 document.querySelector(
   'button[onclick="undo()"]'
-).textContent = "UNDO — COMING SOON";
+).textContent = "↻ UNDO LAST ACTION";
 
 document.querySelector(
   'button[onclick="resend()"]'
