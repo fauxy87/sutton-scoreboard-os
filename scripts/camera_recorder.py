@@ -80,7 +80,10 @@ def load_camera_paths():
     if not main_path.startswith("/"):
         main_path = "/" + main_path
 
-    sub_path = "/h264Preview_01_sub"
+    # Use the configured working RTSP path for both
+    # recorder inputs. Some Reolink models do not expose
+    # /h264Preview_01_sub and return 404 for that stream.
+    sub_path = main_path
 
     base = f"rtsp://{auth}{host}:{port}"
 
