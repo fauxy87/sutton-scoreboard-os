@@ -364,7 +364,26 @@ def handle_innings_break(previous, current):
             check=False,
         )
 
-        if result.returncode == 0:
+        time.sleep(2)
+
+        recorder_active = (
+            subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "is-active",
+                    "--quiet",
+                    "scoreos-camera-recorder.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).returncode == 0
+        )
+
+        if (
+            result.returncode == 0
+            and recorder_active
+        ):
             session["innings_break"] = False
             session["innings_resumed"] = time.time()
 
@@ -378,8 +397,20 @@ def handle_innings_break(previous, current):
             )
 
         else:
+            subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "start",
+                    "scoreos-camera-buffer.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
             print(
-                "SCOREOS INNINGS RESUME FAILED:",
+                "SCOREOS INNINGS RESUME FAILED: "
+                "recorder did not stay running",
                 result.stderr.strip(),
                 flush=True,
             )
@@ -459,7 +490,65 @@ def detect_match_finished(previous, current):
 
 def auto_start_match(previous, current):
     if MATCH_FILE.exists():
-        return active_session_id()
+        existing_session = load_active_session()
+
+        recorder_active = (
+            subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "is-active",
+                    "--quiet",
+                    "scoreos-camera-recorder.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).returncode == 0
+        )
+
+        # During a genuine innings break the recorder is
+        # deliberately stopped, so the session must remain.
+        innings_break = bool(
+            existing_session
+            and existing_session.get("innings_break")
+        )
+
+        if recorder_active or innings_break:
+            return active_session_id()
+
+        # A session file with no running recorder and no
+        # innings break is stale, normally after a crash,
+        # power loss or interrupted test. Preserve it for
+        # diagnostics, then allow a fresh match to start.
+        stale_name = (
+            "stale-match-"
+            + time.strftime("%Y%m%d-%H%M%S")
+            + ".json"
+        )
+
+        stale_file = MATCH_FILE.with_name(
+            stale_name
+        )
+
+        try:
+            MATCH_FILE.replace(stale_file)
+
+            print(
+                "SCOREOS AUTO MATCH: "
+                "archived stale session:",
+                stale_file,
+                flush=True,
+            )
+
+        except OSError as exc:
+            print(
+                "SCOREOS AUTO MATCH: "
+                "unable to archive stale session:",
+                exc,
+                flush=True,
+            )
+
+            return None
 
     disk = shutil.disk_usage(
         "/var/lib/scoreos"
@@ -618,7 +707,28 @@ def auto_start_match(previous, current):
         check=False,
     )
 
-    if result.returncode != 0:
+    # systemctl may return success even if the
+    # recorder process exits immediately afterwards.
+    time.sleep(2)
+
+    recorder_active = (
+        subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "is-active",
+                "--quiet",
+                "scoreos-camera-recorder.service",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode == 0
+    )
+
+    if (
+        result.returncode != 0
+        or not recorder_active
+    ):
         MATCH_FILE.unlink(
             missing_ok=True
         )
@@ -636,7 +746,7 @@ def auto_start_match(previous, current):
 
         print(
             "SCOREOS AUTO MATCH: "
-            "camera recorder failed to start:",
+            "camera recorder did not stay running:",
             result.stderr.strip(),
             flush=True,
         )
