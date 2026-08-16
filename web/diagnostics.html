@@ -375,14 +375,6 @@ footer {
           <span class="label">IP addresses</span>
           <span id="addresses" class="value">—</span>
         </div>
-        <div class="row">
-          <span class="label">Hotspot</span>
-          <span id="hotspotStatus" class="value">—</span>
-        </div>
-        <div class="row">
-          <span class="label">Hotspot address</span>
-          <span id="hotspotAddress" class="value">—</span>
-        </div>
       </div>
     </div>
   </section>
@@ -852,11 +844,6 @@ async function refreshDiagnostics() {
       (network.addresses || []).join(", "),
       "No address"
     );
-    setText(
-      "hotspotStatus",
-      network.hotspot_active === true ? "Active" : "Inactive"
-    );
-    setText("hotspotAddress", network.hotspot_address);
 
     setText(
       "temperature",
