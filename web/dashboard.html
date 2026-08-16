@@ -257,6 +257,44 @@
             text-align: center;
         }
 
+        .match-day-guide {
+            margin: -6px 20px 20px;
+            padding: 15px 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #f8faf9;
+            color: var(--muted);
+        }
+
+        .match-day-guide > span {
+            font-size: 27px;
+        }
+
+        .match-day-guide strong {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--green-dark);
+            font-size: 15px;
+        }
+
+        .match-day-guide.ready {
+            background: rgba(32, 150, 83, 0.10);
+            border-color: rgba(32, 150, 83, 0.35);
+        }
+
+        .match-day-guide.warning {
+            background: rgba(217, 139, 22, 0.10);
+            border-color: rgba(217, 139, 22, 0.35);
+        }
+
+        .match-day-guide.danger {
+            background: rgba(196, 60, 60, 0.10);
+            border-color: rgba(196, 60, 60, 0.35);
+        }
+
         .match-day-summary.ready {
             background: rgba(32, 150, 83, 0.10);
             color: var(--success);
@@ -949,6 +987,20 @@
 
             <div id="match-day-summary" class="match-day-summary">
                 Checking match-day systems…
+            </div>
+
+            <div id="match-day-guide" class="match-day-guide">
+                <span id="match-day-guide-icon">🔎</span>
+
+                <div>
+                    <strong id="match-day-guide-title">
+                        Checking next step…
+                    </strong>
+
+                    <div id="match-day-guide-detail">
+                        SCOREOS is checking the match-day setup.
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -2478,6 +2530,223 @@
             status.textContent = text;
         }
 
+        function updateMatchDayGuide(
+            systemData,
+            cameraData,
+            matchData
+        ) {
+            const guide =
+                $("match-day-guide");
+
+            const icon =
+                $("match-day-guide-icon");
+
+            const title =
+                $("match-day-guide-title");
+
+            const detail =
+                $("match-day-guide-detail");
+
+            if (
+                !guide
+                || !icon
+                || !title
+                || !detail
+            ) {
+                return;
+            }
+
+            const services =
+                systemData?.services || {};
+
+            const bluetooth =
+                systemData?.bluetooth || {};
+
+            const mode = String(
+                systemData?.match?.mode || ""
+            ).toLowerCase();
+
+            const preferredAdapterPresent =
+                bluetooth?.preferred_adapter
+                    ?.preferred_present === true;
+
+            const advertisingReady = Boolean(
+                preferredAdapterPresent
+                && services.advertisement === "active"
+                && bluetooth.powered === true
+                && bluetooth.advertising === true
+            );
+
+            const lastUpdateAge =
+                systemData?.last_update_age !== null
+                && systemData?.last_update_age !== undefined
+                    ? Number(
+                        systemData.last_update_age
+                    )
+                    : null;
+
+            const scoreFeedLive = Boolean(
+                mode === "manual"
+                || (
+                    mode === "playcricket"
+                    && bluetooth.connected === true
+                    && lastUpdateAge !== null
+                    && lastUpdateAge < 15
+                )
+            );
+
+            const cameraLive =
+                cameraData?.video_live === true;
+
+            const bufferReady = Boolean(
+                cameraData?.buffer_service
+                && cameraData?.buffering
+            );
+
+            const highlightsReady =
+                cameraData?.highlight_worker === true;
+
+            const freeGb = Number(
+                systemData?.disk?.free_gb || 0
+            );
+
+            const recording =
+                matchData?.recording === true;
+
+            const processing =
+                matchData?.processing || null;
+
+            guide.className =
+                "match-day-guide";
+
+            if (processing) {
+                guide.classList.add("warning");
+                icon.textContent = "🎬";
+                title.textContent =
+                    "Match processing";
+
+                detail.textContent =
+                    "Wait for the full match and highlights "
+                    + "to finish before shutting SCOREOS down.";
+
+                return;
+            }
+
+            if (recording) {
+                guide.classList.add("ready");
+                icon.textContent = "🏏";
+                title.textContent =
+                    "Match in progress";
+
+                detail.textContent =
+                    "SCOREOS is recording. Leave the system "
+                    + "running until the match is completed.";
+
+                return;
+            }
+
+            if (!preferredAdapterPresent) {
+                guide.classList.add("danger");
+                icon.textContent = "📶";
+                title.textContent =
+                    "Step 1 — Connect field adapter";
+
+                detail.textContent =
+                    "Plug the SCOREOS USB Bluetooth adapter "
+                    + "into the field USB extension.";
+
+                return;
+            }
+
+            if (!advertisingReady) {
+                guide.classList.add("warning");
+                icon.textContent = "📡";
+                title.textContent =
+                    "Step 2 — Recover Bluetooth";
+
+                detail.textContent =
+                    "Bluetooth advertising is not ready. "
+                    + "Press Fix SCOREOS.";
+
+                return;
+            }
+
+            if (!cameraLive) {
+                guide.classList.add("danger");
+                icon.textContent = "📷";
+                title.textContent =
+                    "Step 3 — Connect camera";
+
+                detail.textContent =
+                    "Turn on the camera and check its network "
+                    + "connection, then press Fix SCOREOS.";
+
+                return;
+            }
+
+            if (!bufferReady) {
+                guide.classList.add("warning");
+                icon.textContent = "⏪";
+                title.textContent =
+                    "Step 4 — Waiting for pre-roll";
+
+                detail.textContent =
+                    "Camera is connected. Wait a few seconds "
+                    + "for the pre-roll buffer to become ready.";
+
+                return;
+            }
+
+            if (!highlightsReady) {
+                guide.classList.add("warning");
+                icon.textContent = "🎬";
+                title.textContent =
+                    "Step 5 — Recover highlights";
+
+                detail.textContent =
+                    "Highlight worker is stopped. "
+                    + "Press Fix SCOREOS.";
+
+                return;
+            }
+
+            if (!scoreFeedLive) {
+                guide.classList.add("warning");
+                icon.textContent = "🏏";
+                title.textContent =
+                    "Step 6 — Connect Play-Cricket";
+
+                detail.textContent =
+                    "Open Play-Cricket Scorer and connect it "
+                    + "to SCOREOS.";
+
+                return;
+            }
+
+            if (freeGb < 5) {
+                guide.classList.add("danger");
+                icon.textContent = "💾";
+                title.textContent =
+                    "Step 7 — Free storage";
+
+                detail.textContent =
+                    "Less than 5 GB is available. Remove old "
+                    + "recordings before starting the match.";
+
+                return;
+            }
+
+            guide.classList.add("ready");
+            icon.textContent = "✅";
+            title.textContent =
+                "READY FOR CRICKET";
+
+            detail.textContent =
+                "Bluetooth, camera, pre-roll, highlights, "
+                + "score feed and storage are ready.";
+        }
+
+
         function updateMatchDayStatus(
             systemData,
             cameraData,
@@ -3359,6 +3628,12 @@
                 && results[3].status === "fulfilled"
             ) {
                 updateMatchDayStatus(
+                    results[1].value,
+                    results[2].value,
+                    results[3].value
+                );
+
+                updateMatchDayGuide(
                     results[1].value,
                     results[2].value,
                     results[3].value
