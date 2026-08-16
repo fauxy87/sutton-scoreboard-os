@@ -246,6 +246,33 @@
             color: var(--muted);
         }
 
+        .last-match-downloads {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .last-match-downloads[hidden] {
+            display: none;
+        }
+
+        .last-match-download {
+            padding: 5px 8px;
+            border-radius: 7px;
+            background: rgba(255, 255, 255, 0.75);
+            color: inherit;
+            font-size: 11px;
+            font-weight: 900;
+            text-decoration: none;
+            border: 1px solid currentColor;
+        }
+
+        .last-match-download:hover {
+            background: #ffffff;
+        }
+
         .match-day-summary {
             margin: 0 20px 20px;
             padding: 13px 16px;
@@ -981,6 +1008,30 @@
                     >🕘</span>
                     <span class="match-day-label">Last Match</span>
                     <strong id="md-last-match-status">Checking</strong>
+
+                    <div
+                        id="md-last-match-downloads"
+                        class="last-match-downloads"
+                        hidden
+                    >
+                        <a
+                            id="last-match-full-download"
+                            class="last-match-download"
+                            href="#"
+                            hidden
+                        >
+                            ⬇ Full Match
+                        </a>
+
+                        <a
+                            id="last-match-highlights-download"
+                            class="last-match-download"
+                            href="#"
+                            hidden
+                        >
+                            ⬇ Highlights
+                        </a>
+                    </div>
                 </div>
 
             </div>
@@ -2530,6 +2581,121 @@
             status.textContent = text;
         }
 
+        let lastMatchDownloadsCache = {
+            loadedAt: 0,
+            data: null
+        };
+
+
+        async function updateLastMatchDownloads(
+            matchData
+        ) {
+            const container =
+                $("md-last-match-downloads");
+
+            const fullButton =
+                $("last-match-full-download");
+
+            const highlightsButton =
+                $("last-match-highlights-download");
+
+            if (
+                !container
+                || !fullButton
+                || !highlightsButton
+            ) {
+                return;
+            }
+
+            container.hidden = true;
+            fullButton.hidden = true;
+            highlightsButton.hidden = true;
+
+            const lastComplete =
+                matchData?.last_complete;
+
+            const sessionId =
+                lastComplete?.session_id;
+
+            if (!sessionId) {
+                return;
+            }
+
+            try {
+                const now =
+                    Date.now();
+
+                let data =
+                    lastMatchDownloadsCache.data;
+
+                if (
+                    !data
+                    || (
+                        now
+                        - lastMatchDownloadsCache.loadedAt
+                    ) > 10000
+                ) {
+                    data =
+                        await getJson(
+                            "/api/highlights"
+                        );
+
+                    lastMatchDownloadsCache = {
+                        loadedAt: now,
+                        data: data
+                    };
+                }
+
+                const matches =
+                    data?.matches || [];
+
+                const match =
+                    matches.find(
+                        item =>
+                            item.session_id
+                            === sessionId
+                    );
+
+                if (!match) {
+                    return;
+                }
+
+                let available = false;
+
+                if (
+                    match.full_match
+                    && match.full_match.download_url
+                ) {
+                    fullButton.href =
+                        match.full_match.download_url;
+
+                    fullButton.hidden = false;
+                    available = true;
+                }
+
+                if (
+                    match.match_highlights
+                    && match.match_highlights.download_url
+                ) {
+                    highlightsButton.href =
+                        match.match_highlights.download_url;
+
+                    highlightsButton.hidden = false;
+                    available = true;
+                }
+
+                container.hidden =
+                    !available;
+
+            } catch (error) {
+                console.warn(
+                    "Unable to load last match downloads:",
+                    error
+                );
+            }
+        }
+
+
         function updateMatchDayGuide(
             systemData,
             cameraData,
@@ -3636,6 +3802,10 @@
                 updateMatchDayGuide(
                     results[1].value,
                     results[2].value,
+                    results[3].value
+                );
+
+                updateLastMatchDownloads(
                     results[3].value
                 );
 
