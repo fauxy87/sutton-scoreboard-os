@@ -155,11 +155,59 @@ def run_buffer():
 
     process = subprocess.Popen(command)
 
+    # Track genuine segment activity as a heartbeat.
+    # FFmpeg can remain running even when an RTSP stream
+    # has frozen, so process.poll() alone is not enough.
+    last_progress = time.time()
+    last_segment_mtime = 0.0
+
     while True:
         code = process.poll()
 
         if code is not None:
             return code
+
+        newest_segment_mtime = 0.0
+
+        for segment in BUFFER_ROOT.glob("*.ts"):
+            try:
+                stat = segment.stat()
+
+                if stat.st_size > 0:
+                    newest_segment_mtime = max(
+                        newest_segment_mtime,
+                        stat.st_mtime,
+                    )
+
+            except OSError:
+                continue
+
+        if (
+            newest_segment_mtime
+            > last_segment_mtime
+        ):
+            last_segment_mtime = (
+                newest_segment_mtime
+            )
+            last_progress = time.time()
+
+        if time.time() - last_progress > 20:
+            log(
+                "Pre-roll stream stalled for "
+                "more than 20 seconds; "
+                "restarting FFmpeg"
+            )
+
+            process.terminate()
+
+            try:
+                process.wait(timeout=5)
+
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+
+            return 99
 
         cleanup()
         time.sleep(3)
