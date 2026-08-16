@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 CAMERA_CONFIG = Path("/etc/scoreos/camera.json")
 RECORDING_ROOT = Path("/var/lib/scoreos/recordings")
-LOG_FILE = Path("/var/log/scoreos-camera-recorder.log")
+LOG_FILE = Path("/var/lib/scoreos/logs/camera-recorder.log")
 MATCH_FILE = Path("/var/lib/scoreos/current-match.json")
 
 
@@ -19,16 +19,25 @@ def log(message):
 
     print(line, flush=True)
 
-    LOG_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    try:
+        LOG_FILE.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-    with LOG_FILE.open(
-        "a",
-        encoding="utf-8",
-    ) as handle:
-        handle.write(line + "\n")
+        with LOG_FILE.open(
+            "a",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(line + "\n")
+
+    except OSError as exc:
+        # Journald/console logging above must continue even
+        # if the optional file log cannot be written.
+        print(
+            f"{timestamp} Recorder log file error: {exc}",
+            flush=True,
+        )
 
 
 def load_camera_paths():
