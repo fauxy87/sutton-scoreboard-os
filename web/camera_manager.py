@@ -224,6 +224,23 @@ def status():
             ):
                 pass
 
+    # A reachable RTSP port alone does not prove that
+    # video is actually flowing. Fresh pre-roll segments
+    # prove video health before a match; fresh recording
+    # segments prove it while a match is active.
+    video_live = bool(
+        reachable
+        and (
+            recording
+            or buffering
+        )
+    )
+
+    video_stalled = bool(
+        reachable
+        and not video_live
+    )
+
     if not configured:
         state = "not_configured"
     elif not reachable:
@@ -235,7 +252,7 @@ def status():
     elif buffering:
         state = "ready"
     else:
-        state = "online"
+        state = "stalled"
 
     return {
         "configured": configured,
@@ -248,6 +265,8 @@ def status():
         "port": camera.get("port"),
         "rtsp_path": camera.get("rtsp_path"),
         "recording": recording,
+        "video_live": video_live,
+        "video_stalled": video_stalled,
         "recorder_service": recorder_service,
         "buffer_service": buffer_service,
         "buffering": buffering,

@@ -2375,13 +2375,25 @@
                 cameraData?.recording
             );
 
+            const cameraLive = Boolean(
+                cameraData?.video_live
+            );
+
+            const cameraReachable = Boolean(
+                cameraData?.connected
+            );
+
             setMatchDayItem(
                 "md-camera",
-                cameraData?.connected
+                cameraLive
                     ? "ready"
+                    : cameraReachable
+                    ? "danger"
                     : "danger",
-                cameraData?.connected
-                    ? "Connected"
+                cameraLive
+                    ? "Live"
+                    : cameraReachable
+                    ? "Stream Stalled"
                     : "Offline"
             );
 
@@ -2739,7 +2751,7 @@
                     services.web === "active";
 
                 const cameraReady =
-                    cameraData.connected === true;
+                    cameraData.video_live === true;
 
                 const bufferReady =
                     cameraData.buffer_service === true
