@@ -830,7 +830,86 @@ def fix_scoreos():
     }
 
 
+def safe_shutdown_status():
+    """
+    Decide whether SCOREOS can safely power off.
+    Never allow shutdown while recording or while
+    completed-match processing is still active.
+    """
+    recorder = subprocess.run(
+        [
+            "/usr/bin/systemctl",
+            "is-active",
+            "scoreos-camera-recorder.service",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    recording = (
+        recorder.stdout.strip() == "active"
+    )
+
+    processing_file = Path(
+        "/var/lib/scoreos/match-processing.json"
+    )
+
+    processing = None
+
+    if processing_file.exists():
+        try:
+            processing = json.loads(
+                processing_file.read_text(
+                    encoding="utf-8"
+                )
+            )
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ):
+            processing = {
+                "unknown": True
+            }
+
+    reasons = []
+
+    if recording:
+        reasons.append(
+            "Match recording is still active"
+        )
+
+    if processing is not None:
+        reasons.append(
+            "Match processing is still running"
+        )
+
+    return {
+        "ok": True,
+        "safe": len(reasons) == 0,
+        "recording": recording,
+        "processing": processing,
+        "reasons": reasons,
+    }
+
+
 def admin_action(action):
+    if action == "shutdown":
+        shutdown_status = (
+            safe_shutdown_status()
+        )
+
+        if not shutdown_status["safe"]:
+            return (
+                False,
+                "Shutdown blocked — "
+                + " · ".join(
+                    shutdown_status[
+                        "reasons"
+                    ]
+                ),
+            )
+
     # Use the same safe Bluetooth recovery routine as
     # Ground Control so both interfaces behave identically.
     if action == "restart_bluetooth":
@@ -987,6 +1066,12 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
         if path == "/api/system":
             self.send_json(system_snapshot())
+            return
+
+        if path == "/api/shutdown/status":
+            self.send_json(
+                safe_shutdown_status()
+            )
             return
 
         if path == "/api/diagnostics/logs":

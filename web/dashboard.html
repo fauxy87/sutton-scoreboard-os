@@ -1221,14 +1221,20 @@
                 </button>
 
                 <button
-                    class="action admin-action"
-                    data-action="shutdown"
-                    data-confirm="Shut SCOREOS down now?"
+                    id="safe-shutdown"
+                    class="action"
                     type="button"
                 >
                     <span class="action-icon">⏻</span>
-                    <span class="action-title">Shutdown Pi</span>
-                    <span class="action-subtitle">Power off safely</span>
+                    <span class="action-title">
+                        Safe Shutdown
+                    </span>
+                    <span
+                        id="safe-shutdown-status"
+                        class="action-subtitle"
+                    >
+                        Check before powering off
+                    </span>
                 </button>
             </div>
         </section>
@@ -2724,6 +2730,142 @@
                 summary.className =
                     "match-day-summary warning";
             }
+        }
+
+
+        async function safeShutdown() {
+            const button =
+                $("safe-shutdown");
+
+            const status =
+                $("safe-shutdown-status");
+
+            if (!button || !status) {
+                return;
+            }
+
+            button.disabled = true;
+
+            status.textContent =
+                "Checking SCOREOS…";
+
+            try {
+                const checkResponse =
+                    await fetch(
+                        "/api/shutdown/status",
+                        {
+                            cache: "no-store"
+                        }
+                    );
+
+                const check =
+                    await checkResponse.json();
+
+                if (
+                    !checkResponse.ok
+                    || check.ok === false
+                ) {
+                    throw new Error(
+                        "Unable to check shutdown status"
+                    );
+                }
+
+                if (!check.safe) {
+                    const reasons =
+                        check.reasons || [];
+
+                    status.textContent =
+                        "❌ "
+                        + (
+                            reasons.join(" · ")
+                            || "Not safe to shut down"
+                        );
+
+                    showMessage(
+                        "Shutdown blocked — "
+                        + reasons.join(" · ")
+                    );
+
+                    return;
+                }
+
+                status.textContent =
+                    "✅ SAFE TO SHUT DOWN";
+
+                const approved =
+                    window.confirm(
+                        "SCOREOS is safe to shut down.\n\n"
+                        + "Power off the Pi now?"
+                    );
+
+                if (!approved) {
+                    status.textContent =
+                        "Shutdown cancelled";
+                    return;
+                }
+
+                status.textContent =
+                    "⏻ Shutting down…";
+
+                const response =
+                    await fetch(
+                        "/api/admin",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+                            body: JSON.stringify({
+                                action: "shutdown"
+                            })
+                        }
+                    );
+
+                const payload =
+                    await response.json();
+
+                if (
+                    !response.ok
+                    || payload.ok === false
+                ) {
+                    throw new Error(
+                        payload.message
+                        || payload.error
+                        || "Shutdown was refused"
+                    );
+                }
+
+                status.textContent =
+                    "⏻ SCOREOS shutting down";
+
+                showMessage(
+                    "SCOREOS is shutting down safely."
+                );
+
+            } catch (error) {
+                status.textContent =
+                    "❌ " + error.message;
+
+                showMessage(
+                    "Safe Shutdown: "
+                    + error.message
+                );
+
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+
+        const safeShutdownButton =
+            $("safe-shutdown");
+
+        if (safeShutdownButton) {
+            safeShutdownButton.addEventListener(
+                "click",
+                safeShutdown
+            );
         }
 
 
