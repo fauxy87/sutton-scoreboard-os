@@ -507,6 +507,52 @@ def admin_action(action):
             or "Bluetooth recovery started",
         )
 
+    if action == "restart_highlights":
+        result = subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "restart",
+                "scoreos-highlight-worker.service",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return (
+                False,
+                result.stderr.strip()
+                or "Unable to restart highlight worker.",
+            )
+
+        time.sleep(2)
+
+        active = (
+            subprocess.run(
+                [
+                    "/usr/bin/systemctl",
+                    "is-active",
+                    "--quiet",
+                    "scoreos-highlight-worker.service",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).returncode == 0
+        )
+
+        if not active:
+            return (
+                False,
+                "Highlight worker did not stay running.",
+            )
+
+        return (
+            True,
+            "Highlight worker restarted successfully.",
+        )
+
     if action == "restart_camera":
         camera_state = camera_manager.status()
 
