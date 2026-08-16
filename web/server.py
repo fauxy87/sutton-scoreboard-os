@@ -1347,6 +1347,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
             processing = None
             complete = None
+            last_complete = None
 
             if processing_file.exists():
                 try:
@@ -1363,10 +1364,14 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
             if complete_file.exists():
                 try:
-                    complete = json.loads(
+                    last_complete = json.loads(
                         complete_file.read_text(
                             encoding="utf-8"
                         )
+                    )
+
+                    complete = dict(
+                        last_complete
                     )
 
                     completed_at = float(
@@ -1399,6 +1404,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "session": session,
                     "processing": processing,
                     "complete": complete,
+                    "last_complete": last_complete,
                 }
             )
             return

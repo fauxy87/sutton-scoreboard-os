@@ -936,6 +936,15 @@
                     <strong id="md-recording-status">Checking</strong>
                 </div>
 
+                <div id="md-last-match" class="match-day-item checking">
+                    <span
+                        id="md-last-match-icon"
+                        class="match-day-icon"
+                    >🕘</span>
+                    <span class="match-day-label">Last Match</span>
+                    <strong id="md-last-match-status">Checking</strong>
+                </div>
+
             </div>
 
             <div id="match-day-summary" class="match-day-summary">
@@ -1827,6 +1836,76 @@
             const complete =
                 matchData?.complete || null;
 
+            const lastComplete =
+                matchData?.last_complete || null;
+
+            const lastMatchIcon =
+                $("md-last-match-icon");
+
+            if (!lastComplete) {
+                if (lastMatchIcon) {
+                    lastMatchIcon.textContent =
+                        "🕘";
+                }
+
+                setMatchDayItem(
+                    "md-last-match",
+                    "neutral",
+                    "No Previous Match"
+                );
+
+            } else {
+                const lastFullReady = Boolean(
+                    lastComplete.full_match_ready
+                );
+
+                const lastHighlightsReady = Boolean(
+                    lastComplete.match_highlights_ready
+                );
+
+                const lastHasError = Boolean(
+                    lastComplete.build_error
+                    || lastComplete.highlights_error
+                );
+
+                if (!lastFullReady || lastHasError) {
+                    if (lastMatchIcon) {
+                        lastMatchIcon.textContent =
+                            "❌";
+                    }
+
+                    setMatchDayItem(
+                        "md-last-match",
+                        "danger",
+                        "Save Problem"
+                    );
+
+                } else if (!lastHighlightsReady) {
+                    if (lastMatchIcon) {
+                        lastMatchIcon.textContent =
+                            "⚠️";
+                    }
+
+                    setMatchDayItem(
+                        "md-last-match",
+                        "warning",
+                        "Full Match Saved · No Highlights"
+                    );
+
+                } else {
+                    if (lastMatchIcon) {
+                        lastMatchIcon.textContent =
+                            "✅";
+                    }
+
+                    setMatchDayItem(
+                        "md-last-match",
+                        "ready",
+                        "Full Match + Highlights Saved"
+                    );
+                }
+            }
+
             const inningsBreak = Boolean(
                 session?.innings_break
             );
@@ -1864,38 +1943,73 @@
             }
 
             if (complete) {
-                icon.textContent = "✅";
-                title.textContent =
-                    "MATCH COMPLETE";
+                const fullReady = Boolean(
+                    complete.full_match_ready
+                );
 
-                const readyParts = [];
+                const highlightsReady = Boolean(
+                    complete.match_highlights_ready
+                );
 
-                if (complete.full_match_ready) {
-                    readyParts.push(
-                        "Full Match Ready"
-                    );
+                const hasError = Boolean(
+                    complete.build_error
+                    || complete.highlights_error
+                );
+
+                if (!fullReady || hasError) {
+                    banner.classList.add("error");
+                    icon.textContent = "❌";
+                    title.textContent =
+                        "MATCH SAVE PROBLEM";
+
+                    detail.textContent =
+                        (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " · "
+                        + (
+                            complete.build_error
+                            || complete.highlights_error
+                            || "Full match file not created"
+                        );
+
+                    score.textContent =
+                        "CHECK";
+
+                } else if (!highlightsReady) {
+                    banner.classList.add("warning");
+                    icon.textContent = "⚠️";
+                    title.textContent =
+                        "MATCH SAVED — NO HIGHLIGHTS";
+
+                    detail.textContent =
+                        (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " · Full Match Ready"
+                        + " · Highlights Not Created";
+
+                    score.textContent =
+                        "SAVED";
+
+                } else {
+                    icon.textContent = "✅";
+                    title.textContent =
+                        "LAST MATCH SAVED";
+
+                    detail.textContent =
+                        (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " · Full Match Ready"
+                        + " · Highlights Ready";
+
+                    score.textContent =
+                        "SAVED";
                 }
-
-                if (complete.match_highlights_ready) {
-                    readyParts.push(
-                        "Highlights Ready"
-                    );
-                }
-
-                detail.textContent =
-                    (
-                        complete.match_name
-                        || "Match"
-                    )
-                    + (
-                        readyParts.length
-                        ? " · "
-                            + readyParts.join(" · ")
-                        : " · Processing complete"
-                    );
-
-                score.textContent =
-                    "DONE";
 
                 return;
             }
@@ -2549,44 +2663,89 @@
             }
 
             if (complete) {
-                heading.textContent =
-                    "MATCH COMPLETE";
-
-                let readyParts = [];
-
-                if (complete.full_match_ready) {
-                    readyParts.push(
-                        "Full Match Ready"
-                    );
-                }
-
-                if (complete.match_highlights_ready) {
-                    readyParts.push(
-                        "Highlights Ready"
-                    );
-                }
-
-                summary.textContent =
-                    "✅ "
-                    + (
-                        complete.match_name
-                        || "Match"
-                    )
-                    + (
-                        readyParts.length
-                        ? " — "
-                            + readyParts.join(" • ")
-                        : " — Processing finished"
-                    );
-
-                summary.className =
-                    "match-day-summary ready";
-
-                setMatchDayItem(
-                    "md-recording",
-                    "neutral",
-                    "Complete"
+                const fullReady = Boolean(
+                    complete.full_match_ready
                 );
+
+                const highlightsReady = Boolean(
+                    complete.match_highlights_ready
+                );
+
+                const hasError = Boolean(
+                    complete.build_error
+                    || complete.highlights_error
+                );
+
+                if (!fullReady || hasError) {
+                    heading.textContent =
+                        "MATCH SAVE PROBLEM";
+
+                    summary.textContent =
+                        "❌ "
+                        + (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " — "
+                        + (
+                            complete.build_error
+                            || complete.highlights_error
+                            || "Full match file not created"
+                        );
+
+                    summary.className =
+                        "match-day-summary danger";
+
+                    setMatchDayItem(
+                        "md-recording",
+                        "danger",
+                        "Check Files"
+                    );
+
+                } else if (!highlightsReady) {
+                    heading.textContent =
+                        "MATCH SAVED";
+
+                    summary.textContent =
+                        "⚠️ "
+                        + (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " — Full Match Ready"
+                        + " • Highlights Not Created";
+
+                    summary.className =
+                        "match-day-summary warning";
+
+                    setMatchDayItem(
+                        "md-recording",
+                        "neutral",
+                        "Full Match Saved"
+                    );
+
+                } else {
+                    heading.textContent =
+                        "LAST MATCH SAVED";
+
+                    summary.textContent =
+                        "✅ "
+                        + (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " — Full Match Ready"
+                        + " • Highlights Ready";
+
+                    summary.className =
+                        "match-day-summary ready";
+
+                    setMatchDayItem(
+                        "md-recording",
+                        "ready",
+                        "Saved"
+                    );
+                }
 
                 return;
             }
