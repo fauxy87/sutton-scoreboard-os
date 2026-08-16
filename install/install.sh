@@ -39,6 +39,7 @@ required_files=(
     "$REPO_DIR/bluetooth/server.py"
     "$REPO_DIR/web/server.py"
     "$REPO_DIR/scripts/start-advertisement.exp"
+    "$REPO_DIR/scripts/bluetooth_watchdog.py"
 )
 
 for required_file in "${required_files[@]}"; do
@@ -132,14 +133,35 @@ RestartSec=3
 WantedBy=multi-user.target
 SERVICE
 
+cat > /etc/systemd/system/scoreos-bluetooth-watchdog.service <<SERVICE
+[Unit]
+Description=SCOREOS Bluetooth Advertising Watchdog
+After=bluetooth.service scoreos-web.service
+Wants=bluetooth.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$REPO_DIR
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -u $REPO_DIR/scripts/bluetooth_watchdog.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
 chmod +x "$REPO_DIR/scripts/start-advertisement.exp"
+chmod +x "$REPO_DIR/scripts/bluetooth_watchdog.py"
 
 echo "Checking generated service files..."
 
 systemd-analyze verify \
     /etc/systemd/system/sutton-scoreboard-advert.service \
     /etc/systemd/system/sutton-scoreboard.service \
-    /etc/systemd/system/scoreos-web.service
+    /etc/systemd/system/scoreos-web.service \
+    /etc/systemd/system/scoreos-bluetooth-watchdog.service
 
 echo "Reloading systemd..."
 
@@ -149,6 +171,7 @@ systemctl enable bluetooth.service
 systemctl enable sutton-scoreboard-advert.service
 systemctl enable sutton-scoreboard.service
 systemctl enable scoreos-web.service
+systemctl enable scoreos-bluetooth-watchdog.service
 
 echo "Restarting Bluetooth and SCOREOS..."
 
@@ -158,6 +181,7 @@ sleep 4
 systemctl restart sutton-scoreboard-advert.service
 systemctl restart sutton-scoreboard.service
 systemctl restart scoreos-web.service
+systemctl restart scoreos-bluetooth-watchdog.service
 
 echo
 echo "Service status:"
@@ -165,6 +189,7 @@ systemctl --no-pager --full is-active bluetooth.service
 systemctl --no-pager --full is-active sutton-scoreboard-advert.service
 systemctl --no-pager --full is-active sutton-scoreboard.service
 systemctl --no-pager --full is-active scoreos-web.service
+systemctl --no-pager --full is-active scoreos-bluetooth-watchdog.service
 
 echo
 echo "SCOREOS installation complete."

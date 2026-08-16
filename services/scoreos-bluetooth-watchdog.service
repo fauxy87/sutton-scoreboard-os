@@ -1,0 +1,15 @@
+[Unit]
+Description=SCOREOS Bluetooth Advertising Watchdog
+After=bluetooth.service scoreos-web.service
+Wants=bluetooth.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/pi/sutton-scoreboard-os
+ExecStart=/usr/bin/python3 -u /home/pi/sutton-scoreboard-os/scripts/bluetooth_watchdog.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
