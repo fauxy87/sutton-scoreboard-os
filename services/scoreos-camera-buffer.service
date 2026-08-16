@@ -1,5 +1,5 @@
 [Unit]
-Description=SCOREOS Camera Recorder
+Description=SCOREOS Camera Pre-Roll Buffer
 After=network-online.target
 Wants=network-online.target
 
@@ -7,8 +7,8 @@ Wants=network-online.target
 Type=simple
 User={{USER}}
 WorkingDirectory={{INSTALL_DIR}}
-ExecStart=/usr/bin/python3 -u {{INSTALL_DIR}}/scripts/camera_recorder.py
-Restart=no
+ExecStart=/usr/bin/python3 -u {{INSTALL_DIR}}/scripts/camera_buffer.py
+Restart=always
 RestartSec=5
 
 [Install]

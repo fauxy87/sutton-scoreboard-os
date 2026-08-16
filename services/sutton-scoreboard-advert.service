@@ -1,15 +1,27 @@
 [Unit]
 Description=Sutton Scoreboard BLE Advertisement
-Requires=bluetooth.service
 After=bluetooth.service
-Before=sutton-scoreboard.service
+Requires=bluetooth.service
 
 [Service]
 Type=oneshot
-ExecStartPre=/bin/sleep 4
-ExecStart=/usr/bin/expect /home/picricket/sutton-scoreboard-os/sutton-scoreboard-os/scripts/start-advertisement.exp
+
+ExecStartPre=/usr/sbin/rfkill unblock bluetooth
+ExecStartPre=/bin/sleep 3
+
+ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh power on
+ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh le on
+ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh name SCOREOS
+ExecStartPre=-{{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh connectable on
+ExecStartPre=-{{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh advertising off
+ExecStartPre=-{{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh clr-adv
+ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh add-adv -c -g -n -u 5a0d6a15-b664-4304-8530-3a0ec53e5bc1 1
+
+ExecStart={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh advertising on
+ExecStartPost={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh advinfo
+
 RemainAfterExit=yes
-TimeoutStartSec=60
+TimeoutStartSec=45
 
 [Install]
 WantedBy=multi-user.target

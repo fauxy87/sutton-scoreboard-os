@@ -1,16 +1,16 @@
 [Unit]
 Description=Sutton Scoreboard OS
 Requires=bluetooth.service
-Requires=sutton-scoreboard-advert.service
+Wants=sutton-scoreboard-advert.service
 After=bluetooth.service
 After=sutton-scoreboard-advert.service
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/picricket/sutton-scoreboard-os/sutton-scoreboard-os
+WorkingDirectory={{INSTALL_DIR}}
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/usr/bin/python3 -u /home/picricket/sutton-scoreboard-os/sutton-scoreboard-os/bluetooth/server.py
+ExecStart=/usr/bin/python3 -u {{INSTALL_DIR}}/bluetooth/server.py
 Restart=always
 RestartSec=5
 TimeoutStopSec=10
