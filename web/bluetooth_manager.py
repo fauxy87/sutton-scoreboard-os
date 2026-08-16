@@ -127,16 +127,19 @@ def paired_devices():
     return devices
 
 def advertising_active():
+    # Query the same preferred SCOREOS adapter used by
+    # the advertising service instead of assuming hci0.
     output, code = run_command(
         [
-            "/usr/bin/script",
-            "-q",
-            "-c",
-            "/usr/bin/btmgmt --index 0 advinfo",
-            "/dev/null",
+            "/home/pi/sutton-scoreboard-os/scripts/"
+            "run-btmgmt-on-scoreos-adapter.sh",
+            "advinfo",
         ],
-        timeout=8,
+        timeout=20,
     )
+
+    if code != 0:
+        return False
 
     match = re.search(
         r"Instances list with\s+(\d+)\s+item",
@@ -178,6 +181,8 @@ def get_status():
         "sutton-scoreboard-advert.service"
     )
 
+    advert_active = advertising_active()
+
     return {
         "ok": True,
         "adapter": {
@@ -188,8 +193,13 @@ def get_status():
             "address": None,
             "name": "SCOREOS",
         },
-        "advertising": advert_running,
+        # "advertising" means a real advertising instance
+        # exists on the preferred SCOREOS adapter.
+        "advertising": advert_active,
         "gatt_service": gatt_running,
+
+        # Keep service state separate so Ground Control can
+        # distinguish a running service from real advertising.
         "advert_service": advert_running,
         "pairing_active": _pairing_active,
         "pairing_seconds_remaining":
