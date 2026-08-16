@@ -513,16 +513,16 @@ def redact_diagnostics_text(text):
 
     # Redact passwords embedded in RTSP URLs.
     text = re.sub(
-        r"(rtsp://[^:@\\s/]+:)[^@\\s/]+(@)",
-        r"\\1********\\2",
+        r"(rtsp://[^:@\s/]+:)[^@\s/]+(@)",
+        r"\g<1>********\g<2>",
         text,
         flags=re.IGNORECASE,
     )
 
     # Redact common password-style fields.
     text = re.sub(
-        r'("password"\\s*:\\s*")[^"]*(")',
-        r'\\1********\\2',
+        r'("password"\s*:\s*")[^"]*(")',
+        r"\g<1>********\g<2>",
         text,
         flags=re.IGNORECASE,
     )

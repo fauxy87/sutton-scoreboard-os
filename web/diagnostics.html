@@ -204,6 +204,25 @@ main {
   background: var(--red);
 }
 
+.recovery-action {
+  padding: 12px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--green);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.recovery-action:hover {
+  background: var(--green-dark);
+}
+
+.recovery-action:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
 pre {
   margin: 0;
   max-height: 320px;
@@ -423,6 +442,69 @@ footer {
       <div class="card-header">Diagnostics Tools</div>
 
       <div class="card-body">
+        <div
+          id="maintenanceMessage"
+          style="
+            display: none;
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 7px;
+            background: #e8ede9;
+            font-weight: bold;
+          "
+        ></div>
+
+        <div
+          style="
+            display: grid;
+            grid-template-columns:
+              repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin-bottom: 14px;
+          "
+        >
+          <button
+            class="recovery-action"
+            data-action="restart_scoreboard"
+            type="button"
+          >
+            🔄 Restart Scoreboard
+          </button>
+
+          <button
+            class="recovery-action"
+            data-action="restart_bluetooth"
+            type="button"
+          >
+            📶 Restart Bluetooth
+          </button>
+
+          <button
+            class="recovery-action"
+            data-action="restart_camera"
+            type="button"
+          >
+            📷 Restart Camera
+          </button>
+
+          <button
+            class="recovery-action"
+            data-action="restart_highlights"
+            type="button"
+          >
+            🎬 Restart Highlights
+          </button>
+
+          <button
+            class="recovery-action"
+            data-action="restart_web"
+            data-confirm="Restart the SCOREOS web interface?"
+            type="button"
+          >
+            🌐 Restart Web
+          </button>
+        </div>
+
         <button
           id="refreshLogs"
           type="button"
@@ -530,6 +612,110 @@ function setText(id, value, fallback = "—") {
 function statusText(value) {
   return value === "active" ? "Running" : value || "Unknown";
 }
+
+function showMaintenanceMessage(
+  message,
+  isError = false
+) {
+  const element =
+    document.getElementById(
+      "maintenanceMessage"
+    );
+
+  if (!element) {
+    return;
+  }
+
+  element.style.display = "block";
+  element.style.background =
+    isError ? "#fde5e5" : "#e5f3e9";
+  element.style.color =
+    isError ? "var(--red)" : "var(--green-dark)";
+  element.textContent = message;
+}
+
+
+async function runRecoveryAction(button) {
+  const action = button.dataset.action;
+  const confirmMessage =
+    button.dataset.confirm;
+
+  if (
+    confirmMessage
+    && !window.confirm(confirmMessage)
+  ) {
+    return;
+  }
+
+  const originalText =
+    button.textContent;
+
+  button.disabled = true;
+  button.textContent = "Working…";
+
+  try {
+    const response = await fetch(
+      "/api/admin",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        body: JSON.stringify({
+          action: action
+        })
+      }
+    );
+
+    const payload =
+      await response.json();
+
+    if (
+      !response.ok
+      || !payload.ok
+    ) {
+      throw new Error(
+        payload.message
+        || payload.error
+        || "Recovery action failed"
+      );
+    }
+
+    showMaintenanceMessage(
+      "✅ "
+      + (
+        payload.message
+        || "Recovery completed"
+      )
+    );
+
+    setTimeout(
+      () => {
+        refreshDiagnostics();
+        refreshLogs();
+      },
+      2500
+    );
+
+  } catch (error) {
+    showMaintenanceMessage(
+      "❌ " + error.message,
+      true
+    );
+
+  } finally {
+    setTimeout(
+      () => {
+        button.disabled = false;
+        button.textContent =
+          originalText;
+      },
+      1500
+    );
+  }
+}
+
 
 async function refreshLogs() {
   const mapping = {
@@ -755,6 +941,24 @@ async function refreshDiagnostics() {
     setText("lastRefresh", "Connection failed");
   }
 }
+
+document
+  .querySelectorAll(
+    ".recovery-action"
+  )
+  .forEach(
+    (button) => {
+      button.addEventListener(
+        "click",
+        () => {
+          runRecoveryAction(
+            button
+          );
+        }
+      );
+    }
+  );
+
 
 document
   .getElementById("refreshLogs")
