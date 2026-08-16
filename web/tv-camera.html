@@ -1133,9 +1133,43 @@ const cameraMessage =
         "cameraMessage"
     );
 
+let cameraReconnectTimer = null;
+let cameraReconnectAttempts = 0;
+
+function cameraPreviewUrl() {
+    return (
+        "/api/camera/preview?_=" +
+        Date.now()
+    );
+}
+
+function reconnectCameraPreview(delay = 2000) {
+    if (cameraReconnectTimer) {
+        clearTimeout(cameraReconnectTimer);
+    }
+
+    cameraMessage.textContent =
+        "CAMERA RECONNECTING…";
+
+    cameraMessage.style.display =
+        "flex";
+
+    cameraReconnectTimer = setTimeout(
+        () => {
+            cameraReconnectAttempts += 1;
+
+            cameraPreview.src =
+                cameraPreviewUrl();
+        },
+        delay
+    );
+}
+
 cameraPreview.addEventListener(
     "load",
     () => {
+        cameraReconnectAttempts = 0;
+
         cameraMessage.style.display =
             "none";
     }
@@ -1144,8 +1178,14 @@ cameraPreview.addEventListener(
 cameraPreview.addEventListener(
     "error",
     () => {
-        cameraMessage.style.display =
-            "flex";
+        const delay = Math.min(
+            2000 + (
+                cameraReconnectAttempts * 1000
+            ),
+            10000
+        );
+
+        reconnectCameraPreview(delay);
     }
 );
 
