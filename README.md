@@ -77,7 +77,17 @@ SCOREOS is designed to run on Raspberry Pi OS (Bookworm) using a Raspberry Pi 4 
 - HDMI display
 - Local network connection (optional but recommended)
 
-Detailed installation instructions are available in the `/docs` folder.
+### Install SCOREOS
+
+Clone the repository and run the main installer as your normal user:
+
+```bash
+./install.sh
+```
+
+The installer handles required packages, Python dependencies, systemd services and SCOREOS configuration.
+
+Do not run `install.sh` directly as root. It uses `sudo` automatically where required.
 
 ---
 # 📁 Project Structure
@@ -88,9 +98,11 @@ SCOREOS
 ├── bluetooth/       Bluetooth GATT server
 ├── docs/            Project documentation
 ├── engine/          Runtime and match engine
-├── scripts/         Helper and startup scripts
-├── services/        Systemd service files
+├── installer/       Modular installer components
+├── scripts/         Helper and recovery scripts
+├── services/        Canonical systemd service files
 ├── web/             Dashboard, Ground Control and TV display
+├── install.sh       Main SCOREOS installer
 ├── README.md
 └── CHANGELOG.md
 ```
