@@ -1065,6 +1065,26 @@
                 <h2>Quick Actions</h2>
             </div>
 
+            <div style="margin-bottom: 14px;">
+                <button
+                    id="run-match-day-check"
+                    class="action"
+                    type="button"
+                    style="width: 100%;"
+                >
+                    <span class="action-icon">🏏</span>
+                    <span class="action-title">
+                        Run Match Day Check
+                    </span>
+                    <span
+                        id="match-day-check-result"
+                        class="action-subtitle"
+                    >
+                        Test SCOREOS before the match
+                    </span>
+                </button>
+            </div>
+
             <div class="actions">
                 <a class="action" href="/control">
                     <span class="action-icon">🎮</span>
@@ -2667,6 +2687,171 @@
                 summary.className =
                     "match-day-summary warning";
             }
+        }
+
+
+        async function runMatchDayCheck() {
+            const button =
+                $("run-match-day-check");
+
+            const result =
+                $("match-day-check-result");
+
+            if (!button || !result) {
+                return;
+            }
+
+            button.disabled = true;
+            result.textContent =
+                "Running checks…";
+
+            try {
+                const responses =
+                    await Promise.all([
+                        getJson("/api/system"),
+                        getJson("/api/camera/status"),
+                        getJson("/api/match/status")
+                    ]);
+
+                const systemData = responses[0];
+                const cameraData = responses[1];
+
+                const services =
+                    systemData.services || {};
+
+                const bluetooth =
+                    systemData.bluetooth || {};
+
+                const preferredAdapterPresent =
+                    bluetooth.preferred_adapter
+                        ?.preferred_present === true;
+
+                const advertisingReady =
+                    preferredAdapterPresent
+                    && services.advertisement === "active"
+                    && bluetooth.powered === true
+                    && bluetooth.advertising === true;
+
+                const engineReady =
+                    services.scoreboard === "active";
+
+                const webReady =
+                    services.web === "active";
+
+                const cameraReady =
+                    cameraData.connected === true;
+
+                const bufferReady =
+                    cameraData.buffer_service === true
+                    && cameraData.buffering === true;
+
+                const highlightsReady =
+                    cameraData.highlight_worker === true;
+
+                const freeGb =
+                    Number(
+                        systemData.disk?.free_gb || 0
+                    );
+
+                const storageReady =
+                    freeGb >= 5;
+
+                const mode = String(
+                    systemData.match?.mode || ""
+                ).toLowerCase();
+
+                const lastUpdateAge =
+                    systemData.last_update_age !== null
+                    && systemData.last_update_age !== undefined
+                        ? Number(
+                            systemData.last_update_age
+                        )
+                        : null;
+
+                const playCricketReady =
+                    mode === "manual"
+                    || (
+                        mode === "playcricket"
+                        && bluetooth.connected === true
+                        && lastUpdateAge !== null
+                        && lastUpdateAge < 15
+                    );
+
+                const checks = [
+                    ["Scoreboard", engineReady],
+                    ["Web", webReady],
+                    [
+                        "Field Bluetooth adapter",
+                        preferredAdapterPresent
+                    ],
+                    [
+                        "Bluetooth advertising",
+                        advertisingReady
+                    ],
+                    ["Camera", cameraReady],
+                    ["Camera pre-roll", bufferReady],
+                    [
+                        "Highlight worker",
+                        highlightsReady
+                    ],
+                    ["Storage", storageReady],
+                    [
+                        "Play-Cricket score feed",
+                        playCricketReady
+                    ]
+                ];
+
+                const failed =
+                    checks.filter(
+                        ([, ready]) => !ready
+                    );
+
+                if (failed.length === 0) {
+                    result.textContent =
+                        "✅ MATCH DAY READY";
+
+                    showMessage(
+                        "Match Day Check passed — "
+                        + "SCOREOS systems are ready."
+                    );
+                } else {
+                    const names =
+                        failed.map(
+                            ([name]) => name
+                        );
+
+                    result.textContent =
+                        "❌ " + names.join(" · ");
+
+                    showMessage(
+                        "Match Day Check: "
+                        + names.join(" · ")
+                    );
+                }
+
+            } catch (error) {
+                result.textContent =
+                    "❌ Check failed";
+
+                showMessage(
+                    "Match Day Check failed: "
+                    + error.message
+                );
+
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+
+        const matchDayCheckButton =
+            $("run-match-day-check");
+
+        if (matchDayCheckButton) {
+            matchDayCheckButton.addEventListener(
+                "click",
+                runMatchDayCheck
+            );
         }
 
 
