@@ -602,6 +602,11 @@
             document.getElementById("adapterName").textContent =
                 data.adapter?.name || "—";
 
+            if (data.message) {
+                document.getElementById("message").textContent =
+                    data.message;
+            }
+
             document.getElementById(
                 "startPairingButton"
             ).disabled = pairingActive || actionInProgress;

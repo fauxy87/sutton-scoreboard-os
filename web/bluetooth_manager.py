@@ -366,43 +366,163 @@ def _restart_bluetooth_worker():
     global _last_message
 
     try:
-        _last_message = "Restarting Bluetooth"
-
-        run_command(
-            [
-                "/usr/bin/systemctl",
-                "restart",
-                "bluetooth.service",
-            ],
-            timeout=15,
+        _last_message = (
+            "Bluetooth recovery: stopping advertising"
         )
 
-        time.sleep(2)
-
         run_command(
             [
                 "/usr/bin/systemctl",
-                "restart",
-                "sutton-scoreboard.service",
-            ],
-            timeout=15,
-        )
-
-        time.sleep(2)
-
-        run_command(
-            [
-                "/usr/bin/systemctl",
-                "restart",
+                "stop",
                 "sutton-scoreboard-advert.service",
             ],
             timeout=15,
         )
 
-        _last_message = "Bluetooth services restarted"
+        _last_message = (
+            "Bluetooth recovery: stopping SCOREOS GATT"
+        )
+
+        run_command(
+            [
+                "/usr/bin/systemctl",
+                "stop",
+                "sutton-scoreboard.service",
+            ],
+            timeout=15,
+        )
+
+        time.sleep(1)
+
+        _last_message = (
+            "Bluetooth recovery: restarting BlueZ"
+        )
+
+        output, code = run_command(
+            [
+                "/usr/bin/systemctl",
+                "restart",
+                "bluetooth.service",
+            ],
+            timeout=20,
+        )
+
+        if code != 0:
+            raise RuntimeError(
+                output or "BlueZ restart failed"
+            )
+
+        # Wait for BlueZ itself to become active.
+        bluetooth_ready = False
+
+        for _ in range(15):
+            if service_active("bluetooth.service"):
+                bluetooth_ready = True
+                break
+
+            time.sleep(1)
+
+        if not bluetooth_ready:
+            raise RuntimeError(
+                "Bluetooth service did not become active"
+            )
+
+        _last_message = (
+            "Bluetooth recovery: waiting for adapter"
+        )
+
+        adapter_ready = False
+
+        for _ in range(15):
+            info = adapter_info()
+
+            if info.get("available"):
+                adapter_ready = True
+                break
+
+            time.sleep(1)
+
+        if not adapter_ready:
+            raise RuntimeError(
+                "Bluetooth adapter was not detected"
+            )
+
+        _last_message = (
+            "Bluetooth recovery: starting SCOREOS GATT"
+        )
+
+        output, code = run_command(
+            [
+                "/usr/bin/systemctl",
+                "start",
+                "sutton-scoreboard.service",
+            ],
+            timeout=20,
+        )
+
+        if code != 0:
+            raise RuntimeError(
+                output or "SCOREOS GATT failed to start"
+            )
+
+        gatt_ready = False
+
+        for _ in range(15):
+            if service_active(
+                "sutton-scoreboard.service"
+            ):
+                gatt_ready = True
+                break
+
+            time.sleep(1)
+
+        if not gatt_ready:
+            raise RuntimeError(
+                "SCOREOS GATT service did not become active"
+            )
+
+        _last_message = (
+            "Bluetooth recovery: starting advertising"
+        )
+
+        output, code = run_command(
+            [
+                "/usr/bin/systemctl",
+                "start",
+                "sutton-scoreboard-advert.service",
+            ],
+            timeout=45,
+        )
+
+        if code != 0:
+            raise RuntimeError(
+                output or "Bluetooth advertising failed"
+            )
+
+        advert_ready = False
+
+        for _ in range(10):
+            if service_active(
+                "sutton-scoreboard-advert.service"
+            ):
+                advert_ready = True
+                break
+
+            time.sleep(1)
+
+        if not advert_ready:
+            raise RuntimeError(
+                "Bluetooth advertising service did not become active"
+            )
+
+        _last_message = (
+            "Bluetooth recovered — SCOREOS ready"
+        )
 
     except Exception as exc:
-        _last_message = f"Bluetooth restart error: {exc}"
+        _last_message = (
+            f"Bluetooth recovery failed: {exc}"
+        )
 
 
 def restart_bluetooth():
