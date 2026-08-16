@@ -234,6 +234,28 @@ RSSI_CACHE_SECONDS = 10
 def bluetooth_status():
     bluetooth_service = service_status("bluetooth.service")
     global RSSI_CACHE
+
+    preferred_adapter_mac = "18:69:45:F3:58:B9"
+    preferred_adapter_present = False
+    preferred_adapter_name = None
+
+    bluetooth_root = Path("/sys/class/bluetooth")
+
+    if bluetooth_root.exists():
+        for adapter_path in bluetooth_root.glob("hci*"):
+            try:
+                output = run_command([
+                    "/usr/bin/hciconfig",
+                    adapter_path.name,
+                ])
+
+                if preferred_adapter_mac in output.upper():
+                    preferred_adapter_present = True
+                    preferred_adapter_name = adapter_path.name
+                    break
+
+            except Exception:
+                continue
     advert_service = service_status(
         "sutton-scoreboard-advert.service"
     )
@@ -362,7 +384,14 @@ def bluetooth_status():
         {}
     )
 
+    adapter_status = {
+        "preferred_mac": preferred_adapter_mac,
+        "preferred_present": preferred_adapter_present,
+        "preferred_name": preferred_adapter_name,
+    }
+
     return {
+        "preferred_adapter": adapter_status,
         "service": bluetooth_service,
         "advert_service": advert_service,
         "name": name,

@@ -2315,6 +2315,12 @@
                 systemData?.bluetooth?.connected
             );
 
+            const preferredAdapterPresent = Boolean(
+                systemData?.bluetooth
+                    ?.preferred_adapter
+                    ?.preferred_present
+            );
+
             const lastPacketAge = Number(
                 systemData?.last_update_age ?? 999999
             );
@@ -2368,16 +2374,20 @@
 
             setMatchDayItem(
                 "md-bluetooth",
-                scoreFeedLive
+                !preferredAdapterPresent
+                    ? "danger"
+                    : scoreFeedLive
                     ? "ready"
                     : bluetoothConnected
                     ? "warning"
                     : "warning",
-                scoreFeedLive
+                !preferredAdapterPresent
+                    ? "Field Adapter Not Connected"
+                    : scoreFeedLive
                     ? "Connected"
                     : bluetoothConnected
                     ? "Connected — No Data"
-                    : "Waiting"
+                    : "Waiting for Play-Cricket"
             );
 
             setMatchDayItem(
