@@ -1735,8 +1735,12 @@
             const webReady =
                 services.web === "active";
 
+            const preferredAdapterPresent =
+                bluetooth.preferred_adapter?.preferred_present === true;
+
             const advertisingReady =
-                services.advertisement === "active"
+                preferredAdapterPresent
+                && services.advertisement === "active"
                 && bluetooth.powered === true
                 && bluetooth.advertising === true;
 
@@ -1947,6 +1951,7 @@
             const checks = [
                 ["Scoreboard service", engineReady],
                 ["Web service", webReady],
+                ["Field Bluetooth adapter", preferredAdapterPresent],
                 ["Bluetooth advertising", advertisingReady],
                 ["Arduino", arduinoConnected],
                 ["Score feed", playCricketReady]
@@ -1977,6 +1982,18 @@
                     mode === "manual"
                     ? "Manual scoring ready · camera systems checked below"
                     : "Everything is connected and ready for scoring";
+
+                return;
+            }
+
+            if (!preferredAdapterPresent) {
+                banner.classList.add("error");
+                icon.textContent = "📶";
+                title.textContent =
+                    "FIELD ADAPTER NOT CONNECTED";
+
+                detail.textContent =
+                    "Connect the SCOREOS USB Bluetooth adapter";
 
                 return;
             }
