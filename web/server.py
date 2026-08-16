@@ -495,6 +495,18 @@ def read_diagnostics():
 
 
 def admin_action(action):
+    # Use the same safe Bluetooth recovery routine as
+    # Ground Control so both interfaces behave identically.
+    if action == "restart_bluetooth":
+        result = bluetooth_manager.restart_bluetooth()
+
+        return (
+            bool(result.get("ok")),
+            result.get("message")
+            or result.get("error")
+            or "Bluetooth recovery started",
+        )
+
     commands = {
         "restart_scoreboard": [
             "/usr/bin/sudo",
@@ -507,12 +519,6 @@ def admin_action(action):
             "/usr/bin/systemctl",
             "restart",
             "scoreos-web.service",
-        ],
-        "restart_bluetooth": [
-            "/usr/bin/sudo",
-            "/usr/bin/systemctl",
-            "restart",
-            "bluetooth.service",
         ],
         "restart_advertising": [
             "/usr/bin/sudo",
