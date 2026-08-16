@@ -507,6 +507,49 @@ def admin_action(action):
             or "Bluetooth recovery started",
         )
 
+    if action == "restart_camera":
+        camera_state = camera_manager.status()
+
+        if camera_state.get("recording"):
+            return (
+                False,
+                "Camera restart blocked while match recording is active.",
+            )
+
+        result = subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "restart",
+                "scoreos-camera-buffer.service",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return (
+                False,
+                result.stderr.strip()
+                or "Unable to restart camera buffer.",
+            )
+
+        time.sleep(4)
+
+        stream_test = camera_manager.test_stream()
+
+        if not stream_test.get("ok"):
+            return (
+                False,
+                stream_test.get("error")
+                or "Camera stream did not recover.",
+            )
+
+        return (
+            True,
+            "Camera recovered and stream verified.",
+        )
+
     commands = {
         "restart_scoreboard": [
             "/usr/bin/sudo",
