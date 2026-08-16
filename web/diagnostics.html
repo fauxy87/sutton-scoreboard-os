@@ -204,6 +204,21 @@ main {
   background: var(--red);
 }
 
+pre {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 7px;
+  background: #101512;
+  color: #d7f4df;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 footer {
   margin-top: 24px;
   padding: 15px;
@@ -400,6 +415,97 @@ footer {
       </div>
     </div>
   </section>
+
+  <h2 class="section-title">Maintenance</h2>
+
+  <section class="grid">
+    <div class="card">
+      <div class="card-header">Diagnostics Tools</div>
+
+      <div class="card-body">
+        <button
+          id="refreshLogs"
+          type="button"
+          style="
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 0;
+            border-radius: 8px;
+            background: var(--green);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+          "
+        >
+          🔄 Refresh Logs
+        </button>
+
+        <a
+          href="/api/diagnostics/report"
+          style="
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--green-dark);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            font-weight: bold;
+          "
+        >
+          📥 Download Diagnostics Report
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <h2 class="section-title">Recent Logs</h2>
+
+  <section class="grid">
+    <div class="card">
+      <div class="card-header">Scoreboard</div>
+      <div class="card-body">
+        <pre id="log-scoreboard">Loading…</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Bluetooth Watchdog</div>
+      <div class="card-body">
+        <pre id="log-bluetooth-watchdog">Loading…</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Camera Buffer</div>
+      <div class="card-body">
+        <pre id="log-camera-buffer">Loading…</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Camera Recorder</div>
+      <div class="card-body">
+        <pre id="log-camera-recorder">Loading…</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Highlights</div>
+      <div class="card-body">
+        <pre id="log-highlights">Loading…</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Web Server</div>
+      <div class="card-body">
+        <pre id="log-web">Loading…</pre>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -424,6 +530,78 @@ function setText(id, value, fallback = "—") {
 function statusText(value) {
   return value === "active" ? "Running" : value || "Unknown";
 }
+
+async function refreshLogs() {
+  const mapping = {
+    scoreboard: "log-scoreboard",
+    bluetooth_watchdog:
+      "log-bluetooth-watchdog",
+    camera_buffer:
+      "log-camera-buffer",
+    camera_recorder:
+      "log-camera-recorder",
+    highlights:
+      "log-highlights",
+    web:
+      "log-web"
+  };
+
+  try {
+    const response = await fetch(
+      "/api/diagnostics/logs",
+      {
+        cache: "no-store"
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Logs API returned "
+        + response.status
+      );
+    }
+
+    const data = await response.json();
+    const logs = data.logs || {};
+
+    for (
+      const [key, elementId]
+      of Object.entries(mapping)
+    ) {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (!element) {
+        continue;
+      }
+
+      element.textContent =
+        logs[key]
+        || "No recent log entries.";
+    }
+
+  } catch (error) {
+    console.error(error);
+
+    for (
+      const elementId
+      of Object.values(mapping)
+    ) {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          "Unable to load logs.";
+      }
+    }
+  }
+}
+
 
 async function refreshDiagnostics() {
   try {
@@ -578,7 +756,16 @@ async function refreshDiagnostics() {
   }
 }
 
+document
+  .getElementById("refreshLogs")
+  .addEventListener(
+    "click",
+    refreshLogs
+  );
+
 refreshDiagnostics();
+refreshLogs();
+
 setInterval(refreshDiagnostics, 2000);
 </script>
 </body>

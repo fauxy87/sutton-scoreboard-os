@@ -507,6 +507,120 @@ def system_snapshot():
         ),
     }
 
+def redact_diagnostics_text(text):
+    """Remove credentials before logs reach the browser."""
+    text = str(text or "")
+
+    # Redact passwords embedded in RTSP URLs.
+    text = re.sub(
+        r"(rtsp://[^:@\\s/]+:)[^@\\s/]+(@)",
+        r"\\1********\\2",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    # Redact common password-style fields.
+    text = re.sub(
+        r'("password"\\s*:\\s*")[^"]*(")',
+        r'\\1********\\2',
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    return text
+
+
+def diagnostic_service_log(service_name, lines=80):
+    try:
+        result = subprocess.run(
+            [
+                "/usr/bin/journalctl",
+                "-u",
+                service_name,
+                "-n",
+                str(lines),
+                "--no-pager",
+                "--output=short-iso",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+
+        return redact_diagnostics_text(
+            result.stdout.strip()
+        )
+
+    except Exception as exc:
+        return (
+            "Unable to read log: "
+            + str(exc)
+        )
+
+
+def diagnostic_logs():
+    services = {
+        "scoreboard": "sutton-scoreboard.service",
+        "bluetooth_watchdog":
+            "scoreos-bluetooth-watchdog.service",
+        "camera_buffer":
+            "scoreos-camera-buffer.service",
+        "camera_recorder":
+            "scoreos-camera-recorder.service",
+        "highlights":
+            "scoreos-highlight-worker.service",
+        "web": "scoreos-web.service",
+    }
+
+    return {
+        key: diagnostic_service_log(service)
+        for key, service in services.items()
+    }
+
+
+def diagnostic_report():
+    system_data = system_snapshot()
+    camera_data = camera_manager.status()
+
+    match_file = Path(
+        "/var/lib/scoreos/current-match.json"
+    )
+
+    match_session = None
+
+    if match_file.exists():
+        try:
+            match_session = json.loads(
+                match_file.read_text(
+                    encoding="utf-8"
+                )
+            )
+        except Exception as exc:
+            match_session = {
+                "error": str(exc)
+            }
+
+    report = {
+        "generated_at": time.strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        ),
+        "system": system_data,
+        "camera": camera_data,
+        "match_session": match_session,
+        "logs": diagnostic_logs(),
+    }
+
+    return redact_diagnostics_text(
+        json.dumps(
+            report,
+            indent=2,
+            default=str,
+        )
+    )
+
+
 def read_diagnostics():
     try:
         data = json.loads(
@@ -680,6 +794,45 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
         if path == "/api/system":
             self.send_json(system_snapshot())
+            return
+
+        if path == "/api/diagnostics/logs":
+            self.send_json(
+                {
+                    "ok": True,
+                    "logs": diagnostic_logs(),
+                }
+            )
+            return
+
+        if path == "/api/diagnostics/report":
+            report = diagnostic_report()
+            payload = report.encode("utf-8")
+
+            filename = (
+                "scoreos-diagnostics-"
+                + time.strftime("%Y%m%d-%H%M%S")
+                + ".txt"
+            )
+
+            self.send_response(200)
+            self.send_header(
+                "Content-Type",
+                "text/plain; charset=utf-8",
+            )
+            self.send_header(
+                "Content-Disposition",
+                'attachment; filename="'
+                + filename
+                + '"',
+            )
+            self.send_header(
+                "Content-Length",
+                str(len(payload)),
+            )
+            self.end_headers()
+
+            self.wfile.write(payload)
             return
 
         if path == "/api/camera/status":
