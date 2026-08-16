@@ -392,6 +392,42 @@ class ScoreboardEngine:
                 if value not in ("manual", "playcricket"):
                     raise ValueError("Invalid mode")
 
+                previous_mode = self.mode
+
+                # If the first innings has been scored manually
+                # and we now hand over to Play-Cricket for the
+                # chase, preserve the first-innings total as the
+                # target before Play-Cricket packets arrive.
+                if (
+                    previous_mode == "manual"
+                    and value == "playcricket"
+                ):
+                    first_innings_total = number(
+                        self.state.total
+                    )
+
+                    if (
+                        first_innings_total > 0
+                        and number(self.state.target) <= 0
+                    ):
+                        target = min(
+                            999,
+                            first_innings_total + 1,
+                        )
+
+                        self.state.update(
+                            "target",
+                            padded(target, 3),
+                        )
+
+                        self.calculate_runs_required()
+
+                        print(
+                            "SCOREOS INNINGS TARGET:",
+                            target,
+                            "from manual first innings",
+                        )
+
                 self.mode = value
                 print("Control mode:", self.mode)
                 self.write_state_json()
@@ -399,6 +435,7 @@ class ScoreboardEngine:
                 return {
                     "ok": True,
                     "mode": self.mode,
+                    "state": self.state.snapshot(),
                 }
 
             if self.mode != "manual":
