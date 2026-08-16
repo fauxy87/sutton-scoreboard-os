@@ -637,6 +637,199 @@ def read_diagnostics():
 
 
 
+def fix_scoreos():
+    """
+    Repair common SCOREOS match-day faults without
+    unnecessarily restarting healthy components.
+    """
+    actions = []
+    warnings = []
+    failed = []
+
+    system_data = system_snapshot()
+    camera_data = camera_manager.status()
+
+    services = system_data.get(
+        "services",
+        {}
+    )
+
+    bluetooth = system_data.get(
+        "bluetooth",
+        {}
+    )
+
+    preferred_adapter_present = bool(
+        bluetooth.get(
+            "preferred_adapter",
+            {}
+        ).get(
+            "preferred_present"
+        )
+    )
+
+    # Scoreboard engine
+    if services.get("scoreboard") != "active":
+        ok, message = admin_action(
+            "restart_scoreboard"
+        )
+
+        if ok:
+            actions.append(
+                "Scoreboard restarted"
+            )
+        else:
+            failed.append(
+                "Scoreboard: " + message
+            )
+
+    # Bluetooth
+    #
+    # If the preferred USB adapter is physically absent,
+    # restarting services cannot fix it.
+    if not preferred_adapter_present:
+        warnings.append(
+            "Connect the SCOREOS USB Bluetooth adapter"
+        )
+
+    else:
+        bluetooth_ready = bool(
+            services.get("advertisement") == "active"
+            and bluetooth.get("powered") is True
+            and bluetooth.get("advertising") is True
+        )
+
+        if not bluetooth_ready:
+            ok, message = admin_action(
+                "restart_bluetooth"
+            )
+
+            if ok:
+                actions.append(
+                    "Bluetooth recovered"
+                )
+            else:
+                failed.append(
+                    "Bluetooth: " + message
+                )
+
+    # Highlight worker
+    if (
+        services.get("highlight_worker") != "active"
+        and not camera_data.get(
+            "highlight_worker"
+        )
+    ):
+        ok, message = admin_action(
+            "restart_highlights"
+        )
+
+        if ok:
+            actions.append(
+                "Highlights restarted"
+            )
+        else:
+            failed.append(
+                "Highlights: " + message
+            )
+
+    # Camera
+    camera_live = bool(
+        camera_data.get("video_live")
+    )
+
+    recording = bool(
+        camera_data.get("recording")
+    )
+
+    if not camera_live:
+        if recording:
+            warnings.append(
+                "Camera video problem detected, but automatic "
+                "restart was blocked because match recording "
+                "is active"
+            )
+
+        elif not camera_data.get("configured"):
+            warnings.append(
+                "Camera is not configured"
+            )
+
+        elif not camera_data.get("connected"):
+            # Try recovery anyway. The camera may have just
+            # dropped off the network.
+            ok, message = admin_action(
+                "restart_camera"
+            )
+
+            if ok:
+                actions.append(
+                    "Camera recovered"
+                )
+            else:
+                warnings.append(
+                    "Camera offline — check camera power "
+                    "and network connection"
+                )
+
+        else:
+            ok, message = admin_action(
+                "restart_camera"
+            )
+
+            if ok:
+                actions.append(
+                    "Camera stream recovered"
+                )
+            else:
+                failed.append(
+                    "Camera: " + message
+                )
+
+    if failed:
+        return {
+            "ok": False,
+            "status": "attention",
+            "actions": actions,
+            "warnings": warnings,
+            "failed": failed,
+            "message":
+                "SCOREOS repair completed with errors",
+        }
+
+    if warnings:
+        return {
+            "ok": True,
+            "status": "attention",
+            "actions": actions,
+            "warnings": warnings,
+            "failed": [],
+            "message":
+                "SCOREOS checked — attention still required",
+        }
+
+    if actions:
+        return {
+            "ok": True,
+            "status": "fixed",
+            "actions": actions,
+            "warnings": [],
+            "failed": [],
+            "message":
+                "SCOREOS recovery completed",
+        }
+
+    return {
+        "ok": True,
+        "status": "ready",
+        "actions": [],
+        "warnings": [],
+        "failed": [],
+        "message":
+            "SCOREOS is already healthy — no repairs needed",
+    }
+
+
 def admin_action(action):
     # Use the same safe Bluetooth recovery routine as
     # Ground Control so both interfaces behave identically.
@@ -3059,8 +3252,26 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/admin":
+            action = request.get(
+                "action",
+                ""
+            )
+
+            if action == "fix_scoreos":
+                result = fix_scoreos()
+
+                self.send_json(
+                    result,
+                    status=(
+                        200
+                        if result.get("ok")
+                        else 400
+                    ),
+                )
+                return
+
             success, message = admin_action(
-                request.get("action", "")
+                action
             )
 
             self.send_json(

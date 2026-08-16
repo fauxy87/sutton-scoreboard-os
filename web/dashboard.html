@@ -1065,7 +1065,32 @@
                 <h2>Quick Actions</h2>
             </div>
 
-            <div style="margin-bottom: 14px;">
+            <div
+                style="
+                    display: grid;
+                    grid-template-columns:
+                        repeat(auto-fit, minmax(240px, 1fr));
+                    gap: 10px;
+                    margin-bottom: 14px;
+                "
+            >
+                <button
+                    id="fix-scoreos"
+                    class="action"
+                    type="button"
+                >
+                    <span class="action-icon">🛠️</span>
+                    <span class="action-title">
+                        Fix SCOREOS
+                    </span>
+                    <span
+                        id="fix-scoreos-result"
+                        class="action-subtitle"
+                    >
+                        Automatically repair common faults
+                    </span>
+                </button>
+
                 <button
                     id="run-match-day-check"
                     class="action"
@@ -2699,6 +2724,152 @@
                 summary.className =
                     "match-day-summary warning";
             }
+        }
+
+
+        async function fixScoreos() {
+            const button =
+                $("fix-scoreos");
+
+            const resultElement =
+                $("fix-scoreos-result");
+
+            if (!button || !resultElement) {
+                return;
+            }
+
+            button.disabled = true;
+
+            const title =
+                button.querySelector(
+                    ".action-title"
+                );
+
+            const originalTitle =
+                title.textContent;
+
+            title.textContent =
+                "Checking…";
+
+            resultElement.textContent =
+                "Checking and repairing SCOREOS…";
+
+            try {
+                const response = await fetch(
+                    "/api/admin",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+                        body: JSON.stringify({
+                            action: "fix_scoreos"
+                        })
+                    }
+                );
+
+                const payload =
+                    await response.json();
+
+                const actions =
+                    payload.actions || [];
+
+                const warnings =
+                    payload.warnings || [];
+
+                const failed =
+                    payload.failed || [];
+
+                if (
+                    !response.ok
+                    || payload.ok === false
+                ) {
+                    const details = [
+                        ...failed,
+                        ...warnings
+                    ];
+
+                    resultElement.textContent =
+                        "❌ "
+                        + (
+                            details.join(" · ")
+                            || payload.message
+                            || "Repair failed"
+                        );
+
+                    showMessage(
+                        payload.message
+                        || "SCOREOS repair failed"
+                    );
+
+                    return;
+                }
+
+                if (payload.status === "ready") {
+                    resultElement.textContent =
+                        "✅ No repairs needed";
+
+                } else if (
+                    payload.status === "fixed"
+                ) {
+                    resultElement.textContent =
+                        "✅ "
+                        + (
+                            actions.join(" · ")
+                            || "SCOREOS repaired"
+                        );
+
+                } else {
+                    resultElement.textContent =
+                        "⚠️ "
+                        + (
+                            warnings.join(" · ")
+                            || "Attention required"
+                        );
+                }
+
+                showMessage(
+                    payload.message
+                    || "SCOREOS check completed"
+                );
+
+                setTimeout(
+                    refreshDashboard,
+                    2500
+                );
+
+            } catch (error) {
+                resultElement.textContent =
+                    "❌ "
+                    + error.message;
+
+                showMessage(
+                    "Fix SCOREOS failed: "
+                    + error.message
+                );
+
+            } finally {
+                setTimeout(
+                    () => {
+                        button.disabled = false;
+                        title.textContent =
+                            originalTitle;
+                    },
+                    1500
+                );
+            }
+        }
+
+
+        const fixScoreosButton =
+            $("fix-scoreos");
+
+        if (fixScoreosButton) {
+            fixScoreosButton.addEventListener(
+                "click",
+                fixScoreos
+            );
         }
 
 
