@@ -7,9 +7,11 @@ Wants=network-online.target
 Type=simple
 User={{USER}}
 WorkingDirectory={{INSTALL_DIR}}
+ExecStartPre=/usr/bin/python3 -u {{INSTALL_DIR}}/scripts/wait_for_camera.py
 ExecStart=/usr/bin/python3 -u {{INSTALL_DIR}}/scripts/camera_buffer.py
 Restart=always
 RestartSec=5
+TimeoutStartSec=120
 
 [Install]
 WantedBy=multi-user.target
