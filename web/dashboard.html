@@ -2764,6 +2764,9 @@
             const cameraLive =
                 cameraData?.video_live === true;
 
+            const cameraStarting =
+                cameraData?.camera_starting === true;
+
             const bufferReady = Boolean(
                 cameraData?.buffer_service
                 && cameraData?.buffering
@@ -2838,14 +2841,26 @@
             }
 
             if (!cameraLive) {
-                guide.classList.add("danger");
-                icon.textContent = "📷";
-                title.textContent =
-                    "Step 3 — Connect camera";
+                if (cameraStarting) {
+                    guide.classList.add("warning");
+                    icon.textContent = "📷";
+                    title.textContent =
+                        "Step 3 — Camera starting";
 
-                detail.textContent =
-                    "Turn on the camera and check its network "
-                    + "connection, then press Fix SCOREOS.";
+                    detail.textContent =
+                        "Camera is reachable. Waiting for the "
+                        + "RTSP video stream to become ready.";
+
+                } else {
+                    guide.classList.add("danger");
+                    icon.textContent = "📷";
+                    title.textContent =
+                        "Step 3 — Connect camera";
+
+                    detail.textContent =
+                        "Turn on the camera and check its network "
+                        + "connection, then press Fix SCOREOS.";
+                }
 
                 return;
             }
@@ -2957,15 +2972,21 @@
                 cameraData?.connected
             );
 
+            const cameraStarting = Boolean(
+                cameraData?.camera_starting
+            );
+
             setMatchDayItem(
                 "md-camera",
                 cameraLive
                     ? "ready"
-                    : cameraReachable
-                    ? "danger"
+                    : cameraStarting
+                    ? "warning"
                     : "danger",
                 cameraLive
                     ? "Live"
+                    : cameraStarting
+                    ? "Starting"
                     : cameraReachable
                     ? "Stream Stalled"
                     : "Offline"

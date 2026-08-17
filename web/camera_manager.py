@@ -10,6 +10,9 @@ from urllib.parse import quote
 
 CAMERA_CONFIG = Path("/etc/scoreos/camera.json")
 
+CAMERA_START_GRACE_SECONDS = 45
+CAMERA_REACHABLE_SINCE = None
+
 DEFAULT_CAMERA = {
     "enabled": False,
     "name": "Reolink Camera",
@@ -60,6 +63,8 @@ def save(settings):
 
 
 def status():
+    global CAMERA_REACHABLE_SINCE
+
     camera = load()
 
     configured = bool(
@@ -84,6 +89,21 @@ def status():
 
         except OSError as exc:
             error = str(exc)
+
+    if reachable:
+        if CAMERA_REACHABLE_SINCE is None:
+            CAMERA_REACHABLE_SINCE = time.time()
+    else:
+        CAMERA_REACHABLE_SINCE = None
+
+    camera_starting = bool(
+        reachable
+        and CAMERA_REACHABLE_SINCE is not None
+        and (
+            time.time()
+            - CAMERA_REACHABLE_SINCE
+        ) < CAMERA_START_GRACE_SECONDS
+    )
 
     def service_active(name):
         result = subprocess.run(
@@ -247,10 +267,12 @@ def status():
         state = "offline"
     elif recording:
         state = "recording"
-    elif recorder_service:
-        state = "reconnecting"
     elif buffering:
         state = "ready"
+    elif camera_starting:
+        state = "starting"
+    elif recorder_service:
+        state = "reconnecting"
     else:
         state = "stalled"
 
@@ -267,6 +289,8 @@ def status():
         "recording": recording,
         "video_live": video_live,
         "video_stalled": video_stalled,
+        "camera_starting": camera_starting,
+        "startup_grace_seconds": CAMERA_START_GRACE_SECONDS,
         "recorder_service": recorder_service,
         "buffer_service": buffer_service,
         "buffering": buffering,
