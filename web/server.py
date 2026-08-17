@@ -1555,9 +1555,25 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         stat.st_mtime,
                     )
 
+                    browser_clip = (
+                        clip.parent
+                        / "full-match-browser.mp4"
+                    )
+
+                    browser_size = 0
+
+                    if browser_clip.exists():
+                        try:
+                            browser_size = (
+                                browser_clip.stat().st_size
+                            )
+                        except OSError:
+                            browser_size = 0
+
                     match["full_match"] = {
                         "filename": clip.name,
                         "size_bytes": stat.st_size,
+                        "browser_size_bytes": browser_size,
                         "modified": stat.st_mtime,
                         "session_id": session_id,
                         "video_url": (
@@ -1633,10 +1649,18 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 full_match_bytes = 0
 
                 if match.get("full_match"):
-                    full_match_bytes = int(
-                        match["full_match"].get(
-                            "size_bytes",
-                            0,
+                    full_match_bytes = (
+                        int(
+                            match["full_match"].get(
+                                "size_bytes",
+                                0,
+                            )
+                        )
+                        + int(
+                            match["full_match"].get(
+                                "browser_size_bytes",
+                                0,
+                            )
                         )
                     )
 
@@ -1920,25 +1944,48 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 self.send_error(400, "Invalid recording")
                 return
 
-            matches = list(
+            is_download = path.startswith(
+                "/recordings/download/"
+            )
+
+            master_matches = list(
                 recording_root.rglob(
                     f"{session_id}/full/full-match.mp4"
                 )
             )
 
-            if not matches:
+            if not master_matches:
                 self.send_error(
                     404,
                     "Full match not found",
                 )
                 return
 
-            clip = matches[0]
-            file_size = clip.stat().st_size
+            master_clip = master_matches[0]
 
-            is_download = path.startswith(
-                "/recordings/download/"
-            )
+            if is_download:
+                # Downloads always receive the original
+                # high-quality 4K HEVC master.
+                clip = master_clip
+
+            else:
+                # Browser playback prefers the 1080p H.264
+                # compatibility copy when available.
+                browser_clip = (
+                    master_clip.parent
+                    / "full-match-browser.mp4"
+                )
+
+                clip = (
+                    browser_clip
+                    if (
+                        browser_clip.exists()
+                        and browser_clip.stat().st_size > 0
+                    )
+                    else master_clip
+                )
+
+            file_size = clip.stat().st_size
 
             range_header = self.headers.get("Range")
             start_byte = 0
@@ -2611,16 +2658,31 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             deleted = False
 
             for folder in matches:
+                full_folder = (
+                    folder / "full"
+                )
+
                 full_match = (
-                    folder
-                    / "full"
+                    full_folder
                     / "full-match.mp4"
                 )
 
-                if full_match.exists():
+                browser_match = (
+                    full_folder
+                    / "full-match-browser.mp4"
+                )
+
+                for clip in (
+                    full_match,
+                    browser_match,
+                ):
+                    if not clip.exists():
+                        continue
+
                     try:
-                        full_match.unlink()
+                        clip.unlink()
                         deleted = True
+
                     except OSError as exc:
                         self.send_json(
                             {

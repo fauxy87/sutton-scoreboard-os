@@ -165,6 +165,79 @@ def main():
         return 3
 
 
+    browser_destination = (
+        session_folder
+        / "full-match-browser.mp4"
+    )
+
+    browser_command = [
+        "/usr/bin/ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-i",
+        str(destination),
+        "-map",
+        "0:v:0",
+        "-vf",
+        "scale=1920:1080",
+        "-c:v",
+        "h264_v4l2m2m",
+        "-b:v",
+        "4M",
+        "-movflags",
+        "+faststart",
+        "-y",
+        str(browser_destination),
+    ]
+
+    log(
+        "Building 1080p H.264 browser playback copy"
+    )
+
+    try:
+        browser_result = subprocess.run(
+            browser_command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=3600,
+        )
+
+    except subprocess.TimeoutExpired:
+        browser_result = None
+
+        log(
+            "Browser playback build timed out; "
+            "4K master kept"
+        )
+
+    if (
+        browser_result is not None
+        and browser_result.returncode == 0
+        and browser_destination.exists()
+        and browser_destination.stat().st_size > 0
+    ):
+        log(
+            "Browser playback copy ready: "
+            f"{browser_destination}"
+        )
+
+    else:
+        browser_destination.unlink(
+            missing_ok=True
+        )
+
+        if browser_result is not None:
+            log(
+                "Unable to build browser playback copy: "
+                + (
+                    browser_result.stderr.strip()
+                    or "FFmpeg failed"
+                )
+            )
+
+
     deleted = 0
 
     deleted_bytes = 0
