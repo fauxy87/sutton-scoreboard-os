@@ -4,6 +4,22 @@ install_services() {
 
     info "Installing SCOREOS services..."
 
+    SCOREOS_GROUP="$(id -gn "$SCOREOS_USER")"
+
+    info "Creating SCOREOS runtime directories..."
+
+    sudo install -d \
+        -o "$SCOREOS_USER" \
+        -g "$SCOREOS_GROUP" \
+        -m 0775 \
+        /run/scoreos \
+        /var/lib/scoreos \
+        /var/lib/scoreos/logs \
+        /var/lib/scoreos/recordings \
+        /var/lib/scoreos/highlights \
+        /var/lib/scoreos/camera-buffer \
+        /var/lib/scoreos/events
+
     if [[ ! -d services ]]; then
         error "The 'services' directory was not found."
         exit 1
