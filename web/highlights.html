@@ -124,6 +124,106 @@ main {
     font-weight: 800;
 }
 
+/* Match library */
+
+.match-library {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.match-library-card {
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+    cursor: pointer;
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.match-library-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+}
+
+.match-library-title {
+    font-size: 21px;
+    font-weight: 900;
+}
+
+.match-library-date {
+    margin-top: 6px;
+    color: var(--muted);
+}
+
+.match-library-storage {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.match-library-open {
+    margin-top: 16px;
+    color: var(--accent);
+    font-weight: 900;
+}
+
+.match-browser-back {
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    background: var(--panel);
+    color: var(--text);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.match-choice-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.match-choice {
+    min-height: 120px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel2);
+    color: var(--text);
+    text-decoration: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.match-choice:hover {
+    border-color: var(--accent);
+}
+
+.match-choice-icon {
+    font-size: 28px;
+    margin-bottom: 9px;
+}
+
+.match-choice-title {
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.match-choice-detail {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
 .match-section {
     margin-bottom: 34px;
     padding: 20px;
@@ -736,6 +836,8 @@ let matches = [];
 let unassigned = [];
 let storage = null;
 let currentFilter = "ALL";
+let selectedMatchId = null;
+let selectedMatchView = null;
 let matchRecording = false;
 let matchDayReady = false;
 
@@ -998,143 +1100,133 @@ function matchTitle(match) {
 }
 
 
-function render() {
-    const content = document.getElementById(
-        "content"
-    );
+function openMatch(sessionId) {
+    selectedMatchId = sessionId;
+    selectedMatchView = null;
+    render();
+}
 
-    const matchSections = matches.map(match => {
-        const filtered = (
-            match.highlights || []
-        ).filter(
-            item =>
-                currentFilter === "ALL"
-                || item.event_type === currentFilter
-        );
 
-        const hasMatchVideo = Boolean(
+function closeMatch() {
+    selectedMatchId = null;
+    selectedMatchView = null;
+    render();
+}
+
+
+function showMatchView(view) {
+    selectedMatchView = view;
+    render();
+}
+
+
+function renderMatchLibrary(content) {
+    const availableMatches = matches.filter(
+        match =>
             match.full_match
             || match.match_highlights
+            || (match.highlights || []).length
+    );
+
+    document.getElementById(
+        "summary"
+    ).textContent =
+        availableMatches.length
+        + (
+            availableMatches.length === 1
+            ? " saved match"
+            : " saved matches"
         );
 
-        if (
-            !hasMatchVideo
-            && !filtered.length
-        ) {
-            return "";
-        }
+    if (!availableMatches.length) {
+        content.innerHTML = `
+            <div class="empty">
+                No saved matches found.
+            </div>
+        `;
+        return;
+    }
 
-        return `
+    content.innerHTML = `
+        <div class="match-library">
+            ${availableMatches.map(match => `
+                <article
+                    class="match-library-card"
+                    onclick="openMatch('${match.session_id}')"
+                >
+                    <div class="match-library-title">
+                        ${matchTitle(match)}
+                    </div>
+
+                    <div class="match-library-storage">
+                        ${formatBytes(
+                            match.storage?.total_bytes
+                        )}
+                        total
+                        •
+                        ${(match.highlights || []).length}
+                        ${
+                            (match.highlights || []).length === 1
+                            ? "individual highlight"
+                            : "individual highlights"
+                        }
+                    </div>
+
+                    <div class="match-library-open">
+                        Open Match →
+                    </div>
+                </article>
+            `).join("")}
+        </div>
+    `;
+}
+
+
+function renderSelectedMatch(
+    content,
+    match
+) {
+    const individualHighlights =
+        match.highlights || [];
+
+    document.getElementById(
+        "summary"
+    ).textContent =
+        matchTitle(match);
+
+    if (selectedMatchView === "individual") {
+        const filtered =
+            individualHighlights.filter(
+                item =>
+                    currentFilter === "ALL"
+                    || item.event_type === currentFilter
+            );
+
+        content.innerHTML = `
+            <button
+                class="match-browser-back"
+                type="button"
+                onclick="showMatchView(null)"
+            >
+                ← Back to Match
+            </button>
+
             <section class="match-section">
-
                 <div class="match-section-header">
                     <div>
                         <div class="match-section-title">
-                            ${matchTitle(match)}
+                            Individual Highlights
                         </div>
 
                         <div class="match-section-subtitle">
                             ${filtered.length}
                             ${
                                 filtered.length === 1
-                                ? " highlight"
-                                : " highlights"
+                                ? " clip"
+                                : " clips"
                             }
                         </div>
-
-                        <div class="match-storage">
-                            Full Match:
-                            ${
-                                Number(
-                                    match.storage?.full_match_bytes || 0
-                                ) > 0
-                                ? formatBytes(
-                                    match.storage?.full_match_bytes
-                                )
-                                : "Deleted"
-                            }
-                            • Highlights:
-                            ${formatBytes(
-                                match.storage?.highlight_bytes
-                            )}
-                            • Total:
-                            <strong>
-                                ${formatBytes(
-                                    match.storage?.total_bytes
-                                )}
-                            </strong>
-                        </div>
                     </div>
-
-                    <div class="match-manage-actions">
-                        <button
-                            class="rename-match-button"
-                            type="button"
-                            onclick="renameMatch('${match.session_id}')"
-                        >
-                            ✏️ Rename Match
-                        </button>
-
-                        <button
-                            class="delete-match-button"
-                            type="button"
-                            onclick="deleteMatch('${match.session_id}')"
-                        >
-                            🗑 Delete Match
-                        </button>
-                    </div>
-                </div>
-
-                <div class="match-quick-actions">
-                    ${
-                        match.full_match
-                        ? `
-                            <a
-                                class="play"
-                                href="${match.full_match.video_url}"
-                                target="_blank"
-                            >
-                                ▶ Play Full Match
-                            </a>
-
-                            <a
-                                class="download"
-                                href="${match.full_match.download_url}"
-                            >
-                                ⬇ Download Full Match
-                            </a>
-
-                            <button
-                                class="delete-full-button"
-                                type="button"
-                                onclick="deleteFullMatch('${match.session_id}')"
-                            >
-                                🗑 Delete Full Match
-                            </button>
-                        `
-                        : ""
-                    }
-
-                    ${
-                        match.match_highlights
-                        ? `
-                            <a
-                                class="play"
-                                href="${match.match_highlights.video_url}"
-                                target="_blank"
-                            >
-                                ▶ Play Highlights
-                            </a>
-
-                            <a
-                                class="download"
-                                href="${match.match_highlights.download_url}"
-                            >
-                                ⬇ Download Highlights
-                            </a>
-                        `
-                        : ""
-                    }
                 </div>
 
                 ${
@@ -1146,53 +1238,222 @@ function render() {
                             ).join("")}
                         </div>
                     `
+                    : `
+                        <div class="empty">
+                            No highlights in this category.
+                        </div>
+                    `
+                }
+            </section>
+        `;
+
+        return;
+    }
+
+    content.innerHTML = `
+        <button
+            class="match-browser-back"
+            type="button"
+            onclick="closeMatch()"
+        >
+            ← All Matches
+        </button>
+
+        <section class="match-section">
+
+            <div class="match-section-header">
+                <div>
+                    <div class="match-section-title">
+                        ${matchTitle(match)}
+                    </div>
+
+                    <div class="match-storage">
+                        Full Match:
+                        ${
+                            Number(
+                                match.storage?.full_match_bytes || 0
+                            ) > 0
+                            ? formatBytes(
+                                match.storage?.full_match_bytes
+                            )
+                            : "Deleted"
+                        }
+                        • Highlights:
+                        ${formatBytes(
+                            match.storage?.highlight_bytes
+                        )}
+                        • Total:
+                        <strong>
+                            ${formatBytes(
+                                match.storage?.total_bytes
+                            )}
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="match-manage-actions">
+                    <button
+                        class="rename-match-button"
+                        type="button"
+                        onclick="renameMatch('${match.session_id}')"
+                    >
+                        ✏️ Rename Match
+                    </button>
+
+                    <button
+                        class="delete-match-button"
+                        type="button"
+                        onclick="deleteMatch('${match.session_id}')"
+                    >
+                        🗑 Delete Match
+                    </button>
+                </div>
+            </div>
+
+            <div class="match-choice-grid">
+
+                ${
+                    match.full_match
+                    ? `
+                        <a
+                            class="match-choice"
+                            href="${match.full_match.video_url}"
+                            target="_blank"
+                        >
+                            <div class="match-choice-icon">
+                                ▶
+                            </div>
+
+                            <div class="match-choice-title">
+                                Full Match
+                            </div>
+
+                            <div class="match-choice-detail">
+                                Play browser version
+                            </div>
+                        </a>
+                    `
                     : ""
                 }
 
-            </section>
-        `;
-    }).join("");
+                ${
+                    match.match_highlights
+                    ? `
+                        <a
+                            class="match-choice"
+                            href="${match.match_highlights.video_url}"
+                            target="_blank"
+                        >
+                            <div class="match-choice-icon">
+                                🎬
+                            </div>
 
-    const total =
-        matches.reduce(
-            (count, match) =>
-                count
-                + (match.highlights || []).filter(
-                    item =>
-                        currentFilter === "ALL"
-                        || item.event_type === currentFilter
-                ).length,
-            0
-        )
-;
+                            <div class="match-choice-title">
+                                Match Highlights
+                            </div>
 
-    document.getElementById(
-        "summary"
-    ).textContent =
-        matches.length
-        + (
-            matches.length === 1
-            ? " match"
-            : " matches"
-        )
-        + " • "
-        + total
-        + (
-            total === 1
-            ? " highlight"
-            : " highlights"
-        );
+                            <div class="match-choice-detail">
+                                Play combined highlights
+                            </div>
+                        </a>
+                    `
+                    : ""
+                }
 
-    content.innerHTML =
-        matchSections;
+                ${
+                    individualHighlights.length
+                    ? `
+                        <button
+                            class="match-choice"
+                            type="button"
+                            onclick="showMatchView('individual')"
+                        >
+                            <div class="match-choice-icon">
+                                ⭐
+                            </div>
 
-    if (!content.innerHTML.trim()) {
-        content.innerHTML = `
-            <div class="empty">
-                No highlights found.
+                            <div class="match-choice-title">
+                                Individual Highlights
+                            </div>
+
+                            <div class="match-choice-detail">
+                                ${individualHighlights.length}
+                                clips
+                            </div>
+                        </button>
+                    `
+                    : ""
+                }
+
             </div>
-        `;
+
+            <div class="match-quick-actions">
+                ${
+                    match.full_match
+                    ? `
+                        <a
+                            class="download"
+                            href="${match.full_match.download_url}"
+                        >
+                            ⬇ Download Full Match
+                        </a>
+
+                        <button
+                            class="delete-full-button"
+                            type="button"
+                            onclick="deleteFullMatch('${match.session_id}')"
+                        >
+                            🗑 Delete Full Match
+                        </button>
+                    `
+                    : ""
+                }
+
+                ${
+                    match.match_highlights
+                    ? `
+                        <a
+                            class="download"
+                            href="${match.match_highlights.download_url}"
+                        >
+                            ⬇ Download Highlights
+                        </a>
+                    `
+                    : ""
+                }
+            </div>
+
+        </section>
+    `;
+}
+
+
+function render() {
+    const content = document.getElementById(
+        "content"
+    );
+
+    if (!selectedMatchId) {
+        renderMatchLibrary(content);
+        return;
     }
+
+    const match = matches.find(
+        item =>
+            item.session_id === selectedMatchId
+    );
+
+    if (!match) {
+        selectedMatchId = null;
+        selectedMatchView = null;
+        renderMatchLibrary(content);
+        return;
+    }
+
+    renderSelectedMatch(
+        content,
+        match
+    );
 }
 
 
