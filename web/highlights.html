@@ -1189,6 +1189,94 @@ function renderSelectedMatch(
     const individualHighlights =
         match.highlights || [];
 
+    if (
+        selectedMatchView === "full"
+        && match.full_match
+    ) {
+        content.innerHTML = `
+            <button
+                class="match-browser-back"
+                type="button"
+                onclick="showMatchView(null)"
+            >
+                ← Back to Match
+            </button>
+
+            <section class="match-feature">
+                <div class="match-feature-header">
+                    <div class="match-feature-title">
+                        Full Match
+                    </div>
+
+                    <div class="match-feature-subtitle">
+                        ${matchTitle(match)}
+                    </div>
+                </div>
+
+                <video
+                    controls
+                    preload="metadata"
+                    src="${match.full_match.video_url}"
+                ></video>
+
+                <div class="match-feature-actions">
+                    <a
+                        class="download"
+                        href="${match.full_match.download_url}"
+                    >
+                        ⬇ Download 4K Full Match
+                    </a>
+                </div>
+            </section>
+        `;
+
+        return;
+    }
+
+    if (
+        selectedMatchView === "highlights"
+        && match.match_highlights
+    ) {
+        content.innerHTML = `
+            <button
+                class="match-browser-back"
+                type="button"
+                onclick="showMatchView(null)"
+            >
+                ← Back to Match
+            </button>
+
+            <section class="match-feature">
+                <div class="match-feature-header">
+                    <div class="match-feature-title">
+                        Match Highlights
+                    </div>
+
+                    <div class="match-feature-subtitle">
+                        ${matchTitle(match)}
+                    </div>
+                </div>
+
+                <video
+                    controls
+                    preload="metadata"
+                    src="${match.match_highlights.video_url}"
+                ></video>
+
+                <div class="match-feature-actions">
+                    <a
+                        class="download"
+                        href="${match.match_highlights.download_url}"
+                    >
+                        ⬇ Download Highlights
+                    </a>
+                </div>
+            </section>
+        `;
+
+        return;
+    }
+
     document.getElementById(
         "summary"
     ).textContent =
@@ -1315,10 +1403,10 @@ function renderSelectedMatch(
                 ${
                     match.full_match
                     ? `
-                        <a
+                        <button
                             class="match-choice"
-                            href="${match.full_match.video_url}"
-                            target="_blank"
+                            type="button"
+                            onclick="showMatchView('full')"
                         >
                             <div class="match-choice-icon">
                                 ▶
@@ -1331,7 +1419,7 @@ function renderSelectedMatch(
                             <div class="match-choice-detail">
                                 Play browser version
                             </div>
-                        </a>
+                        </button>
                     `
                     : ""
                 }
@@ -1339,10 +1427,10 @@ function renderSelectedMatch(
                 ${
                     match.match_highlights
                     ? `
-                        <a
+                        <button
                             class="match-choice"
-                            href="${match.match_highlights.video_url}"
-                            target="_blank"
+                            type="button"
+                            onclick="showMatchView('highlights')"
                         >
                             <div class="match-choice-icon">
                                 🎬
@@ -1355,7 +1443,7 @@ function renderSelectedMatch(
                             <div class="match-choice-detail">
                                 Play combined highlights
                             </div>
-                        </a>
+                        </button>
                     `
                     : ""
                 }
