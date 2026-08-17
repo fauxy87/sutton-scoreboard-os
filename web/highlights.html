@@ -659,6 +659,22 @@ video {
     border: 1px solid var(--border);
 }
 
+.trim-highlight-button {
+    flex: 1;
+    border: 1px solid #facc15;
+    border-radius: 9px;
+    padding: 10px 12px;
+    background: transparent;
+    color: #facc15;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.trim-highlight-button:hover {
+    background: rgba(250, 204, 21, 0.12);
+}
+
 .empty {
     padding: 50px 20px;
     text-align: center;
@@ -981,6 +997,28 @@ function renderClipCard(item) {
                     >
                         Play
                     </a>
+
+                    <button
+                        class="trim-highlight-button"
+                        type="button"
+                        onclick="trimHighlight('${item.filename}')"
+                    >
+                        ✂ Trim
+                    </button>
+
+                    ${
+                        item.can_undo_trim
+                        ? `
+                            <button
+                                class="trim-highlight-button"
+                                type="button"
+                                onclick="undoTrimHighlight('${item.filename}')"
+                            >
+                                ↶ Undo
+                            </button>
+                        `
+                        : ""
+                    }
 
                     <a
                         class="download"
@@ -1786,6 +1824,158 @@ async function toggleMatchRecording() {
 
     } finally {
         button.disabled = false;
+    }
+}
+
+
+async function undoTrimHighlight(filename) {
+    const confirmed = confirm(
+        "Restore the original untrimmed highlight?"
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            "/api/highlights/undo-trim",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify(
+                    {
+                        filename: filename,
+                    }
+                ),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                data.error
+                || "Undo failed"
+            );
+        }
+
+        alert(
+            "Original highlight restored."
+        );
+
+        await loadHighlights();
+
+    } catch (error) {
+        alert(
+            "Unable to restore highlight: "
+            + error.message
+        );
+    }
+}
+
+
+async function trimHighlight(filename) {
+    const startInput = prompt(
+        "Seconds to remove from the START:",
+        "0"
+    );
+
+    if (startInput === null) {
+        return;
+    }
+
+    const endInput = prompt(
+        "Seconds to remove from the END:",
+        "5"
+    );
+
+    if (endInput === null) {
+        return;
+    }
+
+    const trimStart = Number(startInput);
+    const trimEnd = Number(endInput);
+
+    if (
+        !Number.isFinite(trimStart)
+        || !Number.isFinite(trimEnd)
+        || trimStart < 0
+        || trimEnd < 0
+    ) {
+        alert(
+            "Please enter valid numbers "
+            + "of seconds."
+        );
+        return;
+    }
+
+    if (
+        trimStart === 0
+        && trimEnd === 0
+    ) {
+        alert("Nothing selected to trim.");
+        return;
+    }
+
+    const confirmed = confirm(
+        "Trim this highlight?\n\n"
+        + "Remove from start: "
+        + trimStart
+        + " seconds\n"
+        + "Remove from end: "
+        + trimEnd
+        + " seconds\n\n"
+        + "The original will be kept "
+        + "as a safety backup."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            "/api/highlights/trim",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify(
+                    {
+                        filename: filename,
+                        trim_start: trimStart,
+                        trim_end: trimEnd,
+                    }
+                ),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                data.error
+                || "Trim failed"
+            );
+        }
+
+        alert(
+            "Highlight trimmed successfully."
+        );
+
+        await loadHighlights();
+
+    } catch (error) {
+        alert(
+            "Unable to trim highlight: "
+            + error.message
+        );
     }
 }
 

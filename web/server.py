@@ -1453,12 +1453,23 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         else "HIGHLIGHT"
                     )
 
+                    trim_backup = clip.with_name(
+                        clip.name
+                        + ".before-trim"
+                    )
+
+                    has_trim_backup = (
+                        trim_backup.exists()
+                        and trim_backup.is_file()
+                    )
+
                     item = {
                         "filename": clip.name,
                         "relative_path": str(relative),
                         "size_bytes": stat.st_size,
                         "modified": stat.st_mtime,
                         "event_type": event_type,
+                        "can_undo_trim": has_trim_backup,
                         "video_url": (
                             "/highlights/video/"
                             + clip.name
@@ -2433,6 +2444,298 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 status=400,
             )
             return
+
+        if path == "/api/highlights/undo-trim":
+            filename = str(
+                request.get("filename", "")
+            ).strip()
+
+            if (
+                not filename
+                or filename != Path(filename).name
+                or not filename.lower().endswith(".mp4")
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Invalid highlight.",
+                    },
+                    status=400,
+                )
+                return
+
+            highlight_root = Path(
+                "/var/lib/scoreos/highlights"
+            )
+
+            matches = list(
+                highlight_root.rglob(filename)
+            )
+
+            if not matches:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Highlight not found.",
+                    },
+                    status=404,
+                )
+                return
+
+            clip = matches[0]
+
+            backup = clip.with_name(
+                clip.name
+                + ".before-trim"
+            )
+
+            if not backup.exists():
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "No trim backup found.",
+                    },
+                    status=404,
+                )
+                return
+
+            try:
+                backup.replace(clip)
+
+            except OSError as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=500,
+                )
+                return
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "message": "Original highlight restored.",
+                }
+            )
+            return
+
+
+        if path == "/api/highlights/trim":
+            filename = str(
+                request.get("filename", "")
+            ).strip()
+
+            try:
+                trim_start = float(
+                    request.get("trim_start", 0)
+                )
+
+                trim_end = float(
+                    request.get("trim_end", 0)
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Invalid trim values.",
+                    },
+                    status=400,
+                )
+                return
+
+            if (
+                not filename
+                or filename != Path(filename).name
+                or not filename.lower().endswith(".mp4")
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Invalid highlight.",
+                    },
+                    status=400,
+                )
+                return
+
+            if (
+                trim_start < 0
+                or trim_end < 0
+                or trim_start > 30
+                or trim_end > 30
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Trim values must be "
+                            "between 0 and 30 seconds."
+                        ),
+                    },
+                    status=400,
+                )
+                return
+
+            if (
+                trim_start == 0
+                and trim_end == 0
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Nothing to trim.",
+                    },
+                    status=400,
+                )
+                return
+
+            highlight_root = Path(
+                "/var/lib/scoreos/highlights"
+            )
+
+            matches = list(
+                highlight_root.rglob(filename)
+            )
+
+            if not matches:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Highlight not found.",
+                    },
+                    status=404,
+                )
+                return
+
+            clip = matches[0]
+
+            try:
+                probe = subprocess.run(
+                    [
+                        "/usr/bin/ffprobe",
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "default=noprint_wrappers=1:"
+                        "nokey=1",
+                        str(clip),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=10,
+                )
+
+                if probe.returncode != 0:
+                    raise RuntimeError(
+                        "Unable to read clip duration."
+                    )
+
+                duration = float(
+                    probe.stdout.strip()
+                )
+
+                new_duration = (
+                    duration
+                    - trim_start
+                    - trim_end
+                )
+
+                if new_duration < 1:
+                    raise ValueError(
+                        "Trim would make the clip "
+                        "too short."
+                    )
+
+                temporary = clip.with_name(
+                    clip.stem
+                    + ".trimmed.mp4"
+                )
+
+                command = [
+                    "/usr/bin/ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "warning",
+                    "-ss",
+                    str(trim_start),
+                    "-i",
+                    str(clip),
+                    "-t",
+                    str(new_duration),
+                    "-map",
+                    "0:v:0",
+                    "-c",
+                    "copy",
+                    "-movflags",
+                    "+faststart",
+                    "-y",
+                    str(temporary),
+                ]
+
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=120,
+                )
+
+                if (
+                    result.returncode != 0
+                    or not temporary.exists()
+                    or temporary.stat().st_size <= 0
+                ):
+                    temporary.unlink(
+                        missing_ok=True
+                    )
+
+                    raise RuntimeError(
+                        result.stderr.strip()
+                        or "FFmpeg trim failed."
+                    )
+
+                backup = clip.with_name(
+                    clip.name
+                    + ".before-trim"
+                )
+
+                backup.unlink(
+                    missing_ok=True
+                )
+
+                clip.replace(backup)
+                temporary.replace(clip)
+
+                self.send_json(
+                    {
+                        "ok": True,
+                        "message": "Highlight trimmed.",
+                        "duration": new_duration,
+                    }
+                )
+                return
+
+            except (
+                OSError,
+                ValueError,
+                RuntimeError,
+                subprocess.TimeoutExpired,
+            ) as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=500,
+                )
+                return
 
         if path == "/api/match/rename":
             session_id = str(
