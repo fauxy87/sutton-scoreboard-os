@@ -2540,6 +2540,51 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
                 return
 
+            current_match_file = Path(
+                "/var/lib/scoreos/current-match.json"
+            )
+
+            if current_match_file.exists():
+                try:
+                    current_match = json.loads(
+                        current_match_file.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+
+                    if (
+                        current_match.get("session_id")
+                        == session_id
+                    ):
+                        self.send_json(
+                            {
+                                "ok": False,
+                                "error": (
+                                    "Cannot delete the active "
+                                    "match recording. Stop the "
+                                    "match first."
+                                ),
+                            },
+                            status=409,
+                        )
+                        return
+
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                ):
+                    self.send_json(
+                        {
+                            "ok": False,
+                            "error": (
+                                "Unable to verify whether "
+                                "this match is currently active."
+                            ),
+                        },
+                        status=500,
+                    )
+                    return
+
             recording_root = Path(
                 "/var/lib/scoreos/recordings"
             )
@@ -2663,6 +2708,51 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     status=400,
                 )
                 return
+
+            current_match_file = Path(
+                "/var/lib/scoreos/current-match.json"
+            )
+
+            if current_match_file.exists():
+                try:
+                    current_match = json.loads(
+                        current_match_file.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+
+                    if (
+                        current_match.get("session_id")
+                        == session_id
+                    ):
+                        self.send_json(
+                            {
+                                "ok": False,
+                                "error": (
+                                    "Cannot delete the active "
+                                    "match recording. Stop the "
+                                    "match first."
+                                ),
+                            },
+                            status=409,
+                        )
+                        return
+
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                ):
+                    self.send_json(
+                        {
+                            "ok": False,
+                            "error": (
+                                "Unable to verify whether "
+                                "this match is currently active."
+                            ),
+                        },
+                        status=500,
+                    )
+                    return
 
             recording_root = Path(
                 "/var/lib/scoreos/recordings"
