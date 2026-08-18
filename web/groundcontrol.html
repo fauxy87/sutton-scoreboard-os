@@ -386,9 +386,21 @@
 
                 <div class="status-row">
                     <span>IP Address</span>
-                    <span id="cameraHost" class="status-value">
-                        —
-                    </span>
+                    <input
+                        id="cameraHost"
+                        type="text"
+                        value=""
+                        placeholder="192.168.0.100"
+                        style="
+                            width: 160px;
+                            padding: 8px 10px;
+                            border: 1px solid #cbd5e1;
+                            border-radius: 7px;
+                            font: inherit;
+                            font-weight: 700;
+                            text-align: right;
+                        "
+                    >
                 </div>
 
                 <div class="status-row">
@@ -416,6 +428,12 @@
                         onclick="loadCameraStatus()"
                     >
                         Refresh Camera
+                    </button>
+
+                    <button
+                        onclick="saveCameraIp()"
+                    >
+                        Save Camera IP
                     </button>
 
                     <button
@@ -726,6 +744,69 @@
         );
     }
 
+    async function saveCameraIp() {
+        const message =
+            document.getElementById("cameraMessage");
+
+        const host =
+            document
+                .getElementById("cameraHost")
+                .value
+                .trim();
+
+        if (!host) {
+            message.textContent =
+                "Please enter a camera IP address.";
+            return;
+        }
+
+        message.textContent =
+            "Saving camera IP…";
+
+        try {
+            const response = await fetch(
+                "/api/camera/settings",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify(
+                        {
+                            host: host
+                        }
+                    )
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok
+                || data.ok === false
+            ) {
+                throw new Error(
+                    data.error
+                    || "Unable to save camera IP"
+                );
+            }
+
+            message.textContent =
+                "Camera IP saved: "
+                + host;
+
+            await loadCameraStatus();
+
+        } catch (error) {
+            message.textContent =
+                "Error: "
+                + error.message;
+        }
+    }
+
+
     async function loadCameraStatus(showMessage = false) {
         const message =
             document.getElementById("cameraMessage");
@@ -783,10 +864,10 @@
 
             document
                 .getElementById("cameraHost")
-                .textContent =
+                .value =
                     data.host ||
                     data.ip_address ||
-                    "—";
+                    "";
 
             document
                 .getElementById("cameraPath")
