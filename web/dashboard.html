@@ -3449,38 +3449,151 @@
                     );
                 }
 
-                if (!check.safe) {
-                    const reasons =
-                        check.reasons || [];
-
-                    status.textContent =
-                        "❌ "
-                        + (
-                            reasons.join(" · ")
-                            || "Not safe to shut down"
+                if (check.recording) {
+                    const approved =
+                        window.confirm(
+                            "A match is still recording.\n\n"
+                            + "Stop and save the match, "
+                            + "build the match videos, "
+                            + "then shut down the Pi?"
                         );
 
-                    showMessage(
-                        "Shutdown blocked — "
-                        + reasons.join(" · ")
-                    );
+                    if (!approved) {
+                        status.textContent =
+                            "Shutdown cancelled";
+                        return;
+                    }
 
-                    return;
-                }
-
-                status.textContent =
-                    "✅ SAFE TO SHUT DOWN";
-
-                const approved =
-                    window.confirm(
-                        "SCOREOS is safe to shut down.\n\n"
-                        + "Power off the Pi now?"
-                    );
-
-                if (!approved) {
                     status.textContent =
-                        "Shutdown cancelled";
-                    return;
+                        "💾 Saving match before shutdown…";
+
+                    showMessage(
+                        "Stopping and saving match. "
+                        + "Please wait…"
+                    );
+
+                    const stopResponse =
+                        await fetch(
+                            "/api/match/stop",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+                                body: JSON.stringify({})
+                            }
+                        );
+
+                    const stopPayload =
+                        await stopResponse.json();
+
+                    if (
+                        !stopResponse.ok
+                        || stopPayload.ok === false
+                    ) {
+                        throw new Error(
+                            stopPayload.error
+                            || "Unable to save match"
+                        );
+                    }
+
+                    if (
+                        stopPayload.build_error
+                        || stopPayload.highlights_error
+                    ) {
+                        const processingErrors = [
+                            stopPayload.build_error,
+                            stopPayload.highlights_error
+                        ].filter(Boolean);
+
+                        throw new Error(
+                            "Match processing failed — "
+                            + processingErrors.join(" · ")
+                        );
+                    }
+
+                    if (
+                        stopPayload.session
+                        && !stopPayload.full_match
+                    ) {
+                        throw new Error(
+                            "Full match recording was not created. "
+                            + "SCOREOS will remain powered on."
+                        );
+                    }
+
+                    status.textContent =
+                        "✅ Match saved · checking shutdown…";
+
+                    const recheckResponse =
+                        await fetch(
+                            "/api/shutdown/status?_="
+                            + Date.now(),
+                            {
+                                cache: "no-store"
+                            }
+                        );
+
+                    const recheck =
+                        await recheckResponse.json();
+
+                    if (
+                        !recheckResponse.ok
+                        || recheck.ok === false
+                    ) {
+                        throw new Error(
+                            "Unable to verify shutdown status"
+                        );
+                    }
+
+                    if (!recheck.safe) {
+                        throw new Error(
+                            (
+                                recheck.reasons || []
+                            ).join(" · ")
+                            || "SCOREOS is not ready "
+                            + "to shut down"
+                        );
+                    }
+
+                    status.textContent =
+                        "✅ MATCH SAVED · SAFE TO SHUT DOWN";
+
+                } else {
+                    if (!check.safe) {
+                        const reasons =
+                            check.reasons || [];
+
+                        status.textContent =
+                            "❌ "
+                            + (
+                                reasons.join(" · ")
+                                || "Not safe to shut down"
+                            );
+
+                        showMessage(
+                            "Shutdown blocked — "
+                            + reasons.join(" · ")
+                        );
+
+                        return;
+                    }
+
+                    status.textContent =
+                        "✅ SAFE TO SHUT DOWN";
+
+                    const approved =
+                        window.confirm(
+                            "SCOREOS is safe to shut down.\n\n"
+                            + "Power off the Pi now?"
+                        );
+
+                    if (!approved) {
+                        status.textContent =
+                            "Shutdown cancelled";
+                        return;
+                    }
                 }
 
                 status.textContent =

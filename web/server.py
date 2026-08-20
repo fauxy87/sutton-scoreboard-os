@@ -872,6 +872,154 @@ def safe_shutdown_status():
                 "unknown": True
             }
 
+    # Recover safely from stale processing state.
+    #
+    # If no recorder or match-build script is running and
+    # both final match files already exist, processing has
+    # completed but SCOREOS was interrupted before its
+    # state files were cleaned up.
+    if (
+        processing is not None
+        and not recording
+        and isinstance(processing, dict)
+    ):
+        session_id = str(
+            processing.get(
+                "session_id",
+                ""
+            )
+        ).strip()
+
+        build_running = False
+
+        try:
+            process_check = subprocess.run(
+                [
+                    "/usr/bin/pgrep",
+                    "-f",
+                    (
+                        "build_full_match.py"
+                        "|build_match_highlights.py"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            build_running = (
+                process_check.returncode == 0
+            )
+
+        except OSError:
+            build_running = True
+
+        if (
+            session_id.startswith("match-")
+            and not build_running
+        ):
+            recording_root = Path(
+                "/var/lib/scoreos/recordings"
+            )
+
+            highlight_root = Path(
+                "/var/lib/scoreos/highlights"
+            )
+
+            full_matches = list(
+                recording_root.rglob(
+                    f"{session_id}/full/full-match.mp4"
+                )
+            )
+
+            highlight_matches = list(
+                highlight_root.rglob(
+                    f"{session_id}/match-highlights.mp4"
+                )
+            )
+
+            session_highlight_folders = [
+                path.parent
+                for path in highlight_matches
+            ]
+
+            individual_highlights = []
+
+            if not session_highlight_folders:
+                possible_folders = list(
+                    highlight_root.rglob(
+                        session_id
+                    )
+                )
+
+                session_highlight_folders = [
+                    path
+                    for path in possible_folders
+                    if path.is_dir()
+                    and path.name == session_id
+                ]
+
+            for folder in session_highlight_folders:
+                individual_highlights.extend(
+                    clip
+                    for clip in folder.glob("*.mp4")
+                    if clip.name
+                    != "match-highlights.mp4"
+                )
+
+            full_match_ready = bool(
+                full_matches
+                and full_matches[0].is_file()
+                and full_matches[0].stat().st_size > 0
+            )
+
+            highlights_ready = bool(
+                (
+                    highlight_matches
+                    and highlight_matches[0].is_file()
+                    and highlight_matches[0].stat().st_size > 0
+                )
+                or not individual_highlights
+            )
+
+            finished = bool(
+                full_match_ready
+                and highlights_ready
+            )
+
+            if finished:
+                processing_file.unlink(
+                    missing_ok=True
+                )
+
+                current_match_file = Path(
+                    "/var/lib/scoreos/current-match.json"
+                )
+
+                if current_match_file.exists():
+                    try:
+                        current_match = json.loads(
+                            current_match_file.read_text(
+                                encoding="utf-8"
+                            )
+                        )
+
+                        if (
+                            current_match.get("session_id")
+                            == session_id
+                        ):
+                            current_match_file.unlink(
+                                missing_ok=True
+                            )
+
+                    except (
+                        OSError,
+                        json.JSONDecodeError,
+                    ):
+                        pass
+
+                processing = None
+
     reasons = []
 
     if recording:
@@ -3597,7 +3745,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                             capture_output=True,
                             text=True,
                             check=False,
-                            timeout=300,
+                            timeout=7200,
                         )
 
                         if build_result.returncode == 0:
