@@ -1,0 +1,14 @@
+[Unit]
+Description=SCOREOS Interrupted Match Recovery
+After=scoreos-web.service
+Wants=scoreos-web.service
+
+[Service]
+Type=oneshot
+User={{USER}}
+WorkingDirectory={{INSTALL_DIR}}
+ExecStart=/usr/bin/python3 -u {{INSTALL_DIR}}/scripts/recover_match.py
+TimeoutStartSec=7500
+
+[Install]
+WantedBy=multi-user.target
