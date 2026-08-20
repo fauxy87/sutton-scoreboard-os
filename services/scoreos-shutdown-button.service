@@ -1,0 +1,15 @@
+[Unit]
+Description=SCOREOS Physical Safe Shutdown Button
+After=scoreos-web.service
+Wants=scoreos-web.service
+
+[Service]
+Type=simple
+User={{USER}}
+WorkingDirectory={{INSTALL_DIR}}
+ExecStart=/usr/bin/python3 -u {{INSTALL_DIR}}/scripts/shutdown_button.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
