@@ -248,7 +248,20 @@ def main():
             / "match-highlights.mp4"
         )
 
-        if individual:
+        build_combined_highlights = bool(
+            session.get(
+                "build_combined_highlights",
+                False,
+            )
+        )
+
+        if not build_combined_highlights:
+            log(
+                "Combined match highlights "
+                "were disabled for this match"
+            )
+
+        elif individual:
             if (
                 not combined.exists()
                 or combined.stat().st_size <= 0

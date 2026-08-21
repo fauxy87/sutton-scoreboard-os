@@ -19,6 +19,70 @@ STATE_FILE = Path("/run/scoreos/state.json")
 CONTROL_SOCKET = "/run/scoreos/control.sock"
 DIAGNOSTICS_FILE = Path("/run/scoreos/diagnostics.json")
 
+HIGHLIGHT_SETTINGS_FILE = Path(
+    "/etc/scoreos/highlights.json"
+)
+
+
+def load_highlight_settings():
+    settings = {
+        "build_combined_highlights": False,
+    }
+
+    if HIGHLIGHT_SETTINGS_FILE.exists():
+        try:
+            saved = json.loads(
+                HIGHLIGHT_SETTINGS_FILE.read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            if isinstance(saved, dict):
+                settings.update(saved)
+
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ):
+            pass
+
+    return settings
+
+
+def save_highlight_settings(settings):
+    current = load_highlight_settings()
+
+    if "build_combined_highlights" in settings:
+        current["build_combined_highlights"] = bool(
+            settings[
+                "build_combined_highlights"
+            ]
+        )
+
+    HIGHLIGHT_SETTINGS_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    temporary = (
+        HIGHLIGHT_SETTINGS_FILE
+        .with_suffix(".tmp")
+    )
+
+    temporary.write_text(
+        json.dumps(
+            current,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    temporary.replace(
+        HIGHLIGHT_SETTINGS_FILE
+    )
+
+    return current
+
 HOST = "0.0.0.0"
 PORT = 8080
 
@@ -973,14 +1037,48 @@ def safe_shutdown_status():
                 and full_matches[0].stat().st_size > 0
             )
 
-            highlights_ready = bool(
-                (
-                    highlight_matches
-                    and highlight_matches[0].is_file()
-                    and highlight_matches[0].stat().st_size > 0
-                )
-                or not individual_highlights
+            build_combined_highlights = False
+
+            current_match_file = Path(
+                "/var/lib/scoreos/current-match.json"
             )
+
+            if current_match_file.exists():
+                try:
+                    current_match = json.loads(
+                        current_match_file.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+
+                    if (
+                        current_match.get("session_id")
+                        == session_id
+                    ):
+                        build_combined_highlights = bool(
+                            current_match.get(
+                                "build_combined_highlights",
+                                False,
+                            )
+                        )
+
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                ):
+                    pass
+
+            if build_combined_highlights:
+                highlights_ready = bool(
+                    (
+                        highlight_matches
+                        and highlight_matches[0].is_file()
+                        and highlight_matches[0].stat().st_size > 0
+                    )
+                    or not individual_highlights
+                )
+            else:
+                highlights_ready = True
 
             finished = bool(
                 full_match_ready
@@ -1334,6 +1432,12 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     except subprocess.TimeoutExpired:
                         process.kill()
 
+            return
+
+        if path == "/api/highlights/settings":
+            self.send_json(
+                load_highlight_settings()
+            )
             return
 
         if path == "/api/camera/settings":
@@ -3441,11 +3545,21 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
                 return
 
+            highlight_settings = (
+                load_highlight_settings()
+            )
+
             session = {
                 "session_id": session_id,
                 "started": now,
                 "started_iso": time.strftime(
                     "%Y-%m-%dT%H:%M:%S"
+                ),
+                "build_combined_highlights": bool(
+                    highlight_settings.get(
+                        "build_combined_highlights",
+                        False,
+                    )
                 ),
                 "home_team": home_team,
                 "away_team": away_team,
@@ -3776,7 +3890,37 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             match_highlights = None
             highlights_error = None
 
+            highlight_settings = (
+                load_highlight_settings()
+            )
+
+            build_combined_highlights = bool(
+                highlight_settings.get(
+                    "build_combined_highlights",
+                    False,
+                )
+            )
+
             if session:
+                session[
+                    "build_combined_highlights"
+                ] = build_combined_highlights
+
+                try:
+                    match_file.write_text(
+                        json.dumps(
+                            session,
+                            indent=2,
+                        ) + "\n",
+                        encoding="utf-8",
+                    )
+                except OSError:
+                    pass
+
+            if (
+                session
+                and build_combined_highlights
+            ):
                 session_id = str(
                     session.get("session_id", "")
                 ).strip()
@@ -3897,6 +4041,32 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "highlights_error": highlights_error,
                 }
             )
+            return
+
+        if path == "/api/highlights/settings":
+            try:
+                settings = (
+                    save_highlight_settings(
+                        request
+                    )
+                )
+
+                self.send_json(
+                    {
+                        "ok": True,
+                        **settings,
+                    }
+                )
+
+            except Exception as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=500,
+                )
+
             return
 
         if path == "/api/camera/settings":

@@ -461,6 +461,51 @@
         </section>
 
         <section class="card">
+            <h2>Match Highlights</h2>
+
+            <div class="card-body">
+                <div class="status-row">
+                    <div>
+                        <strong>
+                            Build Combined Highlights
+                        </strong>
+                        <div
+                            style="
+                                margin-top:4px;
+                                color:#64748b;
+                                font-size:13px;
+                            "
+                        >
+                            Individual highlight clips are
+                            always created. This only controls
+                            the combined match-highlights video.
+                        </div>
+                    </div>
+
+                    <label
+                        style="
+                            display:flex;
+                            align-items:center;
+                            gap:8px;
+                            font-weight:800;
+                        "
+                    >
+                        <input
+                            id="buildCombinedHighlights"
+                            type="checkbox"
+                            onchange="saveCombinedHighlightsSettings()"
+                        >
+                        <span id="buildCombinedHighlightsLabel">
+                            Off
+                        </span>
+                    </label>
+                </div>
+
+                <div id="highlightsSettingsMessage"></div>
+            </div>
+        </section>
+
+        <section class="card">
             <h2>Connected Devices</h2>
 
             <div id="connectedDevices" class="card-body">
@@ -1113,6 +1158,140 @@
         }
     }
 
+    async function loadCombinedHighlightsSettings() {
+        const checkbox =
+            document.getElementById(
+                "buildCombinedHighlights"
+            );
+
+        const label =
+            document.getElementById(
+                "buildCombinedHighlightsLabel"
+            );
+
+        const message =
+            document.getElementById(
+                "highlightsSettingsMessage"
+            );
+
+        try {
+            const response = await fetch(
+                "/api/highlights/settings?_="
+                + Date.now(),
+                {
+                    cache: "no-store"
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Unable to load highlight settings"
+                );
+            }
+
+            const data =
+                await response.json();
+
+            checkbox.checked =
+                Boolean(
+                    data.build_combined_highlights
+                );
+
+            label.textContent =
+                checkbox.checked
+                    ? "On"
+                    : "Off";
+
+            message.textContent = "";
+
+        } catch (error) {
+            message.textContent =
+                "Unable to load highlight settings: "
+                + error.message;
+        }
+    }
+
+
+    async function saveCombinedHighlightsSettings() {
+        const checkbox =
+            document.getElementById(
+                "buildCombinedHighlights"
+            );
+
+        const label =
+            document.getElementById(
+                "buildCombinedHighlightsLabel"
+            );
+
+        const message =
+            document.getElementById(
+                "highlightsSettingsMessage"
+            );
+
+        label.textContent =
+            checkbox.checked
+                ? "On"
+                : "Off";
+
+        message.textContent =
+            "Saving…";
+
+        try {
+            const response = await fetch(
+                "/api/highlights/settings",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        build_combined_highlights:
+                            checkbox.checked
+                    })
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok
+                || data.ok === false
+            ) {
+                throw new Error(
+                    data.error
+                    || "Unable to save setting"
+                );
+            }
+
+            checkbox.checked =
+                Boolean(
+                    data.build_combined_highlights
+                );
+
+            label.textContent =
+                checkbox.checked
+                    ? "On"
+                    : "Off";
+
+            message.textContent =
+                checkbox.checked
+                    ? "Combined highlights will be built "
+                      + "at the end of new matches."
+                    : "Combined highlights are off. "
+                      + "Individual clips will still be created.";
+
+        } catch (error) {
+            message.textContent =
+                "Unable to save setting: "
+                + error.message;
+
+            await loadCombinedHighlightsSettings();
+        }
+    }
+
+
     async function testCamera() {
         const message =
             document.getElementById(
@@ -1165,6 +1344,7 @@
     }
     loadCameraStatus();
     setInterval(loadCameraStatus, 10000);
+    loadCombinedHighlightsSettings();
     loadBluetoothStatus();
     setInterval(loadBluetoothStatus, 3000);
 </script>
