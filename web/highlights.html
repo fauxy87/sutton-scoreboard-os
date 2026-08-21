@@ -1418,6 +1418,27 @@ function renderSelectedMatch(
                 </div>
 
                 <div class="match-manage-actions">
+                    ${
+                        individualHighlights.length
+                        ? `
+                            <button
+                                class="rename-match-button"
+                                type="button"
+                                onclick="buildMatchHighlights(
+                                    '${match.session_id}',
+                                    '${match.date || ""}'
+                                )"
+                            >
+                                ${
+                                    match.match_highlights
+                                    ? "🔄 Rebuild Highlights"
+                                    : "🎬 Build Highlights"
+                                }
+                            </button>
+                        `
+                        : ""
+                    }
+
                     <button
                         class="rename-match-button"
                         type="button"
@@ -1974,6 +1995,99 @@ async function trimHighlight(filename) {
     } catch (error) {
         alert(
             "Unable to trim highlight: "
+            + error.message
+        );
+    }
+}
+
+
+async function buildMatchHighlights(
+    sessionId,
+    matchDate
+) {
+    const match = matches.find(
+        item => item.session_id === sessionId
+    );
+
+    if (!match) {
+        alert("Match not found.");
+        return;
+    }
+
+    if (!matchDate) {
+        alert(
+            "Unable to determine the match date."
+        );
+        return;
+    }
+
+    const action =
+        match.match_highlights
+            ? "Rebuild"
+            : "Build";
+
+    const confirmed = confirm(
+        action
+        + " the combined highlights package?\n\n"
+        + (
+            match.match_name
+            || sessionId
+        )
+        + "\n\n"
+        + "Individual highlight clips will be kept."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            "/api/highlights/build-match",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    date: matchDate,
+                }),
+            }
+        );
+
+        const data = await response.json();
+
+        if (
+            !response.ok
+            || data.ok === false
+        ) {
+            throw new Error(
+                data.error
+                || "Unable to build highlights"
+            );
+        }
+
+        alert(
+            "Combined highlights package ready."
+        );
+
+        await loadHighlights();
+
+        const refreshed = matches.find(
+            item => item.session_id === sessionId
+        );
+
+        if (refreshed) {
+            selectedMatchId = sessionId;
+            selectedMatchView = null;
+            renderSelectedMatch(refreshed);
+        }
+
+    } catch (error) {
+        alert(
+            "Unable to build highlights: "
             + error.message
         );
     }
