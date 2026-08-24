@@ -24,23 +24,23 @@ HIGHLIGHT_ROOT = Path(
 
 CLIP_LENGTHS = {
     "FOUR": {
-        "before": 8,
+        "before": 15,
         "after": 10,
     },
     "SIX": {
-        "before": 10,
+        "before": 17,
         "after": 10,
     },
     "WICKET": {
-        "before": 12,
+        "before": 20,
         "after": 18,
     },
     "FIFTY": {
-        "before": 10,
+        "before": 17,
         "after": 12,
     },
     "HUNDRED": {
-        "before": 12,
+        "before": 20,
         "after": 18,
     },
 }
@@ -177,38 +177,54 @@ def find_recording_segments(
     ):
         session_id = ""
 
-    for day_folder_name in day_folders:
-        day_folder = (
-            RECORDING_ROOT /
-            day_folder_name
+    if session_id:
+        # A match can continue past midnight. Its recording
+        # remains inside the date folder on which the match
+        # session started, so locate the session by ID rather
+        # than assuming the event's calendar date.
+        session_folders = sorted(
+            RECORDING_ROOT.glob(
+                f"*/{session_id}/main"
+            )
         )
 
-        if not day_folder.exists():
-            continue
-
-        if session_id:
-            main_folder = (
-                day_folder /
-                session_id /
-                "main"
-            )
-
+        for main_folder in session_folders:
             if main_folder.exists():
                 candidates.extend(
                     main_folder.glob("*.ts")
                 )
 
-        else:
-            # Legacy recordings made before
-            # match-session folders were added.
+    else:
+        # Legacy recordings made before match-session
+        # folders were added still use calendar dates.
+        for day_folder_name in day_folders:
+            day_folder = (
+                RECORDING_ROOT /
+                day_folder_name
+            )
+
+            if not day_folder.exists():
+                continue
+
             candidates.extend(
                 day_folder.glob("*.ts")
             )
 
     segments = []
 
-    search_start = clip_start - 30
-    search_end = clip_end + 30
+    # Recording segments are normally about 10 seconds.
+    # Use the filename timestamp first so we only ffprobe
+    # the handful of files that could overlap the clip.
+    maximum_segment_seconds = 15
+
+    search_start = (
+        clip_start
+        - maximum_segment_seconds
+    )
+
+    search_end = clip_end
+
+    nearby = []
 
     for path in sorted(candidates):
         start = segment_start_time(path)
@@ -216,12 +232,17 @@ def find_recording_segments(
         if start is None:
             continue
 
-        # Recording segments are only around 10-12 seconds.
-        # Skip files nowhere near the required highlight
-        # before calling the relatively expensive ffprobe.
-        if start < search_start or start > search_end:
+        if (
+            start < search_start
+            or start > search_end
+        ):
             continue
 
+        nearby.append(
+            (start, path)
+        )
+
+    for start, path in nearby:
         duration = probe_duration(path)
 
         if duration is None:
@@ -229,7 +250,10 @@ def find_recording_segments(
 
         end = start + duration
 
-        if end >= clip_start and start <= clip_end:
+        if (
+            end >= clip_start
+            and start <= clip_end
+        ):
             segments.append(
                 {
                     "path": path,
@@ -308,15 +332,39 @@ def output_path(event):
         f"_{score}.mp4"
     )
 
-    day_folder = (
-        HIGHLIGHT_ROOT /
-        timestamp.strftime("%Y-%m-%d")
-    )
-
     session_id = str(
         event.get("session_id")
         or ""
     ).strip()
+
+    # Keep every highlight from a match together under
+    # the date on which the match session started. This
+    # is important for matches that continue past midnight.
+    match_date = timestamp.strftime(
+        "%Y-%m-%d"
+    )
+
+    if (
+        session_id
+        and session_id == Path(session_id).name
+    ):
+        session_matches = sorted(
+            RECORDING_ROOT.glob(
+                f"*/{session_id}"
+            )
+        )
+
+        if session_matches:
+            match_date = (
+                session_matches[0]
+                .parent
+                .name
+            )
+
+    day_folder = (
+        HIGHLIGHT_ROOT /
+        match_date
+    )
 
     if session_id:
         day_folder = (

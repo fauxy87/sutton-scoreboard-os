@@ -79,6 +79,15 @@ def main():
         / "full-match.mp4"
     )
 
+    temporary_destination = (
+        session_folder
+        / "full-match-building.mp4"
+    )
+
+    temporary_destination.unlink(
+        missing_ok=True
+    )
+
     log(
         f"Building full match from "
         f"{len(segments)} segments"
@@ -117,7 +126,7 @@ def main():
         "-movflags",
         "+faststart",
         "-y",
-        str(destination),
+        str(temporary_destination),
     ]
 
     try:
@@ -126,15 +135,28 @@ def main():
             capture_output=True,
             text=True,
             check=False,
-            timeout=1800,
+            timeout=7200,
         )
+
+    except subprocess.TimeoutExpired:
+        temporary_destination.unlink(
+            missing_ok=True
+        )
+
+        log(
+            "Full match build timed out; "
+            "raw recording segments have been kept"
+        )
+
+        return 2
+
     finally:
         concat_file.unlink(
             missing_ok=True
         )
 
     if result.returncode != 0:
-        destination.unlink(
+        temporary_destination.unlink(
             missing_ok=True
         )
 
@@ -149,21 +171,48 @@ def main():
         return 2
 
     if (
-
-        not destination.exists()
-
-        or destination.stat().st_size <= 0
-
+        not temporary_destination.exists()
+        or temporary_destination.stat().st_size <= 0
     ):
+        log(
+            "Full match output validation failed"
+        )
+        return 3
+
+    probe = subprocess.run(
+        [
+            "/usr/bin/ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "default=noprint_wrappers=1",
+            str(temporary_destination),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    if probe.returncode != 0:
+        temporary_destination.unlink(
+            missing_ok=True
+        )
 
         log(
-
-            "Full match output validation failed"
-
+            "Full match validation failed; "
+            "raw recording segments have been kept"
         )
 
         return 3
 
+    temporary_destination.replace(
+        destination
+    )
 
     browser_destination = (
         session_folder
