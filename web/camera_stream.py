@@ -27,6 +27,15 @@ def build_rtsp_url(use_substream=True):
         )
     )
 
+    if use_substream:
+        if path.endswith("_main"):
+            path = (
+                path[:-5]
+                + "_sub"
+            )
+        else:
+            path = "/h264Preview_01_sub"
+
     if not path.startswith("/"):
         path = "/" + path
 
@@ -43,24 +52,8 @@ def build_rtsp_url(use_substream=True):
     )
 
 
-def start_preview():
-    camera = camera_manager.load()
-
-    if not camera.get("enabled"):
-        raise RuntimeError(
-            "Camera is disabled."
-        )
-
-    if not camera.get("host"):
-        raise RuntimeError(
-            "Camera is not configured."
-        )
-
-    rtsp_url = build_rtsp_url(
-        use_substream=True
-    )
-
-    command = [
+def preview_command(rtsp_url):
+    return [
         "/usr/bin/ffmpeg",
 
         "-hide_banner",
@@ -95,8 +88,78 @@ def start_preview():
         "pipe:1",
     ]
 
+
+def stream_works(rtsp_url):
+    command = [
+        "/usr/bin/ffprobe",
+        "-v",
+        "error",
+        "-rtsp_transport",
+        "tcp",
+        "-rw_timeout",
+        "5000000",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=codec_name",
+        "-of",
+        "default=noprint_wrappers=1",
+        rtsp_url,
+    ]
+
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=7,
+            check=False,
+        )
+
+        return result.returncode == 0
+
+    except (
+        subprocess.TimeoutExpired,
+        OSError,
+    ):
+        return False
+
+
+def start_preview():
+    camera = camera_manager.load()
+
+    if not camera.get("enabled"):
+        raise RuntimeError(
+            "Camera is disabled."
+        )
+
+    if not camera.get("host"):
+        raise RuntimeError(
+            "Camera is not configured."
+        )
+
+    substream_url = build_rtsp_url(
+        use_substream=True
+    )
+
+    mainstream_url = build_rtsp_url(
+        use_substream=False
+    )
+
+    # Prefer the lower-bandwidth substream for the TV
+    # preview. If the Reolink substream is unavailable,
+    # automatically fall back to the configured main stream.
+    if stream_works(substream_url):
+        rtsp_url = substream_url
+    elif stream_works(mainstream_url):
+        rtsp_url = mainstream_url
+    else:
+        raise RuntimeError(
+            "Camera preview stream unavailable."
+        )
+
     return subprocess.Popen(
-        command,
+        preview_command(rtsp_url),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         bufsize=0,
