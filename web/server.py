@@ -324,10 +324,18 @@ def bluetooth_status():
         "sutton-scoreboard-advert.service"
     )
 
-    show_output = run_command([
-        "/usr/bin/bluetoothctl",
-        "show",
-    ])
+    if preferred_adapter_present:
+        show_output = run_command(
+            [
+                "/usr/bin/bluetoothctl",
+                "--timeout",
+                "2",
+                "show",
+            ],
+            timeout=3,
+        )
+    else:
+        show_output = ""
 
     mgmt_info = ""
     advert_info = ""
@@ -394,10 +402,21 @@ def bluetooth_status():
         "mac": None,
     }
 
-    connected_output = run_command([
-        "/usr/bin/bluetoothctl",
-        "info",
-    ])
+    if preferred_adapter_present:
+        connected_output = run_command(
+            [
+                "/usr/bin/bluetoothctl",
+                "--timeout",
+                "2",
+                "devices",
+                "Connected",
+            ],
+            timeout=3,
+        )
+    else:
+        connected_output = ""
+
+    connected_mac = None
 
     for line in connected_output.splitlines():
         stripped = line.strip()
@@ -406,17 +425,40 @@ def bluetooth_status():
             parts = stripped.split()
 
             if len(parts) >= 2:
-                connected_device["mac"] = parts[1]
+                connected_mac = parts[1]
+                connected_device["mac"] = (
+                    connected_mac
+                )
+                break
 
-        elif stripped.startswith("Name:"):
-            connected_device["name"] = (
-                stripped.split(":", 1)[1].strip()
-            )
+    if connected_mac:
+        info_output = run_command(
+            [
+                "/usr/bin/bluetoothctl",
+                "--timeout",
+                "2",
+                "info",
+                connected_mac,
+            ],
+            timeout=3,
+        )
 
-        elif stripped.startswith("Alias:"):
-            connected_device["alias"] = (
-                stripped.split(":", 1)[1].strip()
-            )
+        for line in info_output.splitlines():
+            stripped = line.strip()
+
+            if stripped.startswith("Name:"):
+                connected_device["name"] = (
+                    stripped
+                    .split(":", 1)[1]
+                    .strip()
+                )
+
+            elif stripped.startswith("Alias:"):
+                connected_device["alias"] = (
+                    stripped
+                    .split(":", 1)[1]
+                    .strip()
+                )
 
     # # if connected_device["mac"]:
 ##        rssi_output = run_command([
