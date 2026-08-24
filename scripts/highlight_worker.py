@@ -24,6 +24,143 @@ AFTER_DELAYS = {
 }
 
 
+def is_sutton_team(name):
+    return "sutton" in str(
+        name or ""
+    ).strip().lower()
+
+
+def session_teams(event):
+    batting_team = str(
+        event.get("batting_team")
+        or ""
+    ).strip()
+
+    fielding_team = str(
+        event.get("fielding_team")
+        or ""
+    ).strip()
+
+    invalid = {
+        "",
+        "-",
+        "Team 1",
+        "Team 2",
+    }
+
+    if (
+        batting_team not in invalid
+        and fielding_team not in invalid
+    ):
+        return batting_team, fielding_team
+
+    session_id = str(
+        event.get("session_id")
+        or ""
+    ).strip()
+
+    if (
+        not session_id
+        or session_id != Path(session_id).name
+    ):
+        return batting_team, fielding_team
+
+    matches = sorted(
+        Path(
+            "/var/lib/scoreos/recordings"
+        ).glob(
+            f"*/{session_id}/match.json"
+        )
+    )
+
+    for metadata_path in matches:
+        try:
+            metadata = json.loads(
+                metadata_path.read_text(
+                    encoding="utf-8"
+                )
+            )
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ):
+            continue
+
+        saved_batting = str(
+            metadata.get("batting_team")
+            or ""
+        ).strip()
+
+        saved_fielding = str(
+            metadata.get("fielding_team")
+            or ""
+        ).strip()
+
+        if saved_batting:
+            batting_team = saved_batting
+
+        if saved_fielding:
+            fielding_team = saved_fielding
+
+        break
+
+    return batting_team, fielding_team
+
+
+def should_build_highlight(event):
+    event_type = str(
+        event.get("type")
+        or ""
+    ).strip().upper()
+
+    batting_team, fielding_team = (
+        session_teams(event)
+    )
+
+    sutton_batting = is_sutton_team(
+        batting_team
+    )
+
+    sutton_fielding = is_sutton_team(
+        fielding_team
+    )
+
+    # When Sutton bat, keep every Sutton batting
+    # highlight including Sutton wickets.
+    if sutton_batting:
+        return event_type in {
+            "FOUR",
+            "SIX",
+            "WICKET",
+            "FIFTY",
+            "HUNDRED",
+        }
+
+    # When the opposition bat, only keep wickets
+    # taken by Sutton.
+    if sutton_fielding:
+        return event_type == "WICKET"
+
+    invalid = {
+        "",
+        "-",
+        "Team 1",
+        "Team 2",
+    }
+
+    # A match can start before Play-Cricket has supplied
+    # the team names. Do not permanently discard an event
+    # while the team identity is still unknown.
+    if (
+        batting_team in invalid
+        or fielding_team in invalid
+    ):
+        return None
+
+    # Teams are known and Sutton is not involved.
+    return False
+
+
 def load_state():
     if not STATE_FILE.exists():
         return {"processed": 0}
@@ -110,6 +247,35 @@ def main():
             continue
 
         event_type = event.get("type")
+
+        highlight_decision = (
+            should_build_highlight(event)
+        )
+
+        if highlight_decision is None:
+            print(
+                "Highlight waiting for team names:",
+                event_type,
+                event.get("session_id"),
+                flush=True,
+            )
+            time.sleep(2)
+            continue
+
+        if highlight_decision is False:
+            print(
+                "Highlight filtered:",
+                event_type,
+                event.get("batting_team"),
+                "v",
+                event.get("fielding_team"),
+                flush=True,
+            )
+
+            state["processed"] = processed + 1
+            state["retry_count"] = 0
+            save_state(state)
+            continue
 
         ready_time = (
             event_time +
