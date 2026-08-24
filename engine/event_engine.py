@@ -514,6 +514,91 @@ def auto_start_match(previous, current):
         )
 
         if recorder_active or innings_break:
+            # The match may have auto-started before
+            # Play-Cricket supplied the team names.
+            # Update the active session as soon as valid
+            # names become available.
+            batting_team = str(
+                current.get("BatTeamName", "")
+            ).strip()
+
+            fielding_team = str(
+                current.get("FieldTeamName", "")
+            ).strip()
+
+            valid_teams = (
+                batting_team
+                and batting_team != "-"
+                and fielding_team
+                and fielding_team != "-"
+            )
+
+            if (
+                valid_teams
+                and existing_session
+            ):
+                current_batting = str(
+                    existing_session.get(
+                        "batting_team",
+                        "",
+                    )
+                ).strip()
+
+                current_fielding = str(
+                    existing_session.get(
+                        "fielding_team",
+                        "",
+                    )
+                ).strip()
+
+                placeholder_values = {
+                    "",
+                    "-",
+                    "Team 1",
+                    "Team 2",
+                }
+
+                if (
+                    current_batting in placeholder_values
+                    or current_fielding in placeholder_values
+                ):
+                    existing_session[
+                        "home_team"
+                    ] = batting_team
+
+                    existing_session[
+                        "away_team"
+                    ] = fielding_team
+
+                    existing_session[
+                        "batting_team"
+                    ] = batting_team
+
+                    existing_session[
+                        "fielding_team"
+                    ] = fielding_team
+
+                    existing_session[
+                        "match_name"
+                    ] = (
+                        batting_team
+                        + " v "
+                        + fielding_team
+                    )
+
+                    save_active_session(
+                        existing_session
+                    )
+
+                    print(
+                        "SCOREOS AUTO MATCH: "
+                        "team names updated:",
+                        existing_session[
+                            "match_name"
+                        ],
+                        flush=True,
+                    )
+
             return active_session_id()
 
         # A session file with no running recorder and no
@@ -601,18 +686,22 @@ def auto_start_match(previous, current):
         current.get("FieldTeamName", "")
     ).strip()
 
-    if (
-        not batting_team
-        or batting_team == "-"
-        or not fielding_team
-        or fielding_team == "-"
-    ):
+    teams_available = (
+        batting_team
+        and batting_team != "-"
+        and fielding_team
+        and fielding_team != "-"
+    )
+
+    if not teams_available:
+        batting_team = "Team 1"
+        fielding_team = "Team 2"
+
         print(
             "SCOREOS AUTO MATCH: "
-            "waiting for team names",
+            "starting before team names are available",
             flush=True,
         )
-        return None
 
     now = time.time()
 
