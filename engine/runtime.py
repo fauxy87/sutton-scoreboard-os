@@ -213,6 +213,13 @@ class ScoreboardEngine:
         )
         event_engine.write_events(events)
 
+        # Keep a timestamped score history for the
+        # full-match broadcast score overlay.
+        if event_engine.active_session_id():
+            event_engine.write_score_history(
+                current_snapshot
+            )
+
         self.last_published_state = copy.deepcopy(
             current_snapshot
         )

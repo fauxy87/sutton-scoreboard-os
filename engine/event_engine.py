@@ -75,6 +75,73 @@ def active_session_id():
     return session_id or None
 
 
+def write_score_history(snapshot):
+    """Save timestamped score states for full-match graphics."""
+    session = load_active_session()
+
+    if not session:
+        return
+
+    session_id = str(
+        session.get("session_id", "")
+    ).strip()
+
+    started_iso = str(
+        session.get("started_iso", "")
+    ).strip()
+
+    if (
+        not session_id
+        or session_id != Path(session_id).name
+        or not session_id.startswith("match-")
+    ):
+        return
+
+    match_date = (
+        started_iso[:10]
+        if len(started_iso) >= 10
+        else time.strftime("%Y-%m-%d")
+    )
+
+    session_folder = (
+        Path("/var/lib/scoreos/recordings")
+        / match_date
+        / session_id
+    )
+
+    try:
+        session_folder.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        history_file = (
+            session_folder
+            / "score-history.jsonl"
+        )
+
+        entry = {
+            "timestamp": time.time(),
+            **snapshot,
+        }
+
+        with history_file.open(
+            "a",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                json.dumps(entry)
+                + "\n"
+            )
+
+    except OSError as exc:
+        print(
+            "SCOREOS SCORE HISTORY ERROR:",
+            exc,
+            flush=True,
+        )
+
+
 def preserve_preroll(full_folder):
     buffer_root = Path(
         "/var/lib/scoreos/camera-buffer"
