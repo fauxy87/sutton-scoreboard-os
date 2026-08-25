@@ -219,6 +219,68 @@ def main():
         / "full-match-browser.mp4"
     )
 
+    score_filter = (
+        session_folder.parent
+        / "score-overlay-filter.txt"
+    )
+
+    score_history = (
+        session_folder.parent
+        / "score-history.jsonl"
+    )
+
+    video_filter = "scale=1920:1080"
+
+    if score_history.exists():
+        overlay_script = (
+            Path(__file__).parent
+            / "build_score_overlay.py"
+        )
+
+        overlay_result = subprocess.run(
+            [
+                "/usr/bin/python3",
+                str(overlay_script),
+                "--date",
+                args.date,
+                "--session",
+                args.session,
+                "--output",
+                str(score_filter),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+        if (
+            overlay_result.returncode == 0
+            and score_filter.exists()
+        ):
+            overlay_filters = (
+                score_filter.read_text(
+                    encoding="utf-8"
+                ).strip()
+            )
+
+            if overlay_filters:
+                video_filter += (
+                    ","
+                    + overlay_filters
+                )
+
+                log(
+                    "Adding broadcast score bar "
+                    "to browser playback copy"
+                )
+
+        else:
+            log(
+                "Score overlay unavailable; "
+                "building clean browser copy"
+            )
+
     browser_command = [
         "/usr/bin/ffmpeg",
         "-hide_banner",
@@ -229,7 +291,7 @@ def main():
         "-map",
         "0:v:0",
         "-vf",
-        "scale=1920:1080",
+        video_filter,
         "-c:v",
         "h264_v4l2m2m",
         "-b:v",
