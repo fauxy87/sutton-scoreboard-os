@@ -173,44 +173,44 @@ def main():
         )
 
     filters = [
-        # Main lower-third background.
+        # Main TV-style lower-third background.
         (
             "drawbox="
-            "x=0:y=952:w=1920:h=128:"
-            "color=0x075b36@0.96:t=fill"
+            "x=0:y=944:w=1920:h=136:"
+            "color=0x075b36@0.98:t=fill"
         ),
 
         # Dark right section.
         (
             "drawbox="
-            "x=1260:y=952:w=660:h=128:"
-            "color=0x07112c@0.96:t=fill"
+            "x=1315:y=944:w=605:h=136:"
+            "color=0x07112c@0.98:t=fill"
         ),
 
         # White centre score panel.
         (
             "drawbox="
-            "x=760:y=952:w=500:h=128:"
+            "x=770:y=944:w=545:h=136:"
             "color=0xf4f6fb@1.0:t=fill"
         ),
 
         # Gold top border.
         (
             "drawbox="
-            "x=0:y=948:w=1920:h=4:"
+            "x=0:y=940:w=1920:h=4:"
             "color=0xf2c94c@1.0:t=fill"
         ),
 
         # Gold centre dividers.
         (
             "drawbox="
-            "x=757:y=952:w=3:h=128:"
-            "color=0xf2c94c@0.9:t=fill"
+            "x=767:y=944:w=3:h=136:"
+            "color=0xf2c94c@0.95:t=fill"
         ),
         (
             "drawbox="
-            "x=1260:y=952:w=3:h=128:"
-            "color=0xf2c94c@0.9:t=fill"
+            "x=1315:y=944:w=3:h=136:"
+            "color=0xf2c94c@0.95:t=fill"
         ),
     ]
 
@@ -263,7 +263,6 @@ def main():
                 - recording_start,
             )
         else:
-            # Continue to the end of any realistic match.
             end = 86400.0
 
         total = clean(
@@ -281,10 +280,10 @@ def main():
             "0",
         )
 
-        batting_team = (
+        batting_team = str(
             state.get("BatTeamName")
             or "Batting Team"
-        )
+        ).upper()
 
         batter_a = (
             state.get("Bat1Name")
@@ -346,10 +345,21 @@ def main():
             "-",
         )
 
+        target = clean(
+            state.get("target"),
+            "-",
+        )
+
+        runs_required = clean(
+            state.get("RunsRequired"),
+            "-",
+        )
+
+        # LEFT: team + batters
         add_text(
             batting_team,
-            28,
-            970,
+            30,
+            958,
             25,
             "white",
             start,
@@ -359,8 +369,8 @@ def main():
 
         add_text(
             f"{batter_a}  {batter_a_score} ({batter_a_balls})",
-            28,
-            1008,
+            30,
+            1000,
             22,
             "white",
             start,
@@ -370,8 +380,8 @@ def main():
 
         add_text(
             f"{batter_b}  {batter_b_score} ({batter_b_balls})",
-            28,
-            1041,
+            30,
+            1035,
             22,
             "white",
             start,
@@ -379,11 +389,12 @@ def main():
             True,
         )
 
+        # CENTRE: score
         add_text(
             f"{total}/{wickets}",
-            890,
-            967,
-            52,
+            900,
+            955,
+            58,
             "0x07112c",
             start,
             end,
@@ -393,7 +404,7 @@ def main():
         add_text(
             f"{overs} OVERS",
             930,
-            1027,
+            1020,
             20,
             "0x243154",
             start,
@@ -401,11 +412,27 @@ def main():
             True,
         )
 
+        if (
+            target not in ("-", "0")
+            or runs_required not in ("-", "0")
+        ):
+            add_text(
+                f"TARGET {target}  NEED {runs_required}",
+                840,
+                1050,
+                15,
+                "0x45506b",
+                start,
+                end,
+                True,
+            )
+
+        # RIGHT: bowler / over / wicket
         add_text(
             bowler,
-            1290,
-            972,
-            25,
+            1345,
+            960,
+            24,
             "white",
             start,
             end,
@@ -414,9 +441,9 @@ def main():
 
         add_text(
             figures,
-            1740,
-            972,
-            25,
+            1790,
+            960,
+            24,
             "white",
             start,
             end,
@@ -425,9 +452,9 @@ def main():
 
         add_text(
             "CURRENT OVER",
-            1290,
-            1013,
-            16,
+            1345,
+            1005,
+            15,
             "0xc4c8d4",
             start,
             end,
@@ -436,8 +463,8 @@ def main():
 
         add_text(
             current_over,
-            1515,
-            1013,
+            1555,
+            1005,
             18,
             "white",
             start,
@@ -447,9 +474,9 @@ def main():
 
         add_text(
             "LAST WICKET",
-            1290,
-            1045,
-            16,
+            1345,
+            1042,
+            15,
             "0xc4c8d4",
             start,
             end,
@@ -458,8 +485,8 @@ def main():
 
         add_text(
             last_wicket,
-            1515,
-            1045,
+            1555,
+            1042,
             18,
             "white",
             start,
