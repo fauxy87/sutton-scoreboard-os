@@ -2345,27 +2345,23 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
             master_clip = master_matches[0]
 
-            if is_download:
-                # Downloads always receive the original
-                # high-quality 4K HEVC master.
-                clip = master_clip
+            # Playback and downloads both prefer the
+            # laptop/browser-compatible H.264 copy when
+            # available. Keep the original 4K HEVC master
+            # as the fallback and archive-quality version.
+            browser_clip = (
+                master_clip.parent
+                / "full-match-browser.mp4"
+            )
 
-            else:
-                # Browser playback prefers the 1080p H.264
-                # compatibility copy when available.
-                browser_clip = (
-                    master_clip.parent
-                    / "full-match-browser.mp4"
+            clip = (
+                browser_clip
+                if (
+                    browser_clip.exists()
+                    and browser_clip.stat().st_size > 0
                 )
-
-                clip = (
-                    browser_clip
-                    if (
-                        browser_clip.exists()
-                        and browser_clip.stat().st_size > 0
-                    )
-                    else master_clip
-                )
+                else master_clip
+            )
 
             file_size = clip.stat().st_size
 
