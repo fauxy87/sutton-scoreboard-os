@@ -312,7 +312,11 @@ def main():
             capture_output=True,
             text=True,
             check=False,
-            timeout=3600,
+            # A full cricket match can take several
+            # hours to transcode on the Pi. Allow up to
+            # 12 hours rather than killing a healthy
+            # long-match conversion after one hour.
+            timeout=43200,
         )
 
     except subprocess.TimeoutExpired:
@@ -323,23 +327,88 @@ def main():
             "4K master kept"
         )
 
+    browser_valid = False
+
     if (
         browser_result is not None
         and browser_result.returncode == 0
         and browser_destination.exists()
         and browser_destination.stat().st_size > 0
     ):
-        log(
-            "Browser playback copy ready: "
-            f"{browser_destination}"
+        def video_duration(path):
+            probe_result = subprocess.run(
+                [
+                    "/usr/bin/ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    str(path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+
+            if probe_result.returncode != 0:
+                return 0.0
+
+            try:
+                return float(
+                    probe_result.stdout.strip()
+                )
+            except ValueError:
+                return 0.0
+
+        master_duration = video_duration(
+            destination
         )
 
-    else:
+        browser_duration = video_duration(
+            browser_destination
+        )
+
+        log(
+            "Full match durations: "
+            f"master={master_duration:.1f}s, "
+            f"browser={browser_duration:.1f}s"
+        )
+
+        # Allow a small difference for codec/container
+        # timing, but reject clearly incomplete copies.
+        minimum_duration = max(
+            0.0,
+            master_duration - 10.0,
+        )
+
+        browser_valid = (
+            master_duration > 0
+            and browser_duration >= minimum_duration
+        )
+
+        if browser_valid:
+            log(
+                "Browser playback copy ready: "
+                f"{browser_destination}"
+            )
+        else:
+            log(
+                "Browser playback copy failed duration "
+                "validation; incomplete copy removed"
+            )
+
+    if not browser_valid:
         browser_destination.unlink(
             missing_ok=True
         )
 
-        if browser_result is not None:
+        if (
+            browser_result is not None
+            and browser_result.returncode != 0
+        ):
             log(
                 "Unable to build browser playback copy: "
                 + (

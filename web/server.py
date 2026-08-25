@@ -2228,12 +2228,68 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 / "full-match-browser.mp4"
             )
 
+            def video_duration(video_path):
+                try:
+                    probe = subprocess.run(
+                        [
+                            "/usr/bin/ffprobe",
+                            "-v",
+                            "error",
+                            "-show_entries",
+                            "format=duration",
+                            "-of",
+                            "default=noprint_wrappers=1:nokey=1",
+                            str(video_path),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        timeout=15,
+                    )
+
+                    if probe.returncode != 0:
+                        return 0.0
+
+                    return float(
+                        probe.stdout.strip()
+                    )
+
+                except (
+                    OSError,
+                    ValueError,
+                    subprocess.TimeoutExpired,
+                ):
+                    return 0.0
+
+            browser_valid = False
+
+            if (
+                browser_clip.exists()
+                and browser_clip.stat().st_size > 0
+            ):
+                master_duration = video_duration(
+                    master_clip
+                )
+
+                browser_duration = video_duration(
+                    browser_clip
+                )
+
+                # Allow a small container/codec timing
+                # difference, but never serve an obviously
+                # incomplete browser conversion.
+                browser_valid = (
+                    master_duration > 0
+                    and browser_duration
+                    >= max(
+                        0.0,
+                        master_duration - 10.0,
+                    )
+                )
+
             clip = (
                 browser_clip
-                if (
-                    browser_clip.exists()
-                    and browser_clip.stat().st_size > 0
-                )
+                if browser_valid
                 else master_clip
             )
 
