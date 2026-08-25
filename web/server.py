@@ -2094,132 +2094,6 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             return
 
 
-        if path == "/api/highlights/build-match":
-            session_id = str(
-                request.get("session_id", "")
-            ).strip()
-
-            match_date = str(
-                request.get("date", "")
-            ).strip()
-
-            if (
-                not session_id
-                or not session_id.startswith("match-")
-            ):
-                self.send_json(
-                    {
-                        "ok": False,
-                        "error": "Invalid match session.",
-                    },
-                    status=400,
-                )
-                return
-
-            if not re.fullmatch(
-                r"\d{4}-\d{2}-\d{2}",
-                match_date,
-            ):
-                self.send_json(
-                    {
-                        "ok": False,
-                        "error": "Invalid match date.",
-                    },
-                    status=400,
-                )
-                return
-
-            highlight_folder = (
-                Path("/var/lib/scoreos/highlights")
-                / match_date
-                / session_id
-            )
-
-            individual = [
-                clip
-                for clip in highlight_folder.glob("*.mp4")
-                if clip.name != "match-highlights.mp4"
-            ]
-
-            if not individual:
-                self.send_json(
-                    {
-                        "ok": False,
-                        "error": (
-                            "No individual highlights "
-                            "were found for this match."
-                        ),
-                    },
-                    status=404,
-                )
-                return
-
-            script = Path(
-                "/home/pi/sutton-scoreboard-os/"
-                "scripts/build_match_highlights.py"
-            )
-
-            try:
-                result = subprocess.run(
-                    [
-                        "/usr/bin/python3",
-                        str(script),
-                        "--date",
-                        match_date,
-                        "--session",
-                        session_id,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=1800,
-                    check=False,
-                )
-            except subprocess.TimeoutExpired:
-                self.send_json(
-                    {
-                        "ok": False,
-                        "error": (
-                            "Match highlights build timed out."
-                        ),
-                    },
-                    status=500,
-                )
-                return
-
-            if result.returncode != 0:
-                self.send_json(
-                    {
-                        "ok": False,
-                        "error": (
-                            result.stderr.strip()
-                            or result.stdout.strip()
-                            or "Unable to build match highlights."
-                        ),
-                    },
-                    status=500,
-                )
-                return
-
-            output_file = (
-                highlight_folder
-                / "match-highlights.mp4"
-            )
-
-            self.send_json(
-                {
-                    "ok": True,
-                    "message": (
-                        "Match highlights built successfully."
-                    ),
-                    "match_highlights_ready": bool(
-                        output_file.exists()
-                        and output_file.stat().st_size > 0
-                    ),
-                    "output": result.stdout.strip(),
-                }
-            )
-            return
-
         if path == "/api/events":
             event_file = Path(
                 "/var/lib/scoreos/events/events.jsonl"
@@ -2809,6 +2683,132 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     "error": str(exc),
                 },
                 status=400,
+            )
+            return
+
+        if path == "/api/highlights/build-match":
+            session_id = str(
+                request.get("session_id", "")
+            ).strip()
+
+            match_date = str(
+                request.get("date", "")
+            ).strip()
+
+            if (
+                not session_id
+                or not session_id.startswith("match-")
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Invalid match session.",
+                    },
+                    status=400,
+                )
+                return
+
+            if not re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}",
+                match_date,
+            ):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": "Invalid match date.",
+                    },
+                    status=400,
+                )
+                return
+
+            highlight_folder = (
+                Path("/var/lib/scoreos/highlights")
+                / match_date
+                / session_id
+            )
+
+            individual = [
+                clip
+                for clip in highlight_folder.glob("*.mp4")
+                if clip.name != "match-highlights.mp4"
+            ]
+
+            if not individual:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "No individual highlights "
+                            "were found for this match."
+                        ),
+                    },
+                    status=404,
+                )
+                return
+
+            script = Path(
+                "/home/pi/sutton-scoreboard-os/"
+                "scripts/build_match_highlights.py"
+            )
+
+            try:
+                result = subprocess.run(
+                    [
+                        "/usr/bin/python3",
+                        str(script),
+                        "--date",
+                        match_date,
+                        "--session",
+                        session_id,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=1800,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Match highlights build timed out."
+                        ),
+                    },
+                    status=500,
+                )
+                return
+
+            if result.returncode != 0:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            result.stderr.strip()
+                            or result.stdout.strip()
+                            or "Unable to build match highlights."
+                        ),
+                    },
+                    status=500,
+                )
+                return
+
+            output_file = (
+                highlight_folder
+                / "match-highlights.mp4"
+            )
+
+            self.send_json(
+                {
+                    "ok": True,
+                    "message": (
+                        "Match highlights built successfully."
+                    ),
+                    "match_highlights_ready": bool(
+                        output_file.exists()
+                        and output_file.stat().st_size > 0
+                    ),
+                    "output": result.stdout.strip(),
+                }
             )
             return
 
