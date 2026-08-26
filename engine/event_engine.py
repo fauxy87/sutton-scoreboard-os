@@ -491,16 +491,73 @@ def handle_waiting_for_bowler(current):
     )
 
 
+def session_teams_swapped(session, current):
+    """
+    Detect an innings change against the active match
+    session rather than the immediately previous packet.
+
+    Play-Cricket sends BatTeamName and FieldTeamName as
+    separate packets, so comparing adjacent snapshots can
+    miss the swap while the state is temporarily half-updated.
+    """
+    session_batting = str(
+        session.get("batting_team", "") or ""
+    ).strip()
+
+    session_fielding = str(
+        session.get("fielding_team", "") or ""
+    ).strip()
+
+    current_batting = str(
+        current.get("BatTeamName", "") or ""
+    ).strip()
+
+    current_fielding = str(
+        current.get("FieldTeamName", "") or ""
+    ).strip()
+
+    invalid = {
+        "",
+        "-",
+        "Team 1",
+        "Team 2",
+    }
+
+    if (
+        session_batting in invalid
+        or session_fielding in invalid
+        or current_batting in invalid
+        or current_fielding in invalid
+    ):
+        return False
+
+    return (
+        current_batting == session_fielding
+        and current_fielding == session_batting
+    )
+
+
 def handle_innings_break(previous, current):
     session = load_active_session()
 
     if not session:
         return False
 
-    if teams_swapped(previous, current):
-        innings = int(
-            session.get("innings", 1)
-        ) + 1
+    # A normal ScoreOS match has two innings.
+    # Once innings 2 has started, a later Play-Cricket
+    # team-state refresh must not create a false innings 3.
+    current_innings = int(
+        session.get("innings", 1)
+    )
+
+    if current_innings >= 2:
+        return False
+
+    if session_teams_swapped(
+        session,
+        current,
+    ):
+        innings = current_innings + 1
 
         subprocess.run(
             [

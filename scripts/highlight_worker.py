@@ -253,12 +253,38 @@ def main():
         )
 
         if highlight_decision is None:
+            session_id = str(
+                event.get("session_id")
+                or ""
+            ).strip()
+
+            # Old diagnostics/test events can exist without
+            # a real match session. They can never acquire
+            # valid team metadata, so do not let one block
+            # the highlight worker forever.
+            if (
+                not session_id
+                or session_id != Path(session_id).name
+            ):
+                print(
+                    "Highlight skipped invalid event:",
+                    event_type,
+                    event.get("session_id"),
+                    flush=True,
+                )
+
+                state["processed"] = processed + 1
+                state["retry_count"] = 0
+                save_state(state)
+                continue
+
             print(
                 "Highlight waiting for team names:",
                 event_type,
-                event.get("session_id"),
+                session_id,
                 flush=True,
             )
+
             time.sleep(2)
             continue
 
