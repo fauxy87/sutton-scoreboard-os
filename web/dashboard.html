@@ -2116,6 +2116,10 @@
                 session?.innings_break
             );
 
+            const waitingForBowler = Boolean(
+                session?.waiting_for_bowler
+            );
+
             const matchFinished = Boolean(
                 session?.match_finished
             );
@@ -2293,10 +2297,30 @@
                     session?.match_name
                     ? session.match_name
                         + " · Recording paused"
-                    : "Recording paused";
+                        + " · Waiting for bowler"
+                    : "Recording paused · Waiting for bowler";
 
                 score.textContent =
                     "BREAK";
+
+                return;
+            }
+
+            if (waitingForBowler) {
+                banner.classList.add("warning");
+
+                icon.textContent = "🏏";
+                title.textContent =
+                    "WAITING FOR BOWLER";
+
+                detail.textContent =
+                    session?.match_name
+                    ? session.match_name
+                        + " · Recording will start automatically"
+                    : "Recording will start automatically";
+
+                score.textContent =
+                    "READY";
 
                 return;
             }
@@ -3238,6 +3262,10 @@
                 session?.innings_break
             );
 
+            const waitingForBowler = Boolean(
+                session?.waiting_for_bowler
+            );
+
             const matchFinished = Boolean(
                 session?.match_finished
             );
@@ -3440,15 +3468,42 @@
                     session?.match_name
                     ? "🟠 INNINGS BREAK — "
                         + session.match_name
-                    : "🟠 INNINGS BREAK";
+                        + " · Recording Paused"
+                        + " · Waiting for Bowler"
+                    : "🟠 INNINGS BREAK"
+                        + " · Recording Paused"
+                        + " · Waiting for Bowler";
 
                 summary.className =
                     "match-day-summary warning";
 
                 setMatchDayItem(
                     "md-recording",
-                    "neutral",
-                    "Paused"
+                    "warning",
+                    "Waiting for Bowler"
+                );
+
+                return;
+            }
+
+            if (waitingForBowler) {
+                heading.textContent =
+                    "WAITING FOR BOWLER";
+
+                summary.textContent =
+                    session?.match_name
+                    ? "🏏 "
+                        + session.match_name
+                        + " — Recording starts automatically"
+                    : "🏏 Recording starts automatically";
+
+                summary.className =
+                    "match-day-summary warning";
+
+                setMatchDayItem(
+                    "md-recording",
+                    "warning",
+                    "Waiting for Bowler"
                 );
 
                 return;

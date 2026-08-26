@@ -190,17 +190,27 @@ class ScoreboardEngine:
         current_snapshot = self.state.snapshot()
 
         if self.mode == "playcricket":
+            # Handle a team swap first so an innings break
+            # always pauses recording before anything else.
             event_engine.handle_innings_break(
                 self.last_published_state,
                 current_snapshot,
             )
 
-            event_engine.detect_match_finished(
+            # Create/update the match session before checking
+            # for a bowler. This lets an auto-started match
+            # begin recording from the same Play-Cricket
+            # update that contains the first bowler.
+            event_engine.auto_start_match(
                 self.last_published_state,
                 current_snapshot,
             )
 
-            event_engine.auto_start_match(
+            event_engine.handle_waiting_for_bowler(
+                current_snapshot,
+            )
+
+            event_engine.detect_match_finished(
                 self.last_published_state,
                 current_snapshot,
             )

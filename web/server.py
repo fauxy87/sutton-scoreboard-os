@@ -3739,6 +3739,9 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     + " v "
                     + away_team
                 ),
+                "innings": 1,
+                "innings_break": False,
+                "waiting_for_bowler": True,
             }
 
             match_file.parent.mkdir(
@@ -3842,55 +3845,23 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     except OSError:
                         continue
 
+            # Do not start the full match recorder yet.
+            # Keep the rolling pre-roll buffer active while
+            # waiting for Play-Cricket to select the bowler.
             result = subprocess.run(
                 [
                     "/usr/bin/systemctl",
                     "start",
-                    "scoreos-camera-recorder.service",
+                    "scoreos-camera-buffer.service",
                 ],
                 capture_output=True,
                 text=True,
                 check=False,
             )
 
-            # systemctl start can return success even if
-            # the recorder exits immediately afterwards.
-            time.sleep(2)
-
-            recorder_active = (
-                subprocess.run(
-                    [
-                        "/usr/bin/systemctl",
-                        "is-active",
-                        "--quiet",
-                        "scoreos-camera-recorder.service",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                ).returncode == 0
-            )
-
-            if (
-                result.returncode != 0
-                or not recorder_active
-            ):
+            if result.returncode != 0:
                 match_file.unlink(
                     missing_ok=True
-                )
-
-                # Starting a match deliberately stops the
-                # rolling pre-roll buffer. If the recorder
-                # fails, restore the buffer automatically.
-                subprocess.run(
-                    [
-                        "/usr/bin/systemctl",
-                        "start",
-                        "scoreos-camera-buffer.service",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=False,
                 )
 
                 self.send_json(
@@ -3899,7 +3870,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         "error": (
                             result.stderr.strip()
                             or
-                            "Camera recorder did not stay running."
+                            "Unable to start camera pre-roll buffer."
                         ),
                     },
                     status=500,
@@ -3909,7 +3880,10 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
             self.send_json(
                 {
                     "ok": True,
-                    "message": "Match recording started.",
+                    "message": (
+                        "Match started. Waiting for bowler "
+                        "before recording begins."
+                    ),
                     "session": session,
                 }
             )

@@ -314,6 +314,135 @@ def teams_swapped(previous, current):
     )
 
 
+def bowler_selected(current):
+    """Return True once Play-Cricket has a real bowler."""
+    bowler = str(
+        current.get("Bowler1Name", "") or ""
+    ).strip()
+
+    return (
+        bool(bowler)
+        and bowler not in {
+            "-",
+            "---",
+            "Bowler",
+        }
+    )
+
+
+def start_recorder_for_innings(session, current):
+    """
+    Preserve the rolling pre-roll and start the match
+    recorder when the first bowler is selected.
+    """
+    session_id = str(
+        session.get("session_id", "")
+    ).strip()
+
+    if not session_id:
+        return False
+
+    started_iso = str(
+        session.get("started_iso", "")
+    )
+
+    match_date = (
+        started_iso[:10]
+        if len(started_iso) >= 10
+        else time.strftime("%Y-%m-%d")
+    )
+
+    full_folder = (
+        Path("/var/lib/scoreos/recordings")
+        / match_date
+        / session_id
+        / "full"
+    )
+
+    bowler = str(
+        current.get("Bowler1Name", "")
+        or ""
+    ).strip()
+
+    print(
+        "SCOREOS BOWLER SELECTED:",
+        bowler,
+        flush=True,
+    )
+
+    preserve_preroll(full_folder)
+
+    result = subprocess.run(
+        [
+            "/usr/bin/systemctl",
+            "start",
+            "scoreos-camera-recorder.service",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    time.sleep(2)
+
+    recorder_active = (
+        subprocess.run(
+            [
+                "/usr/bin/systemctl",
+                "is-active",
+                "--quiet",
+                "scoreos-camera-recorder.service",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode == 0
+    )
+
+    if (
+        result.returncode == 0
+        and recorder_active
+    ):
+        session["waiting_for_bowler"] = False
+        session["innings_break"] = False
+        session["recording_started"] = time.time()
+        session["recording_started_by"] = "bowler"
+        session["starting_bowler"] = bowler
+
+        save_active_session(session)
+
+        print(
+            "SCOREOS RECORDING STARTED:",
+            f"innings {session.get('innings', 1)}",
+            bowler,
+            flush=True,
+        )
+
+        return True
+
+    # If the camera/recorder cannot start, restore the
+    # rolling buffer and leave waiting_for_bowler set.
+    subprocess.run(
+        [
+            "/usr/bin/systemctl",
+            "start",
+            "scoreos-camera-buffer.service",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    print(
+        "SCOREOS RECORDING START FAILED:",
+        result.stderr.strip()
+        or "recorder did not stay running",
+        flush=True,
+    )
+
+    return False
+
+
 def delivery_changed(previous, current):
     if not previous:
         return False
@@ -337,6 +466,28 @@ def delivery_changed(previous, current):
     return (
         current_over != previous_over
         or current_overs != previous_overs
+    )
+
+
+def handle_waiting_for_bowler(current):
+    """
+    Start recording when Play-Cricket supplies the first
+    bowler for an innings.
+    """
+    session = load_active_session()
+
+    if not session:
+        return False
+
+    if not session.get("waiting_for_bowler"):
+        return False
+
+    if not bowler_selected(current):
+        return False
+
+    return start_recorder_for_innings(
+        session,
+        current,
     )
 
 
@@ -375,6 +526,7 @@ def handle_innings_break(previous, current):
 
         session["innings"] = innings
         session["innings_break"] = True
+        session["waiting_for_bowler"] = True
         session["batting_team"] = str(
             current.get("BatTeamName", "")
         ).strip()
@@ -390,97 +542,6 @@ def handle_innings_break(previous, current):
             f"innings {innings} waiting to start",
             flush=True,
         )
-
-        return True
-
-    if (
-        session.get("innings_break")
-        and delivery_changed(previous, current)
-    ):
-        session_id = str(
-            session.get("session_id", "")
-        ).strip()
-
-        started_iso = str(
-            session.get("started_iso", "")
-        )
-
-        match_date = (
-            started_iso[:10]
-            if len(started_iso) >= 10
-            else time.strftime("%Y-%m-%d")
-        )
-
-        full_folder = (
-            Path("/var/lib/scoreos/recordings")
-            / match_date
-            / session_id
-            / "full"
-        )
-
-        preserve_preroll(full_folder)
-
-        result = subprocess.run(
-            [
-                "/usr/bin/systemctl",
-                "start",
-                "scoreos-camera-recorder.service",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        time.sleep(2)
-
-        recorder_active = (
-            subprocess.run(
-                [
-                    "/usr/bin/systemctl",
-                    "is-active",
-                    "--quiet",
-                    "scoreos-camera-recorder.service",
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            ).returncode == 0
-        )
-
-        if (
-            result.returncode == 0
-            and recorder_active
-        ):
-            session["innings_break"] = False
-            session["innings_resumed"] = time.time()
-
-            save_active_session(session)
-
-            print(
-                "SCOREOS INNINGS RESUMED:",
-                f"innings {session.get('innings', 2)}",
-                session_id,
-                flush=True,
-            )
-
-        else:
-            subprocess.run(
-                [
-                    "/usr/bin/systemctl",
-                    "start",
-                    "scoreos-camera-buffer.service",
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            print(
-                "SCOREOS INNINGS RESUME FAILED: "
-                "recorder did not stay running",
-                result.stderr.strip(),
-                flush=True,
-            )
 
         return True
 
@@ -573,14 +634,26 @@ def auto_start_match(previous, current):
             ).returncode == 0
         )
 
-        # During a genuine innings break the recorder is
-        # deliberately stopped, so the session must remain.
+        # The recorder is deliberately stopped while
+        # waiting for the first bowler and during a genuine
+        # innings break, so the session must remain active.
         innings_break = bool(
             existing_session
             and existing_session.get("innings_break")
         )
 
-        if recorder_active or innings_break:
+        waiting_for_bowler = bool(
+            existing_session
+            and existing_session.get(
+                "waiting_for_bowler"
+            )
+        )
+
+        if (
+            recorder_active
+            or innings_break
+            or waiting_for_bowler
+        ):
             # The match may have auto-started before
             # Play-Cricket supplied the team names.
             # Update the active session as soon as valid
@@ -794,6 +867,7 @@ def auto_start_match(previous, current):
         "auto_started": True,
         "innings": 1,
         "innings_break": False,
+        "waiting_for_bowler": True,
     }
 
     MATCH_FILE.parent.mkdir(
@@ -848,71 +922,24 @@ def auto_start_match(previous, current):
         encoding="utf-8",
     )
 
-    preserve_preroll(
-        session_folder / "full"
-    )
-
-    result = subprocess.run(
+    # Keep the rolling camera buffer active until
+    # Play-Cricket supplies a real first bowler.
+    subprocess.run(
         [
             "/usr/bin/systemctl",
             "start",
-            "scoreos-camera-recorder.service",
+            "scoreos-camera-buffer.service",
         ],
         capture_output=True,
         text=True,
         check=False,
     )
 
-    # systemctl may return success even if the
-    # recorder process exits immediately afterwards.
-    time.sleep(2)
-
-    recorder_active = (
-        subprocess.run(
-            [
-                "/usr/bin/systemctl",
-                "is-active",
-                "--quiet",
-                "scoreos-camera-recorder.service",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).returncode == 0
-    )
-
-    if (
-        result.returncode != 0
-        or not recorder_active
-    ):
-        MATCH_FILE.unlink(
-            missing_ok=True
-        )
-
-        subprocess.run(
-            [
-                "/usr/bin/systemctl",
-                "start",
-                "scoreos-camera-buffer.service",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        print(
-            "SCOREOS AUTO MATCH: "
-            "camera recorder did not stay running:",
-            result.stderr.strip(),
-            flush=True,
-        )
-
-        return None
-
     print(
-        "SCOREOS AUTO MATCH STARTED:",
+        "SCOREOS AUTO MATCH CREATED:",
         session["match_name"],
         session_id,
+        "- waiting for bowler",
         flush=True,
     )
 
