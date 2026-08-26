@@ -48,6 +48,26 @@ def main():
         help="Match session ID",
     )
 
+    mode = parser.add_mutually_exclusive_group()
+
+    mode.add_argument(
+        "--master-only",
+        action="store_true",
+        help=(
+            "Build and validate the clean full-match "
+            "master without creating the browser copy"
+        ),
+    )
+
+    mode.add_argument(
+        "--browser-only",
+        action="store_true",
+        help=(
+            "Build the browser/score-overlay copy from "
+            "an existing full-match master"
+        ),
+    )
+
     args = parser.parse_args()
 
     session_folder = (
@@ -70,149 +90,189 @@ def main():
         if path.stat().st_size > 0
     )
 
-    if not segments:
-        log("No recording segments found")
-        return 1
-
     destination = (
         session_folder
         / "full-match.mp4"
     )
+
+    if args.browser_only:
+        if (
+            not destination.exists()
+            or destination.stat().st_size <= 0
+        ):
+            log(
+                "Existing full-match master not found "
+                "for browser-only build"
+            )
+            return 1
+
+        log(
+            "Using existing full-match master for "
+            "deferred browser build"
+        )
+
+    elif not segments:
+        log("No recording segments found")
+        return 1
 
     temporary_destination = (
         session_folder
         / "full-match-building.mp4"
     )
 
-    temporary_destination.unlink(
-        missing_ok=True
-    )
+    if not args.browser_only:
+        temporary_destination.unlink(
+            missing_ok=True
+        )
 
-    log(
-        f"Building full match from "
-        f"{len(segments)} segments"
-    )
+        log(
+            f"Building full match from "
+            f"{len(segments)} segments"
+        )
 
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        suffix=".txt",
-        delete=False,
-    ) as handle:
-        concat_file = Path(handle.name)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            suffix=".txt",
+            delete=False,
+        ) as handle:
+            concat_file = Path(handle.name)
 
-        for segment in segments:
-            handle.write(
-                "file '"
-                + escape_path(segment)
-                + "'\n"
+            for segment in segments:
+                handle.write(
+                    "file '"
+                    + escape_path(segment)
+                    + "'\n"
+                )
+
+        command = [
+            "/usr/bin/ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "warning",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat_file),
+            "-map",
+            "0:v:0",
+            "-c",
+            "copy",
+            "-movflags",
+            "+faststart",
+            "-y",
+            str(temporary_destination),
+        ]
+
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=7200,
             )
 
-    command = [
-        "/usr/bin/ffmpeg",
-        "-hide_banner",
-        "-loglevel",
-        "warning",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-i",
-        str(concat_file),
-        "-map",
-        "0:v:0",
-        "-c",
-        "copy",
-        "-movflags",
-        "+faststart",
-        "-y",
-        str(temporary_destination),
-    ]
+        except subprocess.TimeoutExpired:
+            temporary_destination.unlink(
+                missing_ok=True
+            )
 
-    try:
-        result = subprocess.run(
-            command,
+            log(
+                "Full match build timed out; "
+                "raw recording segments have been kept"
+            )
+
+            return 2
+
+        finally:
+            concat_file.unlink(
+                missing_ok=True
+            )
+
+        if result.returncode != 0:
+            temporary_destination.unlink(
+                missing_ok=True
+            )
+
+            log(
+                "Unable to build full match: "
+                + (
+                    result.stderr.strip()
+                    or "FFmpeg failed"
+                )
+            )
+
+            return 2
+
+        if (
+            not temporary_destination.exists()
+            or temporary_destination.stat().st_size <= 0
+        ):
+            log(
+                "Full match output validation failed"
+            )
+            return 3
+
+        probe = subprocess.run(
+            [
+                "/usr/bin/ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "default=noprint_wrappers=1",
+                str(temporary_destination),
+            ],
             capture_output=True,
             text=True,
             check=False,
-            timeout=7200,
+            timeout=60,
         )
 
-    except subprocess.TimeoutExpired:
-        temporary_destination.unlink(
-            missing_ok=True
-        )
-
-        log(
-            "Full match build timed out; "
-            "raw recording segments have been kept"
-        )
-
-        return 2
-
-    finally:
-        concat_file.unlink(
-            missing_ok=True
-        )
-
-    if result.returncode != 0:
-        temporary_destination.unlink(
-            missing_ok=True
-        )
-
-        log(
-            "Unable to build full match: "
-            + (
-                result.stderr.strip()
-                or "FFmpeg failed"
+        if probe.returncode != 0:
+            temporary_destination.unlink(
+                missing_ok=True
             )
+
+            log(
+                "Full match validation failed; "
+                "raw recording segments have been kept"
+            )
+
+            return 3
+
+        temporary_destination.replace(
+            destination
         )
 
-        return 2
 
-    if (
-        not temporary_destination.exists()
-        or temporary_destination.stat().st_size <= 0
-    ):
+    if args.master_only:
         log(
-            "Full match output validation failed"
+            "Master-only build complete; "
+            "browser conversion deferred"
         )
-        return 3
 
-    probe = subprocess.run(
-        [
-            "/usr/bin/ffprobe",
-            "-v",
-            "error",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "stream=codec_name",
-            "-of",
-            "default=noprint_wrappers=1",
-            str(temporary_destination),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=60,
-    )
-
-    if probe.returncode != 0:
-        temporary_destination.unlink(
-            missing_ok=True
+        # Keep the raw segments until the deferred
+        # browser/score-overlay build has completed.
+        # build_score_overlay.py can use their timestamped
+        # filenames for accurate score synchronisation.
+        log(
+            f"Full match ready: "
+            f"{destination}"
         )
 
         log(
-            "Full match validation failed; "
-            "raw recording segments have been kept"
+            "Raw recording segments retained for "
+            "deferred browser build"
         )
 
-        return 3
-
-    temporary_destination.replace(
-        destination
-    )
+        return 0
 
     browser_destination = (
         session_folder
@@ -394,6 +454,57 @@ def main():
                 "Browser playback copy ready: "
                 f"{browser_destination}"
             )
+
+            if args.browser_only:
+                complete_file = Path(
+                    "/var/lib/scoreos/"
+                    "last-match-complete.json"
+                )
+
+                try:
+                    if complete_file.exists():
+                        complete_status = json.loads(
+                            complete_file.read_text(
+                                encoding="utf-8"
+                            )
+                        )
+
+                        if (
+                            complete_status.get(
+                                "session_id"
+                            )
+                            == args.session
+                        ):
+                            complete_status[
+                                "browser_video_processing"
+                            ] = False
+
+                            complete_status[
+                                "browser_video_ready"
+                            ] = True
+
+                            complete_file.write_text(
+                                json.dumps(
+                                    complete_status,
+                                    indent=2,
+                                ) + "\n",
+                                encoding="utf-8",
+                            )
+
+                            log(
+                                "Browser processing status "
+                                "marked complete"
+                            )
+
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                ) as exc:
+                    log(
+                        "Unable to update browser "
+                        "completion status: "
+                        f"{exc}"
+                    )
         else:
             log(
                 "Browser playback copy failed duration "
@@ -416,6 +527,66 @@ def main():
                     or "FFmpeg failed"
                 )
             )
+
+        if args.browser_only:
+            complete_file = Path(
+                "/var/lib/scoreos/"
+                "last-match-complete.json"
+            )
+
+            try:
+                if complete_file.exists():
+                    complete_status = json.loads(
+                        complete_file.read_text(
+                            encoding="utf-8"
+                        )
+                    )
+
+                    if (
+                        complete_status.get(
+                            "session_id"
+                        )
+                        == args.session
+                    ):
+                        complete_status[
+                            "browser_video_processing"
+                        ] = False
+
+                        complete_status[
+                            "browser_video_ready"
+                        ] = False
+
+                        complete_status[
+                            "browser_video_error"
+                        ] = (
+                            "Scored video build failed. "
+                            "Raw recording segments retained."
+                        )
+
+                        complete_file.write_text(
+                            json.dumps(
+                                complete_status,
+                                indent=2,
+                            ) + "\n",
+                            encoding="utf-8",
+                        )
+
+            except (
+                OSError,
+                json.JSONDecodeError,
+            ) as exc:
+                log(
+                    "Unable to update failed browser "
+                    "build status: "
+                    f"{exc}"
+                )
+
+        log(
+            "Raw recording segments retained because "
+            "browser build did not complete successfully"
+        )
+
+        return 4
 
 
     deleted = 0

@@ -3996,6 +3996,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
             full_match = None
             build_error = None
+            browser_build_started = False
 
             if session:
                 session_id = str(
@@ -4026,6 +4027,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                                 match_date,
                                 "--session",
                                 session_id,
+                                "--master-only",
                             ],
                             capture_output=True,
                             text=True,
@@ -4046,6 +4048,50 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                                 full_match = str(
                                     full_match_path
                                 )
+
+                                browser_log = (
+                                    full_match_path.parent
+                                    / "browser-build.log"
+                                )
+
+                                try:
+                                    log_handle = browser_log.open(
+                                        "a",
+                                        encoding="utf-8",
+                                    )
+
+                                    subprocess.Popen(
+                                        [
+                                            "/usr/bin/python3",
+                                            str(build_script),
+                                            "--date",
+                                            match_date,
+                                            "--session",
+                                            session_id,
+                                            "--browser-only",
+                                        ],
+                                        stdout=log_handle,
+                                        stderr=subprocess.STDOUT,
+                                        start_new_session=True,
+                                    )
+
+                                    browser_build_started = True
+
+                                    log_handle.close()
+
+                                except OSError as exc:
+                                    try:
+                                        with browser_log.open(
+                                            "a",
+                                            encoding="utf-8",
+                                        ) as handle:
+                                            handle.write(
+                                                "Unable to start deferred "
+                                                "browser build: "
+                                                f"{exc}\n"
+                                            )
+                                    except OSError:
+                                        pass
                         else:
                             build_error = (
                                 build_result.stderr.strip()
@@ -4179,6 +4225,9 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     else None
                 ),
                 "full_match_ready": bool(full_match),
+                "browser_video_processing": (
+                    browser_build_started
+                ),
                 "match_highlights_ready": bool(match_highlights),
                 "build_error": build_error,
                 "highlights_error": highlights_error,
@@ -4207,6 +4256,9 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                     ),
                     "session": session,
                     "full_match": full_match,
+                    "browser_video_processing": (
+                        browser_build_started
+                    ),
                     "match_highlights": match_highlights,
                     "build_error": build_error,
                     "highlights_error": highlights_error,

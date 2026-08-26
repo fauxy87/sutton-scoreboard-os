@@ -2036,6 +2036,15 @@
                     lastComplete.match_highlights_ready
                 );
 
+                const lastBrowserProcessing = Boolean(
+                    lastComplete.browser_video_processing
+                );
+
+                const lastBrowserError = (
+                    lastComplete.browser_video_error
+                    || ""
+                );
+
                 const lastHasError = Boolean(
                     lastComplete.build_error
                     || lastComplete.highlights_error
@@ -2063,6 +2072,30 @@
                         "md-last-match",
                         "warning",
                         "Full Match Saved · No Highlights"
+                    );
+
+                } else if (lastBrowserError) {
+                    if (lastMatchIcon) {
+                        lastMatchIcon.textContent =
+                            "⚠️";
+                    }
+
+                    setMatchDayItem(
+                        "md-last-match",
+                        "warning",
+                        "Full Match Safe · Scored Video Failed"
+                    );
+
+                } else if (lastBrowserProcessing) {
+                    if (lastMatchIcon) {
+                        lastMatchIcon.textContent =
+                            "🎬";
+                    }
+
+                    setMatchDayItem(
+                        "md-last-match",
+                        "warning",
+                        "Full Match Safe · Scored Video Processing"
                     );
 
                 } else {
@@ -2124,6 +2157,15 @@
                     complete.match_highlights_ready
                 );
 
+                const browserProcessing = Boolean(
+                    complete.browser_video_processing
+                );
+
+                const browserError = (
+                    complete.browser_video_error
+                    || ""
+                );
+
                 const hasError = Boolean(
                     complete.build_error
                     || complete.highlights_error
@@ -2163,6 +2205,40 @@
                         )
                         + " · Full Match Ready"
                         + " · Highlights Not Created";
+
+                    score.textContent =
+                        "SAVED";
+
+                } else if (browserError) {
+                    banner.classList.add("warning");
+                    icon.textContent = "⚠️";
+                    title.textContent =
+                        "MATCH SAVED";
+
+                    detail.textContent =
+                        (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " · Full Match Safe"
+                        + " · Scored Video Failed";
+
+                    score.textContent =
+                        "SAFE";
+
+                } else if (browserProcessing) {
+                    banner.classList.add("warning");
+                    icon.textContent = "🎬";
+                    title.textContent =
+                        "MATCH SAVED";
+
+                    detail.textContent =
+                        (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " · Full Match Safe"
+                        + " · Scored Video Processing";
 
                     score.textContent =
                         "SAVED";
@@ -3197,6 +3273,15 @@
                     complete.match_highlights_ready
                 );
 
+                const browserProcessing = Boolean(
+                    complete.browser_video_processing
+                );
+
+                const browserError = (
+                    complete.browser_video_error
+                    || ""
+                );
+
                 const hasError = Boolean(
                     complete.build_error
                     || complete.highlights_error
@@ -3248,6 +3333,50 @@
                         "md-recording",
                         "neutral",
                         "Full Match Saved"
+                    );
+
+                } else if (browserError) {
+                    heading.textContent =
+                        "MATCH SAVED";
+
+                    summary.textContent =
+                        "⚠️ "
+                        + (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " — Full Match Safe"
+                        + " • Scored Video Failed";
+
+                    summary.className =
+                        "match-day-summary warning";
+
+                    setMatchDayItem(
+                        "md-recording",
+                        "warning",
+                        "Full Match Safe"
+                    );
+
+                } else if (browserProcessing) {
+                    heading.textContent =
+                        "MATCH SAVED";
+
+                    summary.textContent =
+                        "🎬 "
+                        + (
+                            complete.match_name
+                            || "Match"
+                        )
+                        + " — Full Match Safe"
+                        + " • Scored Video Processing";
+
+                    summary.className =
+                        "match-day-summary warning";
+
+                    setMatchDayItem(
+                        "md-recording",
+                        "warning",
+                        "Scored Video Processing"
                     );
 
                 } else {
