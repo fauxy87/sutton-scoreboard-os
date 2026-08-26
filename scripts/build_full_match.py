@@ -158,6 +158,8 @@ def main():
             str(concat_file),
             "-map",
             "0:v:0",
+            "-map",
+            "0:a:0?",
             "-c",
             "copy",
             "-movflags",
@@ -350,6 +352,8 @@ def main():
         str(destination),
         "-map",
         "0:v:0",
+        "-map",
+        "0:a:0?",
         "-vf",
         video_filter,
         "-c:v",
@@ -512,6 +516,18 @@ def main():
             )
 
     if not browser_valid:
+        # FFmpeg can occasionally exit with code 0 even
+        # though the browser copy ended early. Preserve its
+        # warning output in the log so we can diagnose why.
+        if (
+            browser_result is not None
+            and browser_result.stderr
+        ):
+            log(
+                "Browser FFmpeg output:\n"
+                + browser_result.stderr[-8000:]
+            )
+
         browser_destination.unlink(
             missing_ok=True
         )

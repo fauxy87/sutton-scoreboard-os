@@ -186,6 +186,8 @@ def run_recorder():
 
         "-map",
         "0:v:0",
+        "-map",
+        "0:a:0",
         "-c",
         "copy",
         "-f",
@@ -202,6 +204,8 @@ def run_recorder():
 
         "-map",
         "1:v:0",
+        "-map",
+        "1:a:0",
         "-c",
         "copy",
         "-f",

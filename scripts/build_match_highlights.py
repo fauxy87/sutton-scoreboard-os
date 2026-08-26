@@ -164,6 +164,8 @@ def main():
         str(concat_file),
         "-map",
         "0:v:0",
+        "-map",
+        "0:a:0?",
         "-c",
         "copy",
         "-movflags",

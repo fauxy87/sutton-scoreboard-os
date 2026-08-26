@@ -63,11 +63,6 @@ def preview_command(rtsp_url):
         "-rtsp_transport",
         "tcp",
 
-        # Do not leave the TV showing a frozen frame forever
-        # if the RTSP connection stops delivering data.
-        "-rw_timeout",
-        "8000000",
-
         "-i",
         rtsp_url,
 

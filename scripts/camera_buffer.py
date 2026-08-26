@@ -57,9 +57,13 @@ def camera_url():
     if auth:
         auth += "@"
 
+    # The rolling pre-roll buffer belongs to the
+    # full-match recording, so always use the camera's
+    # lightweight H.264 substream. The 4K main stream is
+    # reserved for highlight recording.
     rtsp_path = str(
-        camera.get("rtsp_path")
-        or "/h264Preview_01_main"
+        camera.get("sub_rtsp_path")
+        or "/h264Preview_01_sub"
     ).strip()
 
     if not rtsp_path.startswith("/"):
@@ -136,6 +140,8 @@ def run_buffer():
         camera_url(),
         "-map",
         "0:v:0",
+        "-map",
+        "0:a:0?",
         "-c",
         "copy",
         "-f",
