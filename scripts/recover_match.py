@@ -15,6 +15,10 @@ PROCESSING = Path(
     "/var/lib/scoreos/match-processing.json"
 )
 
+COMPLETE = Path(
+    "/var/lib/scoreos/last-match-complete.json"
+)
+
 RECORDINGS = Path(
     "/var/lib/scoreos/recordings"
 )
@@ -204,6 +208,12 @@ def main():
                 "Building recovered full match"
             )
 
+            # Recovery must first create the clean master.
+            # The browser/score-overlay copy is deliberately
+            # deferred, matching the normal match-stop flow.
+            # A browser conversion failure must not cause an
+            # otherwise healthy interrupted match to fail
+            # recovery.
             run_script(
                 "build_full_match.py",
                 [
@@ -211,6 +221,7 @@ def main():
                     date,
                     "--session",
                     session_id,
+                    "--master-only",
                 ],
                 timeout=7200,
             )
@@ -298,6 +309,109 @@ def main():
             session,
             "recovery-complete",
         )
+
+        full_match_ready = bool(
+            full_match.exists()
+            and full_match.stat().st_size > 0
+        )
+
+        match_highlights_ready = bool(
+            combined.exists()
+            and combined.stat().st_size > 0
+        )
+
+        # Recovery mirrors the normal match-stop flow:
+        # the clean master is considered complete first,
+        # while the scored browser copy is built separately.
+        complete_status = {
+            "completed_at": time.time(),
+            "session_id": session_id,
+            "match_name": session.get(
+                "match_name"
+            ),
+            "full_match_ready": full_match_ready,
+            "browser_video_processing": False,
+            "browser_video_ready": False,
+            "match_highlights_ready": (
+                match_highlights_ready
+            ),
+            "build_error": None,
+            "highlights_error": None,
+            "recovery": True,
+        }
+
+        COMPLETE.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        COMPLETE.write_text(
+            json.dumps(
+                complete_status,
+                indent=2,
+            ) + "\n",
+            encoding="utf-8",
+        )
+
+        browser_started = False
+
+        if full_match_ready:
+            browser_log = (
+                full_dir
+                / "browser-build.log"
+            )
+
+            try:
+                log_handle = browser_log.open(
+                    "a",
+                    encoding="utf-8",
+                )
+
+                subprocess.Popen(
+                    [
+                        "/usr/bin/python3",
+                        str(
+                            INSTALL_DIR
+                            / "scripts"
+                            / "build_full_match.py"
+                        ),
+                        "--date",
+                        date,
+                        "--session",
+                        session_id,
+                        "--browser-only",
+                    ],
+                    stdout=log_handle,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+
+                browser_started = True
+
+            except OSError as exc:
+                log(
+                    "Unable to start recovered "
+                    "browser build: "
+                    + str(exc)
+                )
+
+        if browser_started:
+            complete_status[
+                "browser_video_processing"
+            ] = True
+
+            COMPLETE.write_text(
+                json.dumps(
+                    complete_status,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+
+            log(
+                "Recovered browser playback "
+                "build started"
+            )
 
         CURRENT_MATCH.unlink(
             missing_ok=True
