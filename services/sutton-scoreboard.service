@@ -1,9 +1,7 @@
 [Unit]
 Description=Sutton Scoreboard OS
 Requires=bluetooth.service
-Wants=sutton-scoreboard-advert.service
 After=bluetooth.service
-After=sutton-scoreboard-advert.service
 
 [Service]
 Type=simple

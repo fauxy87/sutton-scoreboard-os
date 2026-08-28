@@ -1,27 +1,20 @@
 [Unit]
-Description=Sutton Scoreboard BLE Advertisement
-After=bluetooth.service
+Description=Sutton Scoreboard Legacy BLE Advertisement Watchdog
+After=bluetooth.service sutton-scoreboard.service
 Requires=bluetooth.service
+Wants=sutton-scoreboard.service
 
 [Service]
-Type=oneshot
-
+Type=simple
 ExecStartPre=/usr/sbin/rfkill unblock bluetooth
-ExecStartPre=/bin/sleep 3
-
-ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh power on
-ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh le on
-ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh name SCOREOS
-ExecStartPre=-{{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh connectable on
-ExecStartPre=-{{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh advertising off
-ExecStartPre=-{{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh clr-adv
-ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh add-adv -c -g -n -u 5a0d6a15-b664-4304-8530-3a0ec53e5bc1 1
-
-ExecStart={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh advertising on
-ExecStartPost={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh advinfo
-
-RemainAfterExit=yes
-TimeoutStartSec=45
+ExecStartPre=/bin/sleep 12
+ExecStartPre=/home/pi/sutton-scoreboard-os/scripts/run-btmgmt-on-scoreos-adapter.sh connectable on
+ExecStart=/usr/bin/python3 -u /home/pi/sutton-scoreboard-os/scripts/legacy_advertisement_watchdog.py
+ExecStop=/home/pi/sutton-scoreboard-os/scripts/legacy-advertisement.sh stop
+Restart=always
+RestartSec=3
+TimeoutStartSec=30
+TimeoutStopSec=10
 
 [Install]
 WantedBy=multi-user.target
