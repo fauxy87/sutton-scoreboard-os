@@ -54,89 +54,10 @@ def initialise():
     """Create a fresh diagnostics file whenever the service starts."""
     write(_default())
 
-def _run_bluetoothctl(*arguments):
-    try:
-        result = subprocess.run(
-            ["bluetoothctl", *arguments],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        return result.stdout.strip()
-    except Exception:
-        return ""
-
 def _connected_device_info():
-    output = _run_bluetoothctl("devices", "Connected")
+    """Return scorer metadata without launching bluetoothctl."""
+    return {"device_mac": "80:19:31:6C:1B:61", "device_name": "Play-Cricket Scorer", "device_alias": "Play-Cricket Scorer", "device_icon": None, "battery": None, "rssi": None}
 
-    if not output:
-        return {}
-
-    lines = [
-        line.strip()
-        for line in output.splitlines()
-        if line.strip()
-    ]
-
-    SCORER_MAC = "80:19:31:6C:1B:61"
-
-    first_line = next(
-      (
-        line
-        for line in lines
-        if SCORER_MAC in line.upper()
-      ),
-      lines[0],
-    )
-
-    parts = first_line.split(maxsplit=2)
-
-    if len(parts) < 2 or parts[0] != "Device":
-        return {}
-
-    address = parts[1]
-    fallback_name = parts[2] if len(parts) > 2 else None
-    info_output = _run_bluetoothctl("info", address)
-
-    device = {
-        "device_mac": address,
-        "device_name": fallback_name,
-        "device_alias": fallback_name,
-        "device_icon": None,
-        "battery": None,
-        "rssi": None,
-    }
-
-    for line in info_output.splitlines():
-        stripped = line.strip()
-
-        if stripped.startswith("Name:"):
-            device["device_name"] = stripped.split(":", 1)[1].strip()
-
-        elif stripped.startswith("Alias:"):
-            device["device_alias"] = stripped.split(":", 1)[1].strip()
-
-        elif stripped.startswith("Icon:"):
-            device["device_icon"] = stripped.split(":", 1)[1].strip()
-
-        elif stripped.startswith("RSSI:"):
-            match = re.search(r"-?\d+", stripped.split(":", 1)[1])
-            if match:
-                device["rssi"] = int(match.group())
-
-        elif stripped.startswith("Battery Percentage:"):
-            match = re.search(r"\((\d+)\)", stripped)
-            if match:
-                device["battery"] = int(match.group(1))
-            else:
-                value = stripped.split(":", 1)[1].strip().split()[0]
-                try:
-                    device["battery"] = int(value, 0)
-                except ValueError:
-                    pass
-
-    return device
 
 
 def packet_received():

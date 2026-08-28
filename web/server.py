@@ -303,45 +303,25 @@ def bluetooth_status():
     preferred_adapter_present = False
     preferred_adapter_name = None
 
-    bluetooth_root = Path("/sys/class/bluetooth")
-
-    if bluetooth_root.exists():
-        for adapter_path in bluetooth_root.glob("hci*"):
-            try:
-                output = run_command([
-                    "/usr/bin/hciconfig",
-                    adapter_path.name,
-                ])
-
-                if preferred_adapter_mac in output.upper():
-                    preferred_adapter_present = True
-                    preferred_adapter_name = adapter_path.name
-                    break
-
-            except Exception:
-                continue
+    preferred_adapter_present = any(
+        (device / "idVendor").read_text().strip().lower() == "2357"
+        and (device / "idProduct").read_text().strip().lower() == "0604"
+        for device in Path("/sys/bus/usb/devices").glob("*")
+        if (device / "idVendor").exists()
+        and (device / "idProduct").exists()
+    )
+    preferred_adapter_name = "hci0" if preferred_adapter_present else None
     advert_service = service_status(
         "sutton-scoreboard-advert.service"
     )
 
-    if preferred_adapter_present:
-        show_output = run_command(
-            [
-                "/usr/bin/bluetoothctl",
-                "--timeout",
-                "2",
-                "show",
-            ],
-            timeout=3,
-        )
-    else:
-        show_output = ""
+    show_output = ""
 
     mgmt_info = ""
     advert_info = ""
 
-    name = "Unknown"
-    powered = False
+    name = "SCOREOS"
+    powered = bluetooth_service == "active" and preferred_adapter_present
     rssi = None
     signal_quality = None
 
@@ -402,19 +382,7 @@ def bluetooth_status():
         "mac": None,
     }
 
-    if preferred_adapter_present:
-        connected_output = run_command(
-            [
-                "/usr/bin/bluetoothctl",
-                "--timeout",
-                "2",
-                "devices",
-                "Connected",
-            ],
-            timeout=3,
-        )
-    else:
-        connected_output = ""
+    connected_output = ""
 
     connected_mac = None
 
@@ -430,35 +398,6 @@ def bluetooth_status():
                     connected_mac
                 )
                 break
-
-    if connected_mac:
-        info_output = run_command(
-            [
-                "/usr/bin/bluetoothctl",
-                "--timeout",
-                "2",
-                "info",
-                connected_mac,
-            ],
-            timeout=3,
-        )
-
-        for line in info_output.splitlines():
-            stripped = line.strip()
-
-            if stripped.startswith("Name:"):
-                connected_device["name"] = (
-                    stripped
-                    .split(":", 1)[1]
-                    .strip()
-                )
-
-            elif stripped.startswith("Alias:"):
-                connected_device["alias"] = (
-                    stripped
-                    .split(":", 1)[1]
-                    .strip()
-                )
 
     # # if connected_device["mac"]:
 ##        rssi_output = run_command([
