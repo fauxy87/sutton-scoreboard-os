@@ -1486,9 +1486,13 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
         if path == "/api/bluetooth":
             try:
-                self.send_json(
-                    bluetooth_manager.get_status()
+                status = bluetooth_manager.get_status()
+                status["advertising"] = (
+                    service_status(
+                        "sutton-scoreboard-advert.service"
+                    ) == "active"
                 )
+                self.send_json(status)
             except Exception as exc:
                 self.send_json(
                     {
