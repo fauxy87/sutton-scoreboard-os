@@ -7,7 +7,7 @@ Wants=scoreos-web.service
 Type=oneshot
 User={{USER}}
 WorkingDirectory={{INSTALL_DIR}}
-ExecStart=/usr/bin/python3 -u {{INSTALL_DIR}}/scripts/recover_match.py
+ExecStart={{INSTALL_DIR}}/venv/bin/python -u {{INSTALL_DIR}}/scripts/recover_match.py
 TimeoutStartSec=7500
 
 [Install]

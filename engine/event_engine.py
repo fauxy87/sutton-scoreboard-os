@@ -10,6 +10,16 @@ from pathlib import Path
 
 EVENT_FILE = Path("/var/lib/scoreos/events/events.jsonl")
 MATCH_FILE = Path("/var/lib/scoreos/current-match.json")
+RECORDING_ROOT = Path("/var/lib/scoreos/recordings")
+
+
+def set_recording_owner(path):
+    """Match a new path to the installer's recording owner."""
+    try:
+        owner = RECORDING_ROOT.stat()
+        os.chown(path, owner.st_uid, owner.st_gid)
+    except OSError:
+        pass
 
 
 def number(value):
@@ -163,14 +173,7 @@ def preserve_preroll(full_folder):
         exist_ok=True,
     )
 
-    try:
-        os.chown(
-            full_folder,
-            1000,
-            1000,
-        )
-    except OSError:
-        pass
+    set_recording_owner(full_folder)
 
     copied = 0
     cutoff = time.time() - 50
@@ -955,19 +958,8 @@ def auto_start_match(previous, current):
         exist_ok=True,
     )
 
-    try:
-        os.chown(
-            session_folder.parent,
-            1000,
-            1000,
-        )
-        os.chown(
-            session_folder,
-            1000,
-            1000,
-        )
-    except OSError:
-        pass
+    set_recording_owner(session_folder.parent)
+    set_recording_owner(session_folder)
 
     (
         session_folder / "match.json"

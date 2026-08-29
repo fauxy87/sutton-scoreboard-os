@@ -6,7 +6,14 @@
 
 SCOREOS_USER="$(whoami)"
 SCOREOS_HOME="$HOME"
-SCOREOS_DIR="$HOME/sutton-scoreboard-os"
+
+# Use the directory that actually contains install.sh. This keeps
+# service paths correct when the repository is installed somewhere
+# other than /home/pi/sutton-scoreboard-os.
+SCOREOS_DIR="$(
+    cd "$(dirname "${BASH_SOURCE[1]}")"
+    pwd -P
+)"
 
 export SCOREOS_USER
 export SCOREOS_HOME

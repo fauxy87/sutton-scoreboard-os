@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — Pi 5 preparation
+
+### Added
+- Offline regression tests for Play-Cricket parsing, event detection,
+  camera paths and service templates
+- Raspberry Pi 5 and USB SSD migration guide
+- Installer-managed desktop kiosk startup
+
+### Improved
+- Services now use the SCOREOS virtual environment consistently
+- Install paths and recording ownership no longer assume user `pi`
+- Bluetooth prefers the field USB adapter and falls back to built-in Bluetooth
+- Camera recorder honours the configured substream path
+- Camera buffer waits quietly while the camera is disabled or unconfigured
+
+### Fixed
+- Optional camera audio streams no longer prevent recording startup
+- Installer and health check now use the live Ground Control port, 8080
+- Missing GPIO, rfkill and display utility packages are installed
+- Camera configuration containing credentials is restricted to administrators
+
 ## v2.1.0 — July 2026
 
 ### Added

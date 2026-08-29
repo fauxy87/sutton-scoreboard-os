@@ -14,7 +14,7 @@ run_system_checks() {
     success "Detected: $PRETTY_NAME"
 
     if [[ "$ID" != "debian" && "$ID" != "raspbian" ]]; then
-        warning "SCOREOS is designed for Raspberry Pi OS Bookworm."
+        warning "SCOREOS is designed for Raspberry Pi OS Trixie or Bookworm."
     fi
 
     echo
@@ -35,8 +35,7 @@ run_system_checks() {
     if ping -c 1 -W 3 github.com >/dev/null 2>&1; then
         success "Internet connection available."
     else
-        error "Unable to reach the internet."
-        exit 1
+        warning "GitHub did not answer ping; package installation will verify connectivity."
     fi
 
     echo

@@ -71,7 +71,8 @@ def rtsp_url(camera):
     )
 
     path = str(
-        camera.get(
+        camera.get("sub_rtsp_path")
+        or camera.get(
             "rtsp_path",
             "/h264Preview_01_main",
         )

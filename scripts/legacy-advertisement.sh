@@ -2,7 +2,21 @@
 set -e
 
 HCITOOL="/usr/bin/hcitool"
-ADAPTER="hci0"
+SELECTION_FILE="/run/scoreos/bluetooth-adapter"
+ADAPTER="${SCOREOS_BLUETOOTH_ADAPTER:-}"
+
+if [ -z "$ADAPTER" ] && [ -r "$SELECTION_FILE" ]; then
+    ADAPTER=$(head -n 1 "$SELECTION_FILE")
+fi
+
+if [ -z "$ADAPTER" ]; then
+    ADAPTER="hci0"
+fi
+
+if [ ! -d "/sys/class/bluetooth/$ADAPTER" ]; then
+    echo "Bluetooth adapter $ADAPTER was not found"
+    exit 1
+fi
 
 if [ "${1:-start}" = "stop" ]; then
     "$HCITOOL" -i "$ADAPTER" cmd 0x08 0x000a 00 || true

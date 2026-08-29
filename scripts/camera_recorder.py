@@ -95,13 +95,22 @@ def load_camera_paths():
     # This camera has a verified H.264 substream,
     # which is much lighter and better suited to
     # continuous full-match recording.
-    if main_path.endswith("_main"):
-        sub_path = (
-            main_path[:-5]
-            + "_sub"
-        )
-    else:
-        sub_path = "/h264Preview_01_sub"
+    sub_path = str(
+        camera.get("sub_rtsp_path")
+        or ""
+    ).strip()
+
+    if not sub_path:
+        if main_path.endswith("_main"):
+            sub_path = (
+                main_path[:-5]
+                + "_sub"
+            )
+        else:
+            sub_path = "/h264Preview_01_sub"
+
+    if not sub_path.startswith("/"):
+        sub_path = "/" + sub_path
 
     base = f"rtsp://{auth}{host}:{port}"
 
@@ -187,7 +196,7 @@ def run_recorder():
         "-map",
         "0:v:0",
         "-map",
-        "0:a:0",
+        "0:a:0?",
         "-c",
         "copy",
         "-f",
@@ -205,7 +214,7 @@ def run_recorder():
         "-map",
         "1:v:0",
         "-map",
-        "1:a:0",
+        "1:a:0?",
         "-c",
         "copy",
         "-f",

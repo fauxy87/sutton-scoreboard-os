@@ -1,9 +1,9 @@
 SCOREOS
-Version: 1.0-alpha1
-Platform: Raspberry Pi 4
-Operating System: Debian 13 Trixie
-Bluetooth: BlueZ 5.82
-Status: Working Alpha
+Version: 2.1.0
+Platform: Raspberry Pi 4 and Raspberry Pi 5
+Operating System: Raspberry Pi OS Trixie (Debian 13)
+Bluetooth: BlueZ
+Status: Working development build
 
 Features:
 - Automatic BLE advertisement
@@ -12,3 +12,4 @@ Features:
 - Live packet parsing
 - Persistent Arduino connection
 - Automatic startup after reboot
+- Camera recording and automatic highlights

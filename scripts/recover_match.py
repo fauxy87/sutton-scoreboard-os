@@ -83,7 +83,7 @@ def find_match_dir(session_id):
 
 def run_script(script, arguments, timeout):
     command = [
-        "/usr/bin/python3",
+        sys.executable,
         str(INSTALL_DIR / "scripts" / script),
         *arguments,
     ]
@@ -369,7 +369,7 @@ def main():
 
                 subprocess.Popen(
                     [
-                        "/usr/bin/python3",
+                        sys.executable,
                         str(
                             INSTALL_DIR
                             / "scripts"
@@ -445,3 +445,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+

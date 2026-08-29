@@ -6,10 +6,11 @@ import dbus.service
 from gi.repository import GLib
 
 import sys
+from pathlib import Path
 
-PROJECT_ROOT = "/home/pi/sutton-scoreboard-os"
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from arduino.connection import ArduinoConnection
 from engine.runtime import ScoreboardEngine

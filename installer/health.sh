@@ -20,8 +20,8 @@ health_check() {
     fi
 
     # Check Flask Port
-    if ss -tln | grep -q ":5000"; then
-        success "Ground Control is listening on port 5000"
+    if ss -tln | grep -q ":8080"; then
+        success "Ground Control is listening on port 8080"
     else
         warning "Ground Control is not running"
     fi

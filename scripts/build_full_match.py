@@ -2,6 +2,7 @@
 
 import argparse
 import subprocess
+import sys
 import tempfile
 
 from datetime import datetime
@@ -301,7 +302,7 @@ def main():
 
         overlay_result = subprocess.run(
             [
-                "/usr/bin/python3",
+                sys.executable,
                 str(overlay_script),
                 "--date",
                 args.date,

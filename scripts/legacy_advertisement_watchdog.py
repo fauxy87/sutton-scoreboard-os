@@ -3,15 +3,17 @@
 import signal
 import subprocess
 import time
+from pathlib import Path
 
 import dbus
 
 BLUEZ = "org.bluez"
 OBJECT_MANAGER = "org.freedesktop.DBus.ObjectManager"
 
-ADVERTISER = (
-    "/home/pi/sutton-scoreboard-os/"
-    "scripts/legacy-advertisement.sh"
+ADVERTISER = str(
+    Path(__file__).resolve().with_name(
+        "legacy-advertisement.sh"
+    )
 )
 
 running = True
@@ -123,3 +125,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

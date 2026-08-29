@@ -12,6 +12,12 @@ PAIRING_SECONDS = 60
 PREFERRED_ADAPTER_MAC = (
     "18:69:45:F3:58:B9"
 )
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ADAPTER_SCRIPT = str(
+    PROJECT_ROOT
+    / "scripts"
+    / "run-btmgmt-on-scoreos-adapter.sh"
+)
 
 _lock = threading.Lock()
 _pairing_active = False
@@ -131,7 +137,7 @@ def paired_devices():
 
     return devices
 
-def preferred_adapter_present():
+def adapter_present():
     bluetooth_root = Path(
         "/sys/class/bluetooth"
     )
@@ -139,38 +145,19 @@ def preferred_adapter_present():
     if not bluetooth_root.exists():
         return False
 
-    for adapter in bluetooth_root.glob("hci*"):
-        address_file = adapter / "address"
-
-        try:
-            address = (
-                address_file
-                .read_text(encoding="utf-8")
-                .strip()
-                .upper()
-            )
-
-            if address == PREFERRED_ADAPTER_MAC:
-                return True
-
-        except OSError:
-            continue
-
-    return False
+    return any(bluetooth_root.glob("hci*"))
 
 
 def advertising_active():
-    # Do not run btmgmt at all when the preferred
-    # SCOREOS adapter is not present.
-    if not preferred_adapter_present():
+    if not adapter_present():
         return False
 
-    # Query the same preferred SCOREOS adapter used by
-    # the advertising service instead of assuming hci0.
+    # Query the adapter selected by the advertising helper.
+    # It prefers the field USB adapter and falls back to the
+    # built-in adapter used by the development Pi at home.
     output, code = run_command(
         [
-            "/home/pi/sutton-scoreboard-os/scripts/"
-            "run-btmgmt-on-scoreos-adapter.sh",
+            ADAPTER_SCRIPT,
             "advinfo",
         ],
         timeout=4,
@@ -232,7 +219,7 @@ def get_status():
             "name": "SCOREOS",
         },
         # "advertising" means a real advertising instance
-        # exists on the preferred SCOREOS adapter.
+        # exists on the selected SCOREOS adapter.
         "advertising": advert_active,
         "gatt_service": gatt_running,
 

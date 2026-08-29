@@ -6,6 +6,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -22,6 +23,18 @@ DIAGNOSTICS_FILE = Path("/run/scoreos/diagnostics.json")
 HIGHLIGHT_SETTINGS_FILE = Path(
     "/etc/scoreos/highlights.json"
 )
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PYTHON_EXECUTABLE = sys.executable
+RECORDING_ROOT = Path("/var/lib/scoreos/recordings")
+
+
+def set_recording_owner(path):
+    """Match a new path to the installer\'s recording owner."""
+    try:
+        owner = RECORDING_ROOT.stat()
+        os.chown(path, owner.st_uid, owner.st_gid)
+    except OSError:
+        pass
 
 
 def load_highlight_settings():
@@ -2745,15 +2758,16 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
                 return
 
-            script = Path(
-                "/home/pi/sutton-scoreboard-os/"
-                "scripts/build_match_highlights.py"
+            script = (
+                PROJECT_ROOT
+                / "scripts"
+                / "build_match_highlights.py"
             )
 
             try:
                 result = subprocess.run(
                     [
-                        "/usr/bin/python3",
+                        PYTHON_EXECUTABLE,
                         str(script),
                         "--date",
                         match_date,
@@ -3715,10 +3729,11 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 exist_ok=True,
             )
 
-            shutil.chown(
-                session_folder,
-                user="pi",
-                group="pi",
+            set_recording_owner(
+                session_folder.parent
+            )
+            set_recording_owner(
+                session_folder
             )
 
             (
@@ -3757,10 +3772,8 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 exist_ok=True,
             )
 
-            shutil.chown(
-                full_folder,
-                user="pi",
-                group="pi",
+            set_recording_owner(
+                full_folder
             )
 
             cutoff = time.time() - 50
@@ -3931,14 +3944,16 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
 
                 if session_id:
-                    build_script = Path(
-                        "/home/pi/sutton-scoreboard-os/scripts/build_full_match.py"
+                    build_script = (
+                        PROJECT_ROOT
+                        / "scripts"
+                        / "build_full_match.py"
                     )
 
                     try:
                         build_result = subprocess.run(
                             [
-                                "/usr/bin/python3",
+                                PYTHON_EXECUTABLE,
                                 str(build_script),
                                 "--date",
                                 match_date,
@@ -3979,7 +3994,7 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
 
                                     subprocess.Popen(
                                         [
-                                            "/usr/bin/python3",
+                                            PYTHON_EXECUTABLE,
                                             str(build_script),
                                             "--date",
                                             match_date,
@@ -4070,14 +4085,16 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 )
 
                 if session_id:
-                    highlights_script = Path(
-                        "/home/pi/sutton-scoreboard-os/scripts/build_match_highlights.py"
+                    highlights_script = (
+                        PROJECT_ROOT
+                        / "scripts"
+                        / "build_match_highlights.py"
                     )
 
                     try:
                         highlights_result = subprocess.run(
                             [
-                                "/usr/bin/python3",
+                                PYTHON_EXECUTABLE,
                                 str(highlights_script),
                                 "--date",
                                 match_date,
@@ -5508,4 +5525,5 @@ if __name__ == "__main__":
 
     print(f"SCOREOS web server listening on port {PORT}")
     ThreadingHTTPServer((HOST, PORT), ScoreboardHandler).serve_forever()
+
 

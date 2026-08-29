@@ -37,7 +37,7 @@ The aim of the project is to provide a professional electronic scoreboard that i
 | Component | Recommendation |
 |-----------|----------------|
 | Computer | Raspberry Pi 5 (Pi 4 supported) |
-| Operating System | Raspberry Pi OS (Bookworm, based on Debian 12) |
+| Operating System | Raspberry Pi OS Trixie (Bookworm also supported) |
 | Bluetooth | TP-Link UB500 USB Bluetooth Adapter |
 | Score Controller | Arduino-based BLE controller |
 | Display | HDMI TV or Monitor |
@@ -66,11 +66,11 @@ The Raspberry Pi receives live score data over Bluetooth Low Energy (BLE) from a
 ---.
 # 🚀 Installation
 
-SCOREOS is designed to run on Raspberry Pi OS (Bookworm) using a Raspberry Pi 4 or Raspberry Pi 5.
+SCOREOS is designed to run on Raspberry Pi OS Trixie using a Raspberry Pi 4 or Raspberry Pi 5. Existing Bookworm installations remain supported.
 
 ### Requirements
 
-- Raspberry Pi OS (Bookworm)
+- Raspberry Pi OS Trixie (or an existing Bookworm installation)
 - Python 3
 - Bluetooth adapter (TP-Link UB500 recommended)
 - Arduino scoreboard controller
@@ -166,7 +166,7 @@ SCOREOS currently includes the following functionality:
 
 # 🛠️ Built With
 
-- Raspberry Pi OS (Bookworm)
+- Raspberry Pi OS Trixie
 - Python 3
 - Flask
 - HTML5 / CSS3 / JavaScript

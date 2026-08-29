@@ -15,13 +15,16 @@ install_packages() {
         python3-dbus \
         python3-gi \
         python3-serial \
+        python3-gpiozero \
         git \
         bluez \
         bluetooth \
+        rfkill \
         expect \
         network-manager \
         ffmpeg \
         chromium \
+        wlr-randr \
         curl
 
     success "System packages installed."

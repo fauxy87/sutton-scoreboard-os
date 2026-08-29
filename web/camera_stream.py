@@ -28,7 +28,14 @@ def build_rtsp_url(use_substream=True):
     )
 
     if use_substream:
-        if path.endswith("_main"):
+        configured_substream = str(
+            camera.get("sub_rtsp_path")
+            or ""
+        ).strip()
+
+        if configured_substream:
+            path = configured_substream
+        elif path.endswith("_main"):
             path = (
                 path[:-5]
                 + "_sub"

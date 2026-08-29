@@ -8,9 +8,11 @@ from pathlib import Path
 
 
 PREFERRED_MAC = "18:69:45:F3:58:B9"
-ADAPTER_SCRIPT = (
-    "/home/pi/sutton-scoreboard-os/scripts/"
-    "run-btmgmt-on-scoreos-adapter.sh"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ADAPTER_SCRIPT = str(
+    PROJECT_ROOT
+    / "scripts"
+    / "run-btmgmt-on-scoreos-adapter.sh"
 )
 
 CHECK_SECONDS = 15
@@ -63,25 +65,10 @@ def run(command, timeout=20):
         return str(exc), 1
 
 
-def preferred_adapter_present():
+def adapter_present():
     root = Path("/sys/class/bluetooth")
 
-    if not root.exists():
-        return False
-
-    for adapter in root.glob("hci*"):
-        output, code = run(
-            ["/usr/bin/hciconfig", adapter.name],
-            timeout=5,
-        )
-
-        if (
-            code == 0
-            and PREFERRED_MAC in output.upper()
-        ):
-            return True
-
-    return False
+    return root.exists() and any(root.glob("hci*"))
 
 
 def service_active(name):
@@ -166,7 +153,7 @@ def main():
 
     while True:
         adapter_present = (
-            preferred_adapter_present()
+            adapter_present()
         )
 
         if not adapter_present:
@@ -174,8 +161,7 @@ def main():
 
             if adapter_was_present is not False:
                 log(
-                    "Preferred SCOREOS Bluetooth "
-                    "adapter is not connected"
+                    "SCOREOS Bluetooth adapter is not connected"
                 )
 
             adapter_was_present = False
@@ -184,8 +170,7 @@ def main():
 
         if adapter_was_present is not True:
             log(
-                "Preferred SCOREOS Bluetooth "
-                "adapter detected"
+                "SCOREOS Bluetooth adapter detected"
             )
 
         adapter_was_present = True

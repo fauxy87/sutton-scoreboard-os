@@ -81,5 +81,20 @@ install_services() {
         success "Enabled $service_name"
     done
 
+    if [[ -f config/field/scoreos.desktop ]]; then
+        info "Installing SCOREOS desktop startup..."
+
+        install -d -m 0755 \
+            "$SCOREOS_HOME/.config/autostart"
+
+        install -m 0644 \
+            config/field/scoreos.desktop \
+            "$SCOREOS_HOME/.config/autostart/scoreos.desktop"
+
+        success "Installed SCOREOS desktop startup"
+    else
+        warning "Desktop startup file was not found."
+    fi
+
     success "All SCOREOS services installed."
 }

@@ -1,4 +1,4 @@
-##!/usr/bin/env python3
+#!/usr/bin/env python3
 
 import json
 import os
@@ -92,3 +92,4 @@ def packet_received():
         bt["packet_count"] = int(bt.get("packet_count", 0)) + 1
 
         write(data)
+

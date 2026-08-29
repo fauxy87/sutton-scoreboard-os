@@ -8,9 +8,9 @@ Wants=sutton-scoreboard.service
 Type=simple
 ExecStartPre=/usr/sbin/rfkill unblock bluetooth
 ExecStartPre=/bin/sleep 12
-ExecStartPre=/home/pi/sutton-scoreboard-os/scripts/run-btmgmt-on-scoreos-adapter.sh connectable on
-ExecStart=/usr/bin/python3 -u /home/pi/sutton-scoreboard-os/scripts/legacy_advertisement_watchdog.py
-ExecStop=/home/pi/sutton-scoreboard-os/scripts/legacy-advertisement.sh stop
+ExecStartPre={{INSTALL_DIR}}/scripts/run-btmgmt-on-scoreos-adapter.sh connectable on
+ExecStart={{INSTALL_DIR}}/venv/bin/python -u {{INSTALL_DIR}}/scripts/legacy_advertisement_watchdog.py
+ExecStop={{INSTALL_DIR}}/scripts/legacy-advertisement.sh stop
 Restart=always
 RestartSec=3
 TimeoutStartSec=30
@@ -18,3 +18,4 @@ TimeoutStopSec=10
 
 [Install]
 WantedBy=multi-user.target
+

@@ -21,6 +21,7 @@ DEFAULT_CAMERA = {
     "username": "",
     "password": "",
     "rtsp_path": "/h264Preview_01_main",
+    "sub_rtsp_path": "/h264Preview_01_sub",
 }
 
 
@@ -58,6 +59,7 @@ def save(settings):
         json.dumps(camera, indent=2) + "\n",
         encoding="utf-8",
     )
+    CAMERA_CONFIG.chmod(0o600)
 
     return camera
 

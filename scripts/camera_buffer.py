@@ -21,6 +21,29 @@ def log(message):
     )
 
 
+def camera_configured():
+    if not CAMERA_CONFIG.exists():
+        return False
+
+    try:
+        camera = json.loads(
+            CAMERA_CONFIG.read_text(
+                encoding="utf-8"
+            )
+        )
+    except (
+        OSError,
+        json.JSONDecodeError,
+    ):
+        return False
+
+    return bool(
+        camera.get("enabled", True)
+        and (camera.get("host") or camera.get("ip"))
+        and camera.get("username")
+    )
+
+
 def camera_url():
     camera = json.loads(
         CAMERA_CONFIG.read_text(
@@ -221,6 +244,14 @@ def run_buffer():
 
 def main():
     while True:
+        if not camera_configured():
+            log(
+                "Camera is disabled or not configured; "
+                "checking again in 30 seconds"
+            )
+            time.sleep(30)
+            continue
+
         try:
             code = run_buffer()
 
