@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import subprocess
 import sys
 import tempfile
@@ -177,6 +178,46 @@ def main():
                 check=False,
                 timeout=7200,
             )
+
+            if result.returncode != 0:
+                log(
+                    "Audio track is unavailable or invalid; "
+                    "retrying full match as video-only"
+                )
+
+                temporary_destination.unlink(
+                    missing_ok=True
+                )
+
+                video_only_command = [
+                    "/usr/bin/ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "warning",
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-i",
+                    str(concat_file),
+                    "-map",
+                    "0:v:0",
+                    "-c:v",
+                    "copy",
+                    "-an",
+                    "-movflags",
+                    "+faststart",
+                    "-y",
+                    str(temporary_destination),
+                ]
+
+                result = subprocess.run(
+                    video_only_command,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=7200,
+                )
 
         except subprocess.TimeoutExpired:
             temporary_destination.unlink(

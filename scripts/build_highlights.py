@@ -612,6 +612,50 @@ def create_clip(event, overwrite=False):
         )
 
         if copy_result.returncode != 0:
+            log(
+                "Audio track is unavailable or invalid; "
+                "retrying clip as video-only"
+            )
+
+            temporary_path.unlink(
+                missing_ok=True
+            )
+
+            video_only_copy_command = [
+                "/usr/bin/ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "warning",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_path),
+                "-ss",
+                f"{seek_offset:.3f}",
+                "-t",
+                f"{clip_duration:.3f}",
+                "-map",
+                "0:v:0",
+                "-c:v",
+                "copy",
+                "-an",
+                "-movflags",
+                "+faststart",
+                "-y",
+                str(temporary_path),
+            ]
+
+            copy_result = subprocess.run(
+                video_only_copy_command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+
+        if copy_result.returncode != 0:
             error = (
                 copy_result.stderr.strip()
                 or "FFmpeg stream-copy failed"
