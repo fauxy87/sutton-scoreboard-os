@@ -182,16 +182,20 @@ def find_recording_segments(
         # remains inside the date folder on which the match
         # session started, so locate the session by ID rather
         # than assuming the event's calendar date.
+        # Use the H.264 full-recording stream for reliable
+        # highlight creation. The Reolink high-resolution
+        # HEVC stream can contain cross-segment references
+        # which produce grey or undecodable highlight clips.
         session_folders = sorted(
             RECORDING_ROOT.glob(
-                f"*/{session_id}/main"
+                f"*/{session_id}/full"
             )
         )
 
-        for main_folder in session_folders:
-            if main_folder.exists():
+        for full_folder in session_folders:
+            if full_folder.exists():
                 candidates.extend(
-                    main_folder.glob("*.ts")
+                    full_folder.glob("*.ts")
                 )
 
     else:
