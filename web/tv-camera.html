@@ -684,6 +684,35 @@ header .scoreos-section-nav {
     }
 }
 
+
+/* Operator controls remain visible until the display enters fullscreen. */
+body > .mode-controls {
+    display: flex !important;
+    position: relative;
+    z-index: 20;
+    border-bottom: 1px solid #3f4843;
+}
+
+body > .mode-controls::before {
+    content: "Display:";
+    align-self: center;
+    margin-right: 3px;
+    color: #cbd5cf;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+#screenLayout {
+    height: calc(100vh - 150px);
+    min-height: 520px;
+}
+
+#screenLayout:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
+}
+
 </style>
 </head>
 
@@ -843,7 +872,7 @@ setInterval(
     <a href="/highlights">Highlights</a>
 </nav>
 
-<nav class="mode-controls">
+<nav class="mode-controls" aria-label="Camera display mode">
     <button
         id="scoreModeButton"
         onclick="setMode('score')"
