@@ -328,6 +328,59 @@ header .scoreos-section-nav {
     }
 }
 
+
+        .system-group-heading {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 16px;
+            margin-top: 12px;
+            padding: 8px 2px 0;
+        }
+
+        .system-group-heading:first-child {
+            margin-top: 0;
+        }
+
+        .system-group-heading h2 {
+            margin: 0;
+            color: #103f23;
+            font-size: 24px;
+        }
+
+        .system-group-heading p {
+            margin: 4px 0 0;
+            color: #66736c;
+            font-size: 14px;
+        }
+
+        .section-link {
+            display: inline-block;
+            padding: 9px 13px;
+            border-radius: 8px;
+            background: #18743a;
+            color: white;
+            font-weight: 800;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .section-link:hover {
+            background: #125f2f;
+        }
+
+        @media (max-width: 680px) {
+            .system-group-heading {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .section-link {
+                text-align: center;
+            }
+        }
+
 </style>
 </head>
 
@@ -359,7 +412,16 @@ header .scoreos-section-nav {
     </div>
 
     <div class="grid">
-        <section class="card">
+        <div class="system-group-heading">
+              <div>
+                  <h2>Bluetooth</h2>
+                  <p>
+                      Scoreboard connection, pairing and recovery
+                  </p>
+              </div>
+          </div>
+
+          <section class="card">
             <h2>Bluetooth Status</h2>
 
             <div class="card-body">
@@ -443,7 +505,20 @@ header .scoreos-section-nav {
                 <div id="message"></div>
             </div>
         </section>
-        <section class="card">
+        <div class="system-group-heading">
+              <div>
+                  <h2>Camera &amp; Highlight Services</h2>
+                  <p>
+                      Camera setup and highlight processing controls
+                  </p>
+              </div>
+
+              <a class="section-link" href="/highlights">
+                  Open Camera &amp; Highlights
+              </a>
+          </div>
+
+          <section class="card">
             <h2>Camera Status</h2>
 
             <div class="card-body">
@@ -589,7 +664,16 @@ header .scoreos-section-nav {
             </div>
         </section>
 
-        <section class="card">
+        <div class="system-group-heading">
+              <div>
+                  <h2>Devices</h2>
+                  <p>
+                      Tablets and scorers connected to SCOREOS
+                  </p>
+              </div>
+          </div>
+
+          <section class="card">
             <h2>Connected Devices</h2>
 
             <div id="connectedDevices" class="card-body">
