@@ -777,6 +777,28 @@ header .scoreos-section-nav {
     }
 }
 
+
+.media-status-overview {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.35fr)
+        minmax(300px, 0.65fr);
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.media-status-overview .camera-status-panel,
+.media-status-overview .storage-panel {
+    margin-bottom: 0;
+}
+
+@media (max-width: 850px) {
+    .media-status-overview {
+        grid-template-columns: 1fr;
+    }
+}
+
 </style>
 </head>
 
@@ -846,19 +868,21 @@ header .scoreos-section-nav {
         </div>
     </div>
 
-    <section
-    id="camera-status-panel"
-    class="camera-status-panel"
->
-    Checking camera…
-</section>
+    <div class="media-status-overview">
+        <section
+            id="camera-status-panel"
+            class="camera-status-panel"
+        >
+            Checking camera…
+        </section>
 
-<section
-    id="storage-panel"
-    class="storage-panel"
->
-    Loading storage information…
-</section>
+        <section
+            id="storage-panel"
+            class="storage-panel"
+        >
+            Loading storage information…
+        </section>
+    </div>
 
 <section class="recording-panel">
     <div class="recording-info">
