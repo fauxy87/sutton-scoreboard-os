@@ -1050,6 +1050,21 @@ header .scoreos-section-nav {
     }
 }
 
+
+        .section-actions {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .checks-actions {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        @media (max-width: 680px) {
+            .section-actions,
+            .checks-actions {
+                grid-template-columns: 1fr;
+            }
+        }
 </style>
 </head>
 
@@ -1322,83 +1337,80 @@ header .scoreos-section-nav {
         </section>
 
         <section class="card actions-card">
-            <div class="card-header">
-                <h2>Quick Actions</h2>
-            </div>
+                <div class="card-header">
+                    <h2>Main Sections</h2>
+                </div>
 
-            <div
-                style="
-                    display: grid;
-                    grid-template-columns:
-                        repeat(auto-fit, minmax(240px, 1fr));
-                    gap: 10px;
-                    margin-bottom: 14px;
-                "
-            >
-                <button
-                    id="fix-scoreos"
-                    class="action"
-                    type="button"
-                >
-                    <span class="action-icon">🛠️</span>
-                    <span class="action-title">
-                        Fix SCOREOS
-                    </span>
-                    <span
-                        id="fix-scoreos-result"
-                        class="action-subtitle"
+                <div class="actions section-actions">
+                    <a class="action" href="/control">
+                        <span class="action-icon">🏏</span>
+                        <span class="action-title">Match Control</span>
+                        <span class="action-subtitle">
+                            Scoring and manual controls
+                        </span>
+                    </a>
+
+                    <a class="action" href="/highlights">
+                        <span class="action-icon">🎬</span>
+                        <span class="action-title">
+                            Camera &amp; Highlights
+                        </span>
+                        <span class="action-subtitle">
+                            Live camera and match videos
+                        </span>
+                    </a>
+
+                    <a class="action" href="/groundcontrol">
+                        <span class="action-icon">⚙️</span>
+                        <span class="action-title">System</span>
+                        <span class="action-subtitle">
+                            Connections, diagnostics and setup
+                        </span>
+                    </a>
+                </div>
+            </section>
+
+            <section class="card actions-card">
+                <div class="card-header">
+                    <h2>Checks &amp; Repairs</h2>
+                </div>
+
+                <div class="actions checks-actions">
+                    <button
+                        id="run-match-day-check"
+                        class="action"
+                        type="button"
                     >
-                        Automatically repair common faults
-                    </span>
-                </button>
+                        <span class="action-icon">✅</span>
+                        <span class="action-title">
+                            Run Match Day Check
+                        </span>
+                        <span
+                            id="match-day-check-result"
+                            class="action-subtitle"
+                        >
+                            Test SCOREOS before the match
+                        </span>
+                    </button>
 
-                <button
-                    id="run-match-day-check"
-                    class="action"
-                    type="button"
-                    style="width: 100%;"
-                >
-                    <span class="action-icon">🏏</span>
-                    <span class="action-title">
-                        Run Match Day Check
-                    </span>
-                    <span
-                        id="match-day-check-result"
-                        class="action-subtitle"
+                    <button
+                        id="fix-scoreos"
+                        class="action"
+                        type="button"
                     >
-                        Test SCOREOS before the match
-                    </span>
-                </button>
-            </div>
+                        <span class="action-icon">🛠️</span>
+                        <span class="action-title">Fix SCOREOS</span>
+                        <span
+                            id="fix-scoreos-result"
+                            class="action-subtitle"
+                        >
+                            Automatically repair common faults
+                        </span>
+                    </button>
+                </div>
+            </section>
 
-            <div class="actions">
-                <a class="action" href="/control">
-                    <span class="action-icon">🎮</span>
-                    <span class="action-title">Manual Control</span>
-                    <span class="action-subtitle">Update the score</span>
-                </a>
-
-                <a class="action" href="/tv-camera">
-                    <span class="action-icon">📺</span>
-                    <span class="action-title">TV Camera</span>
-                    <span class="action-subtitle">Live camera & scoreboard</span>
-                </a>
-
-                <a class="action" href="/diagnostics">
-                    <span class="action-icon">📊</span>
-                    <span class="action-title">Diagnostics</span>
-                    <span class="action-subtitle">Connections and logs</span>
-                </a>
-
-            <a class="action" href="/highlights">
-                <span class="action-icon">🎬</span>
-                <span class="action-title">Highlights</span>
-                <span class="action-subtitle">Watch FOURs, SIXes and wickets</span>
-            </a>
-            </div>
-        </section>
-
-        <section class="card actions-card">
+            <section class="card actions-card">
             <div class="card-header">
                 <h2>Administration</h2>
             </div>
