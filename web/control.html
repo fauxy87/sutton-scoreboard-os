@@ -461,6 +461,87 @@ main input:disabled{
   }
 }
 
+
+/* SCOREOS shared four-section navigation */
+.scoreos-primary-nav,
+.scoreos-section-nav {
+    width: 100%;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    padding: 8px 12px !important;
+}
+
+.scoreos-primary-nav {
+    background: #101714 !important;
+    border-bottom: 3px solid #d8b23f !important;
+}
+
+.scoreos-section-nav {
+    background: #edf1ef !important;
+    border-bottom: 1px solid #c8d0cc !important;
+}
+
+.scoreos-primary-nav a,
+.scoreos-section-nav a {
+    display: inline-block;
+    border: 1px solid #718078 !important;
+    border-radius: 8px !important;
+    padding: 8px 13px !important;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    line-height: 1.15;
+    text-decoration: none !important;
+    white-space: nowrap;
+}
+
+.scoreos-primary-nav a {
+    background: #222b27 !important;
+    color: white !important;
+}
+
+.scoreos-section-nav a {
+    background: white !important;
+    color: #17221c !important;
+}
+
+.scoreos-primary-nav a.active,
+.scoreos-section-nav a.active {
+    background: #18743a !important;
+    border-color: #18743a !important;
+    color: white !important;
+}
+
+.scoreos-primary-nav a:hover,
+.scoreos-section-nav a:hover {
+    border-color: #d8b23f !important;
+}
+
+header .scoreos-primary-nav {
+    margin-top: 12px !important;
+}
+
+header .scoreos-section-nav {
+    margin-top: 7px !important;
+}
+
+@media (max-width: 680px) {
+    .scoreos-primary-nav,
+    .scoreos-section-nav {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .scoreos-primary-nav a,
+    .scoreos-section-nav a {
+        text-align: center;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -469,6 +550,16 @@ main input:disabled{
   <div class="title">SUTTON CC SCOREBOARD</div>
   <div class="clock" id="clock">--:--:--</div>
 </header>
+<nav class="scoreos-primary-nav" aria-label="Main navigation">
+    <a href="/dashboard">Dashboard</a>
+    <a class="active" href="/control">Match Control</a>
+    <a href="/highlights">Camera & Highlights</a>
+    <a href="/groundcontrol">System</a>
+</nav>
+<nav class="scoreos-section-nav" aria-label="Section navigation">
+    <a class="active" href="/control">Modern Control</a>
+    <a href="/control-classic">Classic Control</a>
+</nav>
 
 <section class="input-mode-bar" aria-label="Scoreboard input source">
   <div class="input-mode-heading">INPUT SOURCE</div>
