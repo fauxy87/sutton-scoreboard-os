@@ -1296,6 +1296,245 @@ def admin_action(action):
         return False, str(exc)
 
 
+
+WINDOWS_USB_FILESYSTEMS = {
+    "vfat",
+    "exfat",
+    "ntfs",
+    "ntfs3",
+}
+
+
+def mounted_windows_usb_drives():
+    """Return writable, mounted, Windows-readable USB drives."""
+    try:
+        result = subprocess.run(
+            [
+                "/usr/bin/lsblk",
+                "--json",
+                "--bytes",
+                "--output",
+                (
+                    "NAME,PATH,TYPE,TRAN,RM,FSTYPE,"
+                    "MOUNTPOINTS,SIZE,LABEL"
+                ),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except Exception:
+        return []
+
+    if result.returncode != 0:
+        return []
+
+    try:
+        devices = json.loads(
+            result.stdout
+        ).get("blockdevices", [])
+    except (json.JSONDecodeError, AttributeError):
+        return []
+
+    found = []
+
+    def inspect(nodes, parent_transport=None):
+        for node in nodes:
+            transport = (
+                node.get("tran")
+                or parent_transport
+                or ""
+            ).lower()
+
+            filesystem = str(
+                node.get("fstype") or ""
+            ).lower()
+
+            mountpoints = node.get("mountpoints") or []
+
+            if isinstance(mountpoints, str):
+                mountpoints = [mountpoints]
+
+            for mountpoint in mountpoints:
+                if (
+                    transport != "usb"
+                    or filesystem
+                    not in WINDOWS_USB_FILESYSTEMS
+                    or not mountpoint
+                ):
+                    continue
+
+                mount = Path(mountpoint)
+
+                try:
+                    resolved = mount.resolve()
+                except OSError:
+                    continue
+
+                if (
+                    resolved == Path("/")
+                    or str(resolved).startswith(
+                        "/var/lib/scoreos"
+                    )
+                    or not resolved.is_mount()
+                    or not os.access(
+                        resolved,
+                        os.W_OK,
+                    )
+                ):
+                    continue
+
+                found.append(
+                    {
+                        "path": resolved,
+                        "device": node.get("path"),
+                        "filesystem": filesystem,
+                        "label": (
+                            node.get("label")
+                            or resolved.name
+                        ),
+                        "size": int(
+                            node.get("size") or 0
+                        ),
+                    }
+                )
+
+            inspect(
+                node.get("children") or [],
+                transport,
+            )
+
+    inspect(devices)
+
+    unique = {}
+
+    for drive in found:
+        unique[str(drive["path"])] = drive
+
+    return list(unique.values())
+
+
+def export_match_highlights_to_usb(session_id):
+    """Copy one match's highlight videos to a mounted USB drive."""
+    if (
+        not session_id
+        or session_id != Path(session_id).name
+        or not re.fullmatch(
+            r"match-[A-Za-z0-9_-]+",
+            session_id,
+        )
+    ):
+        raise ValueError("Invalid match session.")
+
+    highlight_root = Path(
+        "/var/lib/scoreos/highlights"
+    )
+
+    candidates = sorted(
+        (
+            folder
+            for folder in highlight_root.glob(
+                f"*/{session_id}"
+            )
+            if folder.is_dir()
+        ),
+        key=lambda folder: folder.stat().st_mtime,
+        reverse=True,
+    )
+
+    if not candidates:
+        raise FileNotFoundError(
+            "The selected match was not found."
+        )
+
+    source = candidates[0]
+
+    clips = sorted(
+        clip
+        for clip in source.glob("*.mp4")
+        if clip.is_file()
+        and not clip.is_symlink()
+    )
+
+    if not clips:
+        raise FileNotFoundError(
+            "No highlight videos were found "
+            "for this match."
+        )
+
+    drives = mounted_windows_usb_drives()
+
+    if not drives:
+        raise RuntimeError(
+            "No mounted Windows-readable USB stick "
+            "was found. Insert a FAT32, exFAT or NTFS "
+            "USB stick and try again."
+        )
+
+    if len(drives) > 1:
+        raise RuntimeError(
+            "More than one suitable USB drive was "
+            "found. Leave only the export stick "
+            "connected and try again."
+        )
+
+    drive = drives[0]
+    total_bytes = sum(
+        clip.stat().st_size
+        for clip in clips
+    )
+
+    free_bytes = shutil.disk_usage(
+        drive["path"]
+    ).free
+
+    safety_margin = 50 * 1024 * 1024
+
+    if free_bytes < total_bytes + safety_margin:
+        raise RuntimeError(
+            "The USB stick does not have enough "
+            "free space for these highlights."
+        )
+
+    match_date = source.parent.name
+    destination = (
+        drive["path"]
+        / "SCOREOS Highlights"
+        / match_date
+        / session_id
+    )
+
+    destination.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    copied = []
+
+    for clip in clips:
+        target = destination / clip.name
+        temporary = destination / (
+            "." + clip.name + ".part"
+        )
+
+        shutil.copy2(clip, temporary)
+        temporary.replace(target)
+        copied.append(clip.name)
+
+    os.sync()
+
+    return {
+        "ok": True,
+        "files_copied": len(copied),
+        "bytes_copied": total_bytes,
+        "drive_label": drive["label"],
+        "destination": str(destination),
+        "files": copied,
+    }
+
+
 class ScoreboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
@@ -2696,6 +2935,60 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 },
                 status=400,
             )
+            return
+
+        if path == "/api/highlights/export-usb":
+            session_id = str(
+                request.get("session_id", "")
+            ).strip()
+
+            try:
+                response = (
+                    export_match_highlights_to_usb(
+                        session_id
+                    )
+                )
+                self.send_json(response)
+
+            except ValueError as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=400,
+                )
+
+            except FileNotFoundError as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=404,
+                )
+
+            except RuntimeError as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                    },
+                    status=409,
+                )
+
+            except OSError as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": (
+                            "USB export failed: "
+                            + str(exc)
+                        ),
+                    },
+                    status=500,
+                )
+
             return
 
         if path == "/api/highlights/build-match":

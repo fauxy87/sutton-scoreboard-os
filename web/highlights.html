@@ -245,6 +245,25 @@ main {
     flex-wrap: wrap;
 }
 
+.export-usb-button {
+    border: 1px solid #22c55e;
+    border-radius: 8px;
+    padding: 9px 12px;
+    background: #166534;
+    color: white;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.export-usb-button:hover {
+    background: #15803d;
+}
+
+.export-usb-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
 .delete-match-button {
     border: 1px solid #ef4444;
     border-radius: 8px;
@@ -1548,6 +1567,17 @@ function renderSelectedMatch(
                     }
 
                     <button
+                        id="export-usb-${match.session_id}"
+                        class="export-usb-button"
+                        type="button"
+                        onclick="exportMatchToUsb(
+                            '${match.session_id}'
+                        )"
+                    >
+                        💾 Export Highlights to USB
+                    </button>
+
+                    <button
                         class="rename-match-button"
                         type="button"
                         onclick="renameMatch('${match.session_id}')"
@@ -2259,6 +2289,86 @@ async function deleteFullMatch(sessionId) {
             "Unable to delete full match: "
             + error.message
         );
+    }
+}
+
+
+async function exportMatchToUsb(sessionId) {
+    const match = matches.find(
+        item => item.session_id === sessionId
+    );
+
+    if (!match) {
+        alert("Match not found.");
+        return;
+    }
+
+    const button = document.getElementById(
+        "export-usb-" + sessionId
+    );
+
+    const originalText = button
+        ? button.textContent
+        : "";
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Exporting…";
+    }
+
+    try {
+        const response = await fetch(
+            "/api/highlights/export-usb",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify(
+                    {
+                        session_id: sessionId,
+                    }
+                ),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                data.error || "Export failed"
+            );
+        }
+
+        alert(
+            "Highlights exported successfully.\n\n"
+            + "Match: "
+            + matchTitle(match)
+            + "\n"
+            + "Files: "
+            + data.files_copied
+            + "\n"
+            + "Size: "
+            + formatBytes(data.bytes_copied)
+            + "\n"
+            + "USB: "
+            + data.drive_label
+            + "\n\n"
+            + "You can now safely eject the USB stick."
+        );
+
+    } catch (error) {
+        alert(
+            "Unable to export highlights:\n\n"
+            + error.message
+        );
+
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
     }
 }
 
