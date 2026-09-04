@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import re
 import subprocess
 import time
 from datetime import datetime
@@ -9,12 +8,6 @@ from pathlib import Path
 
 PREFERRED_MAC = "18:69:45:F3:58:B9"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-ADAPTER_SCRIPT = str(
-    PROJECT_ROOT
-    / "scripts"
-    / "run-btmgmt-on-scoreos-adapter.sh"
-)
-
 CHECK_SECONDS = 15
 FAILURES_BEFORE_RECOVERY = 3
 RECOVERY_COOLDOWN = 60
@@ -88,24 +81,14 @@ def service_active(name):
 
 
 def advertising_active():
-    output, code = run(
-        [ADAPTER_SCRIPT, "advinfo"],
-        timeout=20,
+    # SCOREOS uses legacy HCI advertising, which is not
+    # reported by `btmgmt advinfo`. The legacy advertising
+    # service performs its own 20-second refresh and has a
+    # systemd restart policy, so its active state is the
+    # reliable health signal.
+    return service_active(
+        "sutton-scoreboard-advert.service"
     )
-
-    if code != 0:
-        return False
-
-    match = re.search(
-        r"Instances list with\s+(\d+)\s+item",
-        output,
-        re.IGNORECASE,
-    )
-
-    if not match:
-        return False
-
-    return int(match.group(1)) > 0
 
 
 def recover_advertising():
@@ -152,11 +135,11 @@ def main():
     log("Bluetooth watchdog started")
 
     while True:
-        adapter_present = (
+        is_adapter_present = (
             adapter_present()
         )
 
-        if not adapter_present:
+        if not is_adapter_present:
             failures = 0
 
             if adapter_was_present is not False:
