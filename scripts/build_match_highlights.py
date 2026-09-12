@@ -30,6 +30,50 @@ def escape_path(path):
     )
 
 
+def export_website_manifest(match_date, session_id, destination):
+    exporter = Path(__file__).with_name(
+        "export_website_highlight.py"
+    )
+
+    if not exporter.exists():
+        log("Website highlight exporter is unavailable")
+        return
+
+    command = [
+        "/usr/bin/python3",
+        str(exporter),
+        "--date",
+        match_date,
+        "--video",
+        str(destination),
+    ]
+
+    if session_id:
+        command.extend([
+            "--session",
+            session_id,
+        ])
+
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+
+    if result.returncode == 0:
+        log(
+            "Website highlight manifest ready: "
+            + result.stdout.strip()
+        )
+    else:
+        log(
+            "Unable to create website highlight manifest: "
+            + (result.stderr.strip() or "export failed")
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Build one SCOREOS match highlights video."
@@ -206,6 +250,12 @@ def main():
     log(
         f"Match highlights ready: "
         f"{destination}"
+    )
+
+    export_website_manifest(
+        args.date,
+        args.session,
+        destination,
     )
 
     return 0
