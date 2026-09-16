@@ -2220,7 +2220,7 @@ async function buildMatchHighlights(
         if (refreshed) {
             selectedMatchId = sessionId;
             selectedMatchView = null;
-            renderSelectedMatch(refreshed);
+            render();
         }
 
     } catch (error) {

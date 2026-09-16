@@ -1961,11 +1961,13 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                         "can_undo_trim": has_trim_backup,
                         "video_url": (
                             "/highlights/video/"
-                            + clip.name
+                            + relative.as_posix()
+                            + "?v="
+                            + str(stat.st_mtime_ns)
                         ),
                         "download_url": (
                             "/highlights/download/"
-                            + clip.name
+                            + relative.as_posix()
                         ),
                     }
 
@@ -2618,28 +2620,61 @@ class ScoreboardHandler(BaseHTTPRequestHandler):
                 "/var/lib/scoreos/highlights"
             )
 
-            filename = path.rsplit("/", 1)[-1]
-
-            if (
-                not filename
-                or filename != Path(filename).name
-                or not filename.lower().endswith(".mp4")
-            ):
-                self.send_error(400, "Invalid highlight")
-                return
-
-            matches = list(
-                highlight_root.rglob(filename)
+            route_prefix = (
+                "/highlights/download/"
+                if path.startswith(
+                    "/highlights/download/"
+                )
+                else "/highlights/video/"
             )
 
-            if not matches:
+            relative_text = path[
+                len(route_prefix):
+            ].lstrip("/")
+
+            relative_path = Path(
+                relative_text
+            )
+
+            if (
+                not relative_text
+                or relative_path.is_absolute()
+                or ".." in relative_path.parts
+                or relative_path.suffix.lower()
+                != ".mp4"
+            ):
+                self.send_error(
+                    400,
+                    "Invalid highlight",
+                )
+                return
+
+            highlight_root = (
+                highlight_root.resolve()
+            )
+
+            clip = (
+                highlight_root
+                / relative_path
+            ).resolve()
+
+            try:
+                clip.relative_to(
+                    highlight_root
+                )
+            except ValueError:
+                self.send_error(
+                    400,
+                    "Invalid highlight",
+                )
+                return
+
+            if not clip.is_file():
                 self.send_error(
                     404,
                     "Highlight not found",
                 )
                 return
-
-            clip = matches[0]
 
             try:
                 file_size = clip.stat().st_size
