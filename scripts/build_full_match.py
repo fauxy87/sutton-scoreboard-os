@@ -385,6 +385,20 @@ def main():
                 "building clean browser copy"
             )
 
+    # Large matches can produce a score-overlay filter
+    # exceeding Linux's command-line argument limit. Store
+    # the complete filter graph on disk and let FFmpeg read
+    # it directly.
+    browser_filter = (
+        session_folder.parent
+        / "full-match-browser-filter.txt"
+    )
+
+    browser_filter.write_text(
+        video_filter + "\n",
+        encoding="utf-8",
+    )
+
     browser_command = [
         "/usr/bin/ffmpeg",
         "-hide_banner",
@@ -396,8 +410,8 @@ def main():
         "0:v:0",
         "-map",
         "0:a:0?",
-        "-vf",
-        video_filter,
+        "-filter_script:v",
+        str(browser_filter),
         "-c:v",
         "h264_v4l2m2m",
         "-b:v",
