@@ -312,6 +312,27 @@ def drawtext_escape(value):
     )
 
 
+def compact_team_name(value, max_length=24):
+    text = str(
+        value or "SCOREOS"
+    ).upper().strip()
+
+    # "Cambs" is useful in full match metadata but
+    # wastes limited space in the video score strip.
+    text = text.replace(
+        ", CAMBS",
+        "",
+    )
+
+    if len(text) > max_length:
+        text = (
+            text[:max_length - 3].rstrip()
+            + "..."
+        )
+
+    return text
+
+
 def output_path(event):
     timestamp = datetime.fromtimestamp(
         event["timestamp"]
@@ -500,10 +521,9 @@ def create_clip(event, overwrite=False):
     ]
 
     team = drawtext_escape(
-        str(
+        compact_team_name(
             event.get("batting_team")
-            or "SCOREOS"
-        ).upper()
+        )
     )
 
     runs = display_value(
@@ -550,26 +570,26 @@ def create_clip(event, overwrite=False):
         "font='DejaVu Sans':"
         f"text='{team}':"
         "fontcolor=white:"
-        "fontsize=38:"
-        "x=35:y=h-93,"
+        "fontsize=34:"
+        "x=35:y=h-91,"
         "drawtext="
         "font='DejaVu Sans':"
         f"text='{runs}/{wickets}':"
         "fontcolor=yellow:"
         "fontsize=48:"
-        "x=430:y=h-101,"
+        "x=520:y=h-101,"
         "drawtext="
         "font='DejaVu Sans':"
         f"text='{overs} OVERS':"
         "fontcolor=white:"
         "fontsize=30:"
-        "x=610:y=h-86,"
+        "x=700:y=h-86,"
         "drawtext="
         "font='DejaVu Sans':"
         f"text='{batter_text}':"
         "fontcolor=white:"
         "fontsize=30:"
-        "x=850:y=h-86,"
+        "x=930:y=h-86,"
         "drawtext="
         "font='DejaVu Sans':"
         f"text='{event_label}':"
