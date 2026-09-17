@@ -336,9 +336,14 @@ def main():
     video_filter = "scale=1920:1080"
 
     if score_history.exists():
+        score_ass = (
+            session_folder.parent
+            / "score-overlay.ass"
+        )
+
         overlay_script = (
             Path(__file__).parent
-            / "build_score_overlay.py"
+            / "build_score_ass.py"
         )
 
         overlay_result = subprocess.run(
@@ -350,7 +355,7 @@ def main():
                 "--session",
                 args.session,
                 "--output",
-                str(score_filter),
+                str(score_ass),
             ],
             capture_output=True,
             text=True,
@@ -360,24 +365,26 @@ def main():
 
         if (
             overlay_result.returncode == 0
-            and score_filter.exists()
+            and score_ass.exists()
+            and score_ass.stat().st_size > 0
         ):
-            overlay_filters = (
-                score_filter.read_text(
-                    encoding="utf-8"
-                ).strip()
+            escaped_ass = (
+                str(score_ass)
+                .replace("\\", "\\\\")
+                .replace(":", "\\:")
+                .replace("'", "\\'")
             )
 
-            if overlay_filters:
-                video_filter += (
-                    ","
-                    + overlay_filters
-                )
+            video_filter += (
+                ",ass=filename='"
+                + escaped_ass
+                + "'"
+            )
 
-                log(
-                    "Adding broadcast score bar "
-                    "to browser playback copy"
-                )
+            log(
+                "Adding efficient broadcast score bar "
+                "to browser playback copy"
+            )
 
         else:
             log(
