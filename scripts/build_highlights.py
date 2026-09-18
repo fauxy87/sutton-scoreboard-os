@@ -24,16 +24,16 @@ HIGHLIGHT_ROOT = Path(
 
 CLIP_LENGTHS = {
     "FOUR": {
-        "before": 15,
-        "after": 10,
+        "before": 20,
+        "after": 0,
     },
     "SIX": {
-        "before": 17,
-        "after": 10,
+        "before": 22,
+        "after": 0,
     },
     "WICKET": {
-        "before": 20,
-        "after": 18,
+        "before": 25,
+        "after": 0,
     },
     "FIFTY": {
         "before": 17,
