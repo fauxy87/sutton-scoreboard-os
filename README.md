@@ -7,6 +7,24 @@
 
 ---
 
+# 🏏 MATCH DAY — START HERE
+
+For the tested Sutton CC field setup, the normal pre-match routine is deliberately simple:
+
+```bash
+~/scoreos
+```
+
+1. Power on the scoreboard system and allow the Raspberry Pi to boot.
+2. Run `~/scoreos`.
+3. Run **Option 1** and check the result shown on screen.
+4. Run **Option 7** and check the result shown on screen.
+5. If both checks are healthy, SCOREOS is ready for the match.
+
+The field system uses the **TP-Link UB500 USB Bluetooth adapter** (normally via the long USB extension) for improved range and reliability. At home/development, SCOREOS can use the Raspberry Pi's built-in Bluetooth. Adapter selection is automatic, with the field USB adapter preferred when available.
+
+The Reolink camera system includes a rolling camera buffer, match recording and automatic highlight generation. See [Match Day & Troubleshooting](docs/MATCH_DAY.md) for the full operating guide, useful service checks and highlight troubleshooting.
+
 # What is SCOREOS?
 
 SCOREOS is a Raspberry Pi based electronic cricket scoreboard system designed to provide a reliable, modern and easy-to-use scoreboard for cricket clubs.
@@ -26,6 +44,9 @@ The aim of the project is to provide a professional electronic scoreboard that i
 - 📊 Real-time score updates
 - 🔍 Live diagnostics
 - 📈 System health monitoring
+- 🎥 Reolink camera recording and rolling buffer
+- ✂️ Automatic match highlight generation
+- 📦 Highlight export tools
 - 🌐 Web-based management
 - ⚡ Raspberry Pi powered
 
@@ -186,7 +207,7 @@ SCOREOS is actively developed, with new features and improvements planned for fu
 |---------|:------:|------------------|
 | v2.1.0 | ✅ Current | Startup V2, Ground Control, Live Diagnostics |
 | v2.2.0 | 🚧 Planned | Enhanced health monitoring, improved diagnostics, repository cleanup |
-| v2.3.0 | 📅 Planned | CCTV integration, improved Ground Control |
+| v2.3.0 | 🚧 In development | Camera recording, rolling buffer, automatic highlights, improved Ground Control |
 | v2.4.0 | 📅 Planned | Match statistics, reporting and export |
 | Future | 💡 Ideas | Multi-ground support, remote management, additional scoreboard themes |
 
