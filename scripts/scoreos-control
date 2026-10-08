@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+# SCOREOS Control Centre
+# Safe management interface: read-only by default; destructive actions require confirmation.
+
+set -u
+REPO_DIR="${SCOREOS_DIR:-$HOME/sutton-scoreboard-os}"
+VERSION_FILE="$REPO_DIR/VERSION"
+
+green='\033[0;32m'; red='\033[0;31m'; yellow='\033[1;33m'; cyan='\033[0;36m'; reset='\033[0m'
+
+ok(){ printf "${green}✅ %-28s%s${reset}\n" "$1" "$2"; }
+bad(){ printf "${red}❌ %-28s%s${reset}\n" "$1" "$2"; }
+warn(){ printf "${yellow}⚠️  %-28s%s${reset}\n" "$1" "$2"; }
+pause(){ echo; read -r -p "Press Enter to continue..." _; }
+
+service_line() {
+  local svc="$1" label="$2" state
+  state="$(systemctl is-active "$svc" 2>/dev/null || true)"
+  if [[ "$state" == "active" ]]; then ok "$label" "RUNNING"; else warn "$label" "${state:-unknown}"; fi
+}
+
+header() {
+  clear 2>/dev/null || true
+  echo "=============================================="
+  echo "🏏 SCOREOS CONTROL CENTRE"
+  echo "=============================================="
+  [[ -f "$VERSION_FILE" ]] && grep -m1 '^Version:' "$VERSION_FILE" || true
+  echo
+}
+
+health_check() {
+  header
+  echo "MATCH-DAY HEALTH CHECK"
+  echo "----------------------------------------------"
+  service_line scoreos-web.service "Ground Control"
+  service_line sutton-scoreboard.service "Scoreboard engine"
+  service_line sutton-scoreboard-advert.service "BLE advertising"
+  service_line scoreos-bluetooth-agent.service "Bluetooth agent"
+  service_line scoreos-bluetooth-watchdog.service "Bluetooth watchdog"
+  service_line scoreos-camera-buffer.service "Camera buffer"
+  service_line scoreos-highlight-worker.service "Highlight worker"
+  echo
+  printf "Disk free: "
+  df -h "$HOME" | awk 'NR==2 {print $4 " (" $5 " used)"}'
+  echo
+  if systemctl --failed --no-legend 2>/dev/null | grep -q .; then
+    bad "System services" "FAILED SERVICE PRESENT"
+    systemctl --failed --no-pager
+  else
+    ok "System services" "NO FAILED SERVICES"
+  fi
+  pause
+}
+
+camera_status() {
+  header
+  echo "CAMERA & VIDEO"
+  echo "----------------------------------------------"
+  service_line scoreos-camera-buffer.service "Camera buffer"
+  service_line scoreos-camera-recorder.service "Match recorder"
+  service_line scoreos-highlight-worker.service "Highlight worker"
+  echo
+  if [[ -f "$REPO_DIR/scripts/highlights_status.py" ]]; then
+    python3 "$REPO_DIR/scripts/highlights_status.py" 2>&1 || true
+  fi
+  pause
+}
+
+bluetooth_status() {
+  header
+  echo "BLUETOOTH"
+  echo "----------------------------------------------"
+  service_line bluetooth.service "BlueZ"
+  service_line sutton-scoreboard-advert.service "BLE advertising"
+  service_line scoreos-bluetooth-agent.service "Bluetooth agent"
+  service_line scoreos-bluetooth-watchdog.service "Bluetooth watchdog"
+  echo
+  echo "Adapters:"
+  timeout 5 btmgmt info 2>/dev/null || warn "Bluetooth adapter info" "unavailable/timed out"
+  pause
+}
+
+diagnostics() {
+  header
+  echo "DETAILED DIAGNOSTICS"
+  echo "----------------------------------------------"
+  systemctl --failed --no-pager || true
+  echo
+  echo "Recent SCOREOS web log:"
+  journalctl -u scoreos-web.service -n 15 --no-pager 2>/dev/null || true
+  echo
+  echo "Recent camera buffer log:"
+  journalctl -u scoreos-camera-buffer.service -n 15 --no-pager 2>/dev/null || true
+  pause
+}
+
+restart_services() {
+  header
+  echo "RESTART SCOREOS SERVICES"
+  echo
+  read -r -p "Restart core SCOREOS services? [y/N] " ans
+  [[ "$ans" =~ ^[Yy]$ ]] || return
+  sudo systemctl restart scoreos-web.service sutton-scoreboard.service sutton-scoreboard-advert.service
+  echo
+  echo "Restart requested. Current state:"
+  service_line scoreos-web.service "Ground Control"
+  service_line sutton-scoreboard.service "Scoreboard engine"
+  service_line sutton-scoreboard-advert.service "BLE advertising"
+  pause
+}
+
+git_status_check() {
+  header
+  echo "GITHUB UPDATE CHECK"
+  echo "----------------------------------------------"
+  cd "$REPO_DIR" || { bad "Repository" "not found"; pause; return; }
+  echo "Installed commit: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+    warn "Working tree" "LOCAL CHANGES PRESENT"
+    git status --short
+    echo
+    echo "Update is blocked until these changes are reviewed."
+    pause
+    return
+  fi
+  if ! timeout 15 git fetch origin main --quiet; then
+    warn "GitHub" "could not fetch (offline?)"
+    pause
+    return
+  fi
+  local behind
+  behind="$(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?')"
+  if [[ "$behind" == "0" ]]; then ok "GitHub" "UP TO DATE"; else warn "GitHub" "$behind COMMIT(S) AVAILABLE"; fi
+  pause
+}
+
+git_update() {
+  header
+  echo "UPDATE SCOREOS"
+  echo "----------------------------------------------"
+  cd "$REPO_DIR" || { bad "Repository" "not found"; pause; return; }
+  if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+    bad "Update" "BLOCKED: local changes present"
+    git status --short
+    pause
+    return
+  fi
+  read -r -p "Pull tested changes from GitHub main? [y/N] " ans
+  [[ "$ans" =~ ^[Yy]$ ]] || return
+  git pull --ff-only
+  echo
+  echo "Update downloaded. Run the normal match-day checks before use."
+  pause
+}
+
+show_menu() {
+  header
+  cat <<'EOF'
+MATCH DAY
+  1) Full system health check
+  2) Bluetooth check
+
+CAMERA & VIDEO
+  3) Camera / recording / highlights status
+
+SYSTEM
+  4) Detailed diagnostics
+  5) Restart core SCOREOS services
+
+MAINTENANCE
+  6) Check GitHub for updates
+  7) Update SCOREOS from GitHub
+
+  0) Exit
+EOF
+  echo
+}
+
+while true; do
+  show_menu
+  read -r -p "Choose an option: " choice
+  case "$choice" in
+    1) health_check ;;
+    2) bluetooth_status ;;
+    3) camera_status ;;
+    4) diagnostics ;;
+    5) restart_services ;;
+    6) git_status_check ;;
+    7) git_update ;;
+    0) exit 0 ;;
+    *) echo "Invalid option"; sleep 1 ;;
+  esac
+done
